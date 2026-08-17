@@ -19,3 +19,9 @@ phase0/dex/
 
 # Stray SDK copy from a mis-parsed path — do not commit
 C;/
+
+# Release signing secrets — never commit
+keystore.properties
+keystore/
+*.jks
+*.keystore
