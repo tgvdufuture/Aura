@@ -29,6 +29,10 @@ class AuraNotificationListener : NotificationListenerService() {
     private lateinit var engine: RuleEngine
     private lateinit var led: LEDController
 
+    /** Key of the notification currently driving the LED ("last wins"). */
+    @Volatile
+    private var currentKey: String? = null
+
     override fun onCreate() {
         super.onCreate()
         val db = AppDatabase.get(this)
@@ -89,6 +93,26 @@ class AuraNotificationListener : NotificationListenerService() {
                 led.setColor(command.colorHex)
             }
             Log.d(TAG, "led result=$result")
+            currentKey = sbn.key
+        }
+    }
+
+    override fun onNotificationRemoved(sbn: StatusBarNotification) {
+        handleNotificationRemoved(sbn.key)
+    }
+
+    override fun onNotificationRemoved(
+        sbn: StatusBarNotification,
+        rankingMap: NotificationListenerService.RankingMap,
+    ) {
+        handleNotificationRemoved(sbn.key)
+    }
+
+    private fun handleNotificationRemoved(key: String) {
+        if (currentKey == key) {
+            Log.d(TAG, "notification removed -> stopping LED")
+            currentKey = null
+            scope.launch { led.stop() }
         }
     }
 
