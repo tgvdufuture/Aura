@@ -1,0 +1,3 @@
+<resources>
+    <style name="Theme.Aura" parent="android:Theme.Material.NoActionBar" />
+</resources>

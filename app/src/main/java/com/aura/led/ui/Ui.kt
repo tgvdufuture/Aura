@@ -1,5 +1,6 @@
 package com.aura.led.ui
 
+import android.app.Activity
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
@@ -7,6 +8,7 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -53,6 +55,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,11 +68,13 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -78,6 +83,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aura.led.AuraApp
 import com.aura.led.LanguageManager
 import com.aura.led.R
+import com.aura.led.ThemeManager
 import com.aura.led.data.AppRule
 import com.aura.led.data.SenderKind
 import com.aura.led.data.SenderRule
@@ -109,8 +115,19 @@ private val ANIMATION_OPTIONS = listOf(
 )
 
 @Composable
-fun AuraTheme(content: @Composable () -> Unit) {
-    val colors = lightColorScheme()
+fun AuraTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit,
+) {
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as? Activity)?.window ?: return@SideEffect
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            WindowCompat.getInsetsController(window, view).isAppearanceLightNavigationBars = !darkTheme
+        }
+    }
+    val colors = if (darkTheme) darkColorScheme() else lightColorScheme()
     androidx.compose.material3.MaterialTheme(
         colorScheme = colors,
         content = content,
@@ -332,6 +349,8 @@ fun MainScreen(
 fun SettingsScreen(
     currentLanguage: String,
     onLanguageChange: (String) -> Unit,
+    themeMode: String,
+    onThemeChange: (String) -> Unit,
     onBack: () -> Unit,
     viewModel: MainViewModel = viewModel(),
 ) {
@@ -363,6 +382,7 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item { LanguageToggle(currentLanguage, onLanguageChange) }
+            item { ThemeToggle(themeMode, onThemeChange) }
             item { ShizukuCard(shizuku, onRequest = viewModel::requestShizuku, onTest = viewModel::testLed) }
             item {
                 SystemLedCard(
@@ -571,7 +591,7 @@ private fun ColorRow(selected: String, onSelect: (String) -> Unit) {
                     .background(color)
                     .border(
                         width = if (isSelected) 3.dp else 1.dp,
-                        color = if (isSelected) Color.Black else Color.Gray,
+                        color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
                         shape = CircleShape,
                     )
                     .clickable { onSelect(hex) },
@@ -585,7 +605,7 @@ private fun ColorRow(selected: String, onSelect: (String) -> Unit) {
                 .clip(CircleShape)
                 .border(
                     width = if (isCustom) 3.dp else 1.dp,
-                    color = if (isCustom) Color.Black else Color.Gray,
+                    color = if (isCustom) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
                     shape = CircleShape,
                 )
                 .clickable { showPicker = true },
@@ -885,6 +905,32 @@ private fun LanguageToggle(currentLanguage: String, onLanguageChange: (String) -
                 onClick = { onLanguageChange(LanguageManager.LANG_FR) },
                 label = { Text("FR") },
             )
+        }
+    }
+}
+
+@Composable
+private fun ThemeToggle(themeMode: String, onThemeChange: (String) -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.theme), style = MaterialTheme.typography.titleMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(
+                    selected = themeMode == ThemeManager.MODE_AUTO,
+                    onClick = { onThemeChange(ThemeManager.MODE_AUTO) },
+                    label = { Text(stringResource(R.string.theme_auto)) },
+                )
+                FilterChip(
+                    selected = themeMode == ThemeManager.MODE_LIGHT,
+                    onClick = { onThemeChange(ThemeManager.MODE_LIGHT) },
+                    label = { Text(stringResource(R.string.theme_light)) },
+                )
+                FilterChip(
+                    selected = themeMode == ThemeManager.MODE_DARK,
+                    onClick = { onThemeChange(ThemeManager.MODE_DARK) },
+                    label = { Text(stringResource(R.string.theme_dark)) },
+                )
+            }
         }
     }
 }

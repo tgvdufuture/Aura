@@ -8,8 +8,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
@@ -43,7 +45,13 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            AuraTheme {
+            var themeMode by remember { mutableStateOf(ThemeManager.getSavedMode(this@MainActivity)) }
+            val darkTheme = when (themeMode) {
+                ThemeManager.MODE_DARK -> true
+                ThemeManager.MODE_LIGHT -> false
+                else -> isSystemInDarkTheme()
+            }
+            AuraTheme(darkTheme = darkTheme) {
                 val savedLanguage = LanguageManager.getSavedLanguage(this@MainActivity)
                 if (savedLanguage == null) {
                     LanguagePickerScreen(
@@ -55,14 +63,19 @@ class MainActivity : ComponentActivity() {
                 } else {
                     var showSettings by rememberSaveable { mutableStateOf(false) }
                     if (showSettings) {
-                        SettingsScreen(
-                            currentLanguage = savedLanguage,
-                            onLanguageChange = { language ->
-                                LanguageManager.setLanguage(this@MainActivity, language)
-                                recreate()
-                            },
-                            onBack = { showSettings = false },
-                        )
+                SettingsScreen(
+                    currentLanguage = savedLanguage,
+                    onLanguageChange = { language ->
+                        LanguageManager.setLanguage(this@MainActivity, language)
+                        recreate()
+                    },
+                    themeMode = themeMode,
+                    onThemeChange = { mode ->
+                        themeMode = mode
+                        ThemeManager.setMode(this@MainActivity, mode)
+                    },
+                    onBack = { showSettings = false },
+                )
                     } else {
                         MainScreen(
                             onOpenSettings = { showSettings = true },

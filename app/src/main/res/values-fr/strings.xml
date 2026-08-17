@@ -8,6 +8,11 @@
     <string name="language_title">Choisissez votre langue</string>
     <string name="language_label">Langue</string>
 
+    <string name="theme">Thème</string>
+    <string name="theme_auto">Auto</string>
+    <string name="theme_light">Clair</string>
+    <string name="theme_dark">Sombre</string>
+
     <string name="settings">Réglages</string>
     <string name="back">Retour</string>
     <string name="section_applications">Applications</string>
