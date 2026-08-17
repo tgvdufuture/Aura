@@ -11,6 +11,7 @@ import com.aura.led.data.RuleRepository
 import com.aura.led.data.SettingsKeys
 import com.aura.led.engine.RuleEngine
 import com.aura.led.led.LEDController
+import com.aura.led.led.LedCommand
 import com.aura.led.led.ShizukuLEDController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,9 +33,15 @@ class AuraNotificationListener : NotificationListenerService() {
     private lateinit var engine: RuleEngine
     private lateinit var led: LEDController
 
-    /** Key of the notification currently driving the LED ("last wins"). */
-    @Volatile
-    private var currentKey: String? = null
+    /** A notification that currently drives the LED. */
+    private data class ActiveNotification(val key: String, val command: LedCommand)
+
+    /**
+     * Notifications currently driving the LED, most recent first. Kept so that when
+     * the newest notification is dismissed we can fall back to the previous one
+     * instead of switching the LED off.
+     */
+    private val active = mutableListOf<ActiveNotification>()
 
     override fun onCreate() {
         super.onCreate()
@@ -98,13 +105,8 @@ class AuraNotificationListener : NotificationListenerService() {
             }
 
             Log.d(TAG, "emitting ${command.animationId ?: "static"} ${command.colorHex} for $pkg")
-            val result = if (command.animationId != null) {
-                led.startAnimation(command.animationId, command.colorHex)
-            } else {
-                led.setColor(command.colorHex)
-            }
-            Log.d(TAG, "led result=$result")
-            currentKey = sbn.key
+            emit(command)
+            recordActive(ActiveNotification(sbn.key, command))
         }
     }
 
@@ -120,15 +122,42 @@ class AuraNotificationListener : NotificationListenerService() {
     }
 
     private fun handleNotificationRemoved(key: String) {
-        if (currentKey == key) {
-            Log.d(TAG, "notification removed -> stopping LED")
-            currentKey = null
-            scope.launch { led.stop() }
+        scope.launch {
+            val wasCurrent = active.firstOrNull()?.key == key
+            active.removeAll { it.key == key }
+            if (!wasCurrent) {
+                Log.d(TAG, "non-current notification removed -> ignore")
+                return@launch
+            }
+            val next = active.firstOrNull()
+            if (next == null) {
+                Log.d(TAG, "current notification removed, nothing else active -> stopping LED")
+                led.stop()
+            } else {
+                Log.d(TAG, "current notification removed -> falling back to previous")
+                emit(next.command)
+            }
         }
+    }
+
+    private fun recordActive(entry: ActiveNotification) {
+        active.removeAll { it.key == entry.key }
+        active.add(0, entry)
+        while (active.size > MAX_TRACKED) active.removeAt(active.lastIndex)
+    }
+
+    private fun emit(command: LedCommand) {
+        val result = if (command.animationId != null) {
+            led.startAnimation(command.animationId, command.colorHex)
+        } else {
+            led.setColor(command.colorHex)
+        }
+        Log.d(TAG, "led result=$result")
     }
 
     private companion object {
         const val TAG = "AuraNLS"
+        const val MAX_TRACKED = 50
     }
 
     private fun isScreenOn(): Boolean =
