@@ -6,7 +6,7 @@ import com.aura.led.led.LedCommand
 
 /**
  * Resolves which LED command to emit for a notification.
- * Business priority is fixed by the PRD: contact > group > app.
+ * Business priority is fixed: contact > group > app.
  */
 class RuleEngine(private val repository: RuleRepository) {
 

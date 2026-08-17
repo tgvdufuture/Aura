@@ -14,7 +14,7 @@ Le contrôle des anneaux arrière passe par un service système Miui dédié :
 
 - Le **shell** (uid 2000) — donc **Shizuku** — est explicitement autorisé (`checkCallerVerify`).
 - La méthode `setCustomLight(...)` accepte une **couleur RGB arbitraire** + un mode d'animation + des durées, et **s'éteint automatiquement** après `onMs+offMs` (capé 30 s).
-- Les LEDs sont des RGB adressables : **pas limitées aux 8 couleurs** du PRD (la liste de 8 est seulement une palette UI).
+- Les LEDs sont des RGB adressables : **pas limitées aux 8 couleurs** (la liste de 8 est seulement une palette UI).
 
 ---
 

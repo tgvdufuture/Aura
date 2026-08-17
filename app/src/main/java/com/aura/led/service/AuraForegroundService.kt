@@ -13,7 +13,7 @@ import com.aura.led.R
 /**
  * Persistent foreground service whose notification keeps Aura's process alive so the
  * NotificationListenerService keeps receiving notifications under HyperOS's aggressive
- * background killing (PRD risk "Service tué par HyperOS").
+ * background killing (risk "Service tué par HyperOS").
  */
 class AuraForegroundService : Service() {
 

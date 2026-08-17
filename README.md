@@ -8,7 +8,7 @@ Application Android **open source** qui pilote les **anneaux LED RGB** à l'arri
 - Aucun root : contrôle matériel via **Shizuku** (privilèges ADB).
 - Priorité de résolution : **contact > groupe > application**.
 
-> Voir [`PRD.md`](PRD.md) pour le cahier des charges complet et [`phase0/REPORT.md`](phase0/REPORT.md) pour le spike de faisabilité (découverte du service `miui.lights.ILightsManager`).
+> Voir [`phase0/REPORT.md`](phase0/REPORT.md) pour le spike de faisabilité (découverte du service `miui.lights.ILightsManager`).
 
 ## Fonctionnalités
 
