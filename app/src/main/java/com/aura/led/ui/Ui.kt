@@ -5,6 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.PowerManager
 import android.provider.Settings
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -50,11 +52,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -267,6 +271,7 @@ fun MainScreen(
     val rulesByApp = remember(senderRules) { senderRules.groupBy { it.appPackage } }
 
     var searchQuery by remember { mutableStateOf("") }
+    var settingsExpanded by rememberSaveable { mutableStateOf(false) }
     val filteredApps = remember(viewModel.installedApps, searchQuery) {
         val q = searchQuery.trim()
         if (q.isEmpty()) viewModel.installedApps
@@ -285,24 +290,33 @@ fun MainScreen(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item { LanguageToggle(currentLanguage, onLanguageChange) }
-            item { ShizukuCard(shizuku, onRequest = viewModel::requestShizuku, onTest = viewModel::testLed) }
             item {
-                SystemLedCard(
-                    state = systemLed,
-                    onToggle = viewModel::setSystemLedDisabled,
-                    onRefresh = viewModel::refreshSystemLed,
+                SettingsHeader(
+                    expanded = settingsExpanded,
+                    shizuku = shizuku,
+                    onToggle = { settingsExpanded = !settingsExpanded },
                 )
             }
-            item {
-                HealthCard(
-                    state = health,
-                    timeoutMs = ledSettings.timeoutMs,
-                    onToggleService = viewModel::setServiceRunning,
-                    onRequestBattery = viewModel::requestBatteryExemption,
-                    onTimeoutChange = viewModel::setLedTimeout,
-                    onRefresh = viewModel::refreshHealth,
-                )
+            if (settingsExpanded) {
+                item { LanguageToggle(currentLanguage, onLanguageChange) }
+                item { ShizukuCard(shizuku, onRequest = viewModel::requestShizuku, onTest = viewModel::testLed) }
+                item {
+                    SystemLedCard(
+                        state = systemLed,
+                        onToggle = viewModel::setSystemLedDisabled,
+                        onRefresh = viewModel::refreshSystemLed,
+                    )
+                }
+                item {
+                    HealthCard(
+                        state = health,
+                        timeoutMs = ledSettings.timeoutMs,
+                        onToggleService = viewModel::setServiceRunning,
+                        onRequestBattery = viewModel::requestBatteryExemption,
+                        onTimeoutChange = viewModel::setLedTimeout,
+                        onRefresh = viewModel::refreshHealth,
+                    )
+                }
             }
             item { Text(stringResource(R.string.section_applications), style = MaterialTheme.typography.titleMedium) }
             item {
@@ -332,6 +346,51 @@ fun MainScreen(
                     onDeleteSender = viewModel::deleteSenderRule,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun SettingsHeader(expanded: Boolean, shizuku: ShizukuState, onToggle: () -> Unit) {
+    val (statusColor, summary) = when {
+        !shizuku.alive -> Color(0xFFD32F2F) to stringResource(R.string.shizuku_reactivate)
+        !shizuku.hasPermission -> Color(0xFFF57C00) to stringResource(R.string.shizuku_permission_required)
+        else -> Color(0xFF2E7D32) to stringResource(R.string.shizuku_connected)
+    }
+    val rotation by animateFloatAsState(if (expanded) 180f else 0f, label = "settingsChevron")
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onToggle() }
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(stringResource(R.string.settings), style = MaterialTheme.typography.titleMedium)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(statusColor),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(summary, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            Text(
+                "▾",
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.rotate(rotation),
+            )
         }
     }
 }

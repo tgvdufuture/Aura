@@ -18,6 +18,7 @@ Open-source Android app that drives the **RGB LED rings** on the back of the **P
 - **"Last one wins"**: a new notification immediately replaces the previous LED state.
 - **System LED disabled** on HyperOS to avoid double lighting (single driver).
 - **Configurable light duration** (1–30 s, default 10 s).
+- **English / French UI**: language picker on first launch (choice persisted, switchable from Settings).
 - Works even when **notification content is hidden on the lock screen** (content recovered via Shizuku — see *How it works*).
 
 ## Prerequisites
@@ -56,13 +57,13 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 ## Getting started
 
 1. **Enable Shizuku** on the phone (ADB startup via a PC, or wireless startup), then install the APK.
-2. Open **Aura** and grant:
+2. Open **Aura**, choose your language (**English** / **Français**) on first launch, then expand **Settings** and grant:
    - the **notification access**;
    - the **Shizuku permission** (button in the app).
 3. Enable the apps you want and choose their **default color**.
 4. For messaging/calls, enable **"Identify sender"** then add **contact** / **group** rules (color + animation).
-5. Disable the **HyperOS system LED** from the app ("System LED" section) to avoid double lighting.
-6. Recommended: **exclude Aura from battery optimization** ("Robustness" section) so the service survives in the background.
+5. Disable the **HyperOS system LED** from **Settings** ("System LED") to avoid double lighting.
+6. Recommended: **exclude Aura from battery optimization** (**Settings** → "Robustness") so the service survives in the background.
 
 ## How it works
 
