@@ -1,5 +1,6 @@
 package com.aura.led.notification
 
+import android.app.KeyguardManager
 import android.app.Notification
 import android.os.PowerManager
 import android.util.Log
@@ -18,7 +19,9 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 /**
- * Detects notifications and emits LED commands only when the screen is off.
+ * Detects notifications and emits LED commands whenever the user is not actively
+ * using the phone — i.e. the screen is off OR the device is locked. This keeps the
+ * sender color/animation working even when the lock screen hides notification content.
  * Processing is serialized on a single thread so "last wins" ordering is preserved.
  */
 class AuraNotificationListener : NotificationListenerService() {
@@ -53,8 +56,13 @@ class AuraNotificationListener : NotificationListenerService() {
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         val pkg = sbn.packageName
         val screenOn = isScreenOn()
-        Log.d(TAG, "onNotificationPosted pkg=$pkg screenOn=$screenOn")
-        if (screenOn) return
+        val locked = isLocked()
+        val extras = sbn.notification?.extras
+        val rawTitle = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()
+        val rawText = extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString()
+        Log.d(TAG, "onNotificationPosted pkg=$pkg screenOn=$screenOn locked=$locked rawTitle='$rawTitle' rawText='${rawText?.take(80)}'")
+        // Only skip when the user is actively using the phone (screen on AND unlocked).
+        if (screenOn && !locked) return
         scope.launch {
             val appRule = repository.getAppRule(pkg)
             if (appRule == null) {
@@ -73,10 +81,13 @@ class AuraNotificationListener : NotificationListenerService() {
             // can't resolve. Recover the real content through Shizuku so the
             // sender-specific animations still play while the screen is off.
             if (appRule.senderParsingEnabled && isRedacted(info, appRule.displayName)) {
+                Log.d(TAG, "content looks redacted for $pkg -> reading full content via Shizuku")
                 val full = FullNotificationReader.readLatest(pkg)
                 if (full != null && (full.title != null || full.text != null)) {
                     Log.d(TAG, "recovered redacted content for $pkg")
                     info = parseSender(pkg, full.title.orEmpty().trim(), full.text.orEmpty().trim())
+                } else {
+                    Log.d(TAG, "could not recover content for $pkg -> falling back to app color")
                 }
             }
 
@@ -118,10 +129,31 @@ class AuraNotificationListener : NotificationListenerService() {
 
     private companion object {
         const val TAG = "AuraNLS"
+
+        const val SNAPCHAT = "com.snapchat.android"
+        const val INSTAGRAM = "com.instagram.android"
+
+        /** Snapchat group snaps: "Friend sent you a snap/chat/video/photo". */
+        private val SNAP_ACTION = Regex(
+            "^(.+?) sent (?:you )?(?:a snap|a chat|a video|a photo)$",
+            RegexOption.IGNORE_CASE,
+        )
+
+        /** Instagram group DMs: "Friend sent you a message/photo/video/reel" or mentions. */
+        private val INSTA_ACTION = Regex(
+            "^(.+?) (?:sent you (?:a message|a photo|a video|a reel)|mentioned you in .+)$",
+            RegexOption.IGNORE_CASE,
+        )
     }
 
     private fun isScreenOn(): Boolean =
         getSystemService(PowerManager::class.java)?.isInteractive ?: false
+
+    /** True while the lock screen is up (secured or swipe), including when the screen is off. */
+    private fun isLocked(): Boolean = runCatching {
+        val kgm = getSystemService(KeyguardManager::class.java)
+        kgm?.isKeyguardLocked == true || kgm?.isDeviceLocked == true
+    }.getOrDefault(false)
 
     private data class SenderInfo(val senderName: String?, val groupName: String?)
 
@@ -132,19 +164,51 @@ class AuraNotificationListener : NotificationListenerService() {
         return parseSender(sbn.packageName, title, text)
     }
 
+    /**
+     * Fallback based on title/text, most to least specific:
+     *  1. Generic group-style chats ("Sender: message" with a non-empty title) — covers
+     *     WhatsApp, Telegram and any app using that format, so sender detection also
+     *     works for apps Aura doesn't know about.
+     *  2. App-specific formats (Snapchat / Instagram) where the sender is not the title.
+     *  3. Default: the title is the sender/contact name (SMS and most apps).
+     */
     private fun parseSender(appPkg: String, title: String, text: String): SenderInfo {
-        Log.d(TAG, "parseSender title='$title' text='${text.take(60)}'")
+        Log.d(TAG, "parseSender app=$appPkg title='$title' text='${text.take(80)}'")
 
-        // WhatsApp group messages: title is the group name, text is "Sender: message".
-        if (appPkg == "com.whatsapp" || appPkg == "com.whatsapp.w4b") {
+        // 1) Group-style chat.
+        if (title.isNotEmpty()) {
             val idx = text.indexOf(": ")
-            if (idx in 1..40 && title.isNotEmpty()) {
+            if (idx in 1..40) {
                 return SenderInfo(senderName = text.substring(0, idx).trim(), groupName = title)
             }
         }
 
-        // Default: the title is the sender/contact name.
+        // 2) App-specific.
+        when (appPkg) {
+            SNAPCHAT -> parseSnapchat(title, text)?.let { return it }
+            INSTAGRAM -> parseInstagram(title, text)?.let { return it }
+        }
+
+        // 3) Default.
         return SenderInfo(senderName = title.ifEmpty { null }, groupName = null)
+    }
+
+    /** Snapchat group snaps: "Friend sent you a snap/chat/video/photo". */
+    private fun parseSnapchat(title: String, text: String): SenderInfo? {
+        val match = SNAP_ACTION.find(text) ?: return null
+        val sender = match.groupValues[1].trim()
+        if (sender.isEmpty()) return null
+        val group = title.takeIf { it.isNotEmpty() && !it.equals(sender, ignoreCase = true) }
+        return SenderInfo(senderName = sender, groupName = group)
+    }
+
+    /** Instagram group DMs: "Friend sent you a message/photo/video/reel". */
+    private fun parseInstagram(title: String, text: String): SenderInfo? {
+        val match = INSTA_ACTION.find(text) ?: return null
+        val sender = match.groupValues[1].trim()
+        if (sender.isEmpty()) return null
+        val group = title.takeIf { it.isNotEmpty() && !it.equals(sender, ignoreCase = true) }
+        return SenderInfo(senderName = sender, groupName = group)
     }
 
     /** True when the content looks redacted (title stripped or replaced by the app label). */

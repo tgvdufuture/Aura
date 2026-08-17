@@ -50,7 +50,11 @@ object FullNotificationReader {
                 runCatching { proc.destroy() }
                 null
             }
-            text?.let { parse(it, pkg) }
+            text?.let { dump ->
+                parse(dump, pkg).also {
+                    Log.d(TAG, "readLatest pkg=$pkg title='${it?.title}' text='${it?.text?.take(80)}'")
+                }
+            }
         }.onFailure { Log.w(TAG, "readLatest failed", it) }.getOrNull()
     }
 
@@ -87,27 +91,35 @@ object FullNotificationReader {
     private val RECORD_HEADER = Regex("""NotificationRecord\(.*\bpkg=([^\s)]+)""")
 
     /**
-     * Handles both `CharSequence(className=..., text=Mom)` and plain `Mom` dump formats.
+     * Handles the dump formats for CharSequences:
+     *   - `Type (content)` on Android 12+ — e.g. `String (Mom)` or
+     *     `SpannableString (TIME TRIAL)`. Content may itself contain parentheses,
+     *     so everything between the first '(' and the last ')' is kept.
+     *   - `CharSequence(className=..., text=Mom)` on older builds.
+     *   - plain `Mom` / `"Mom"`.
      */
     private fun parseValue(raw: String): String? {
         var value = raw.trim()
         if (value.isEmpty() || value == "null") return null
+
+        // Plain quoted string.
         if (value.length >= 2 && value.startsWith("\"") && value.endsWith("\"")) {
-            value = value.substring(1, value.length - 1)
+            return value.substring(1, value.length - 1)
         }
-        val textMarker = ", text="
-        if (value.contains(textMarker)) {
-            var text = value.substringAfter(textMarker)
-            // Content is wrapped as CharSequence(className=..., text=CONTENT); the last
-            // ')' closes the CharSequence, not the CONTENT (which may contain ')' itself).
-            val end = text.lastIndexOf(')')
-            if (end >= 0) text = text.substring(0, end)
-            text = text.trim()
-            if (text.length >= 2 && text.startsWith("\"") && text.endsWith("\"")) {
-                text = text.substring(1, text.length - 1)
+
+        val open = value.indexOf('(')
+        if (open >= 0 && value.endsWith(")")) {
+            var content = value.substring(open + 1, value.length - 1).trim()
+            // Older builds expose the payload after metadata: ", text=...".
+            val marker = ", text="
+            val idx = content.lastIndexOf(marker)
+            if (idx >= 0) content = content.substring(idx + marker.length).trim()
+            if (content.length >= 2 && content.startsWith("\"") && content.endsWith("\"")) {
+                content = content.substring(1, content.length - 1)
             }
-            return text.takeIf { it.isNotEmpty() && it != "null" }
+            return content.takeIf { it.isNotEmpty() && it != "null" }
         }
+
         return value
     }
 }
