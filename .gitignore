@@ -23,5 +23,6 @@ C;/
 # Release signing secrets — never commit
 keystore.properties
 keystore/
+keystore.b64
 *.jks
 *.keystore

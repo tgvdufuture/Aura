@@ -1,5 +1,7 @@
 # Aura — Custom notification LED for POCO X8 Pro (HyperOS)
 
+[![Build](https://github.com/tgvdufuture/Aura/actions/workflows/build.yml/badge.svg)](https://github.com/tgvdufuture/Aura/actions/workflows/build.yml)
+
 Open-source Android app that drives the **RGB LED rings** on the back of the **POCO X8 Pro** (Xiaomi / **HyperOS 3**) to show a different **color** and **animation** per **app**, per **contact** and per **group** — **while the screen is off**. It replaces HyperOS's default notification LED, which is limited to a single global color with no sender distinction.
 
 > Notification LED · RGB LED · light ring · POCO X8 Pro · Xiaomi · HyperOS · Shizuku · Android · custom notification LED · RGB notification ring — **no root required**.
@@ -20,6 +22,18 @@ Open-source Android app that drives the **RGB LED rings** on the back of the **P
 - **Configurable light duration** (1–30 s, default 10 s).
 - **English / French UI**: language picker on first launch (choice persisted, switchable from Settings).
 - Works even when **notification content is hidden on the lock screen** (content recovered via Shizuku — see *How it works*).
+
+## Screenshots
+
+| Main screen | Settings |
+|-------------|----------|
+| ![](screenshots/main.png) | ![](screenshots/settings.png) |
+
+## Download
+
+Get the latest signed APK from the [releases page](https://github.com/tgvdufuture/Aura/releases/latest):
+
+- **[v0.1.0](https://github.com/tgvdufuture/Aura/releases/tag/v0.1.0)** — `app-release.apk`
 
 ## Prerequisites
 
