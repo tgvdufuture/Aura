@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Aura</string>
+    <string name="notification_listener_label">Aura — notif LED</string>
+    <string name="service_channel_name">Aura — service actif</string>
+    <string name="service_notification_title">Aura est actif</string>
+    <string name="service_notification_text">Les notifications pilotent les LED en arrière-plan</string>
+</resources>

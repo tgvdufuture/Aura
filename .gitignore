@@ -1,0 +1,21 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+.DS_Store
+/captures
+.externalNativeBuild
+.cxx
+
+# Kotlin build cache
+.kotlin/
+
+# Codebuff agent skills (not part of the app)
+.agents/
+
+# Decompiled HyperOS/MIUI framework sources (Xiaomi proprietary code)
+phase0/dex/
+
+# Stray SDK copy from a mis-parsed path — do not commit
+C;/
