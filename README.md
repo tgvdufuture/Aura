@@ -1,6 +1,8 @@
-# Aura
+# Aura — LED de notification personnalisée pour POCO X8 Pro (HyperOS)
 
-Application Android qui pilote les **anneaux LED RGB** à l'arrière du **POCO X8 Pro** pour afficher une **couleur** et une **animation** par application, par contact et par groupe, **quand l'écran est éteint**. Elle remplace la LED de notification par défaut d'HyperOS, qui ne permet qu'une couleur globale sans distinction d'expéditeur.
+Application Android **open source** qui pilote les **anneaux LED RGB** à l'arrière du **POCO X8 Pro** (Xiaomi / **HyperOS 3**) pour afficher une **couleur** et une **animation** différentes selon l'**application**, le **contact** ou le **groupe** — **quand l'écran est éteint**. Elle remplace la LED de notification par défaut d'HyperOS, limitée à une couleur globale sans distinction d'expéditeur.
+
+> LED de notification · LED RGB · anneau lumineux · POCO X8 Pro · Xiaomi · HyperOS · Shizuku · Android · custom notification LED · RGB notification ring — **sans root**.
 
 - 100 % local : aucune permission réseau, aucun backend, aucune télémétrie.
 - Aucun root : contrôle matériel via **Shizuku** (privilèges ADB).
