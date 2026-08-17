@@ -9,6 +9,7 @@
     <string name="language_label">Langue</string>
 
     <string name="settings">Réglages</string>
+    <string name="back">Retour</string>
     <string name="section_applications">Applications</string>
     <string name="search_hint">Rechercher une app</string>
     <string name="no_apps_found">Aucune app trouvée</string>

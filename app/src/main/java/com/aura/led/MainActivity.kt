@@ -8,11 +8,16 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import com.aura.led.service.AuraForegroundService
 import com.aura.led.ui.AuraTheme
 import com.aura.led.ui.LanguagePickerScreen
 import com.aura.led.ui.MainScreen
+import com.aura.led.ui.SettingsScreen
 
 class MainActivity : ComponentActivity() {
 
@@ -48,13 +53,21 @@ class MainActivity : ComponentActivity() {
                         },
                     )
                 } else {
-                    MainScreen(
-                        currentLanguage = savedLanguage,
-                        onLanguageChange = { language ->
-                            LanguageManager.setLanguage(this@MainActivity, language)
-                            recreate()
-                        },
-                    )
+                    var showSettings by rememberSaveable { mutableStateOf(false) }
+                    if (showSettings) {
+                        SettingsScreen(
+                            currentLanguage = savedLanguage,
+                            onLanguageChange = { language ->
+                                LanguageManager.setLanguage(this@MainActivity, language)
+                                recreate()
+                            },
+                            onBack = { showSettings = false },
+                        )
+                    } else {
+                        MainScreen(
+                            onOpenSettings = { showSettings = true },
+                        )
+                    }
                 }
             }
         }

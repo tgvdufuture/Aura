@@ -5,7 +5,6 @@ import android.content.Intent
 import android.net.Uri
 import android.os.PowerManager
 import android.provider.Settings
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,9 +31,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -52,13 +52,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -67,6 +65,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -257,21 +256,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
-    currentLanguage: String,
-    onLanguageChange: (String) -> Unit,
+    onOpenSettings: () -> Unit,
     viewModel: MainViewModel = viewModel(),
 ) {
     val appRules by viewModel.appRules.collectAsState()
     val senderRules by viewModel.senderRules.collectAsState()
-    val shizuku by viewModel.shizuku.collectAsState()
-    val systemLed by viewModel.systemLed.collectAsState()
-    val health by viewModel.health.collectAsState()
-    val ledSettings by viewModel.ledSettings.collectAsState()
 
     val rulesByApp = remember(senderRules) { senderRules.groupBy { it.appPackage } }
 
     var searchQuery by remember { mutableStateOf("") }
-    var settingsExpanded by rememberSaveable { mutableStateOf(false) }
     val filteredApps = remember(viewModel.installedApps, searchQuery) {
         val q = searchQuery.trim()
         if (q.isEmpty()) viewModel.installedApps
@@ -281,7 +274,19 @@ fun MainScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.app_name)) }) },
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.app_name)) },
+                actions = {
+                    IconButton(onClick = onOpenSettings) {
+                        Icon(
+                            painterResource(R.drawable.ic_settings),
+                            contentDescription = stringResource(R.string.settings),
+                        )
+                    }
+                },
+            )
+        },
     ) { padding ->
         LazyColumn(
             modifier = Modifier
@@ -290,34 +295,6 @@ fun MainScreen(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item {
-                SettingsHeader(
-                    expanded = settingsExpanded,
-                    shizuku = shizuku,
-                    onToggle = { settingsExpanded = !settingsExpanded },
-                )
-            }
-            if (settingsExpanded) {
-                item { LanguageToggle(currentLanguage, onLanguageChange) }
-                item { ShizukuCard(shizuku, onRequest = viewModel::requestShizuku, onTest = viewModel::testLed) }
-                item {
-                    SystemLedCard(
-                        state = systemLed,
-                        onToggle = viewModel::setSystemLedDisabled,
-                        onRefresh = viewModel::refreshSystemLed,
-                    )
-                }
-                item {
-                    HealthCard(
-                        state = health,
-                        timeoutMs = ledSettings.timeoutMs,
-                        onToggleService = viewModel::setServiceRunning,
-                        onRequestBattery = viewModel::requestBatteryExemption,
-                        onTimeoutChange = viewModel::setLedTimeout,
-                        onRefresh = viewModel::refreshHealth,
-                    )
-                }
-            }
             item { Text(stringResource(R.string.section_applications), style = MaterialTheme.typography.titleMedium) }
             item {
                 OutlinedTextField(
@@ -350,47 +327,60 @@ fun MainScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SettingsHeader(expanded: Boolean, shizuku: ShizukuState, onToggle: () -> Unit) {
-    val (statusColor, summary) = when {
-        !shizuku.alive -> Color(0xFFD32F2F) to stringResource(R.string.shizuku_reactivate)
-        !shizuku.hasPermission -> Color(0xFFF57C00) to stringResource(R.string.shizuku_permission_required)
-        else -> Color(0xFF2E7D32) to stringResource(R.string.shizuku_connected)
-    }
-    val rotation by animateFloatAsState(if (expanded) 180f else 0f, label = "settingsChevron")
+fun SettingsScreen(
+    currentLanguage: String,
+    onLanguageChange: (String) -> Unit,
+    onBack: () -> Unit,
+    viewModel: MainViewModel = viewModel(),
+) {
+    val shizuku by viewModel.shizuku.collectAsState()
+    val systemLed by viewModel.systemLed.collectAsState()
+    val health by viewModel.health.collectAsState()
+    val ledSettings by viewModel.ledSettings.collectAsState()
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onToggle() }
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(stringResource(R.string.settings), style = MaterialTheme.typography.titleMedium)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(statusColor),
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(summary, style = MaterialTheme.typography.bodySmall)
-                }
-            }
-            Text(
-                "▾",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.rotate(rotation),
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.settings)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            painterResource(R.drawable.ic_arrow_back),
+                            contentDescription = stringResource(R.string.back),
+                        )
+                    }
+                },
             )
+        },
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            item { LanguageToggle(currentLanguage, onLanguageChange) }
+            item { ShizukuCard(shizuku, onRequest = viewModel::requestShizuku, onTest = viewModel::testLed) }
+            item {
+                SystemLedCard(
+                    state = systemLed,
+                    onToggle = viewModel::setSystemLedDisabled,
+                    onRefresh = viewModel::refreshSystemLed,
+                )
+            }
+            item {
+                HealthCard(
+                    state = health,
+                    timeoutMs = ledSettings.timeoutMs,
+                    onToggleService = viewModel::setServiceRunning,
+                    onRequestBattery = viewModel::requestBatteryExemption,
+                    onTimeoutChange = viewModel::setLedTimeout,
+                    onRefresh = viewModel::refreshHealth,
+                )
+            }
         }
     }
 }
