@@ -1,35 +1,35 @@
-# Aura — LED de notification personnalisée pour POCO X8 Pro (HyperOS)
+# Aura — Custom notification LED for POCO X8 Pro (HyperOS)
 
-Application Android **open source** qui pilote les **anneaux LED RGB** à l'arrière du **POCO X8 Pro** (Xiaomi / **HyperOS 3**) pour afficher une **couleur** et une **animation** différentes selon l'**application**, le **contact** ou le **groupe** — **quand l'écran est éteint**. Elle remplace la LED de notification par défaut d'HyperOS, limitée à une couleur globale sans distinction d'expéditeur.
+Open-source Android app that drives the **RGB LED rings** on the back of the **POCO X8 Pro** (Xiaomi / **HyperOS 3**) to show a different **color** and **animation** per **app**, per **contact** and per **group** — **while the screen is off**. It replaces HyperOS's default notification LED, which is limited to a single global color with no sender distinction.
 
-> LED de notification · LED RGB · anneau lumineux · POCO X8 Pro · Xiaomi · HyperOS · Shizuku · Android · custom notification LED · RGB notification ring — **sans root**.
+> Notification LED · RGB LED · light ring · POCO X8 Pro · Xiaomi · HyperOS · Shizuku · Android · custom notification LED · RGB notification ring — **no root required**.
 
-- 100 % local : aucune permission réseau, aucun backend, aucune télémétrie.
-- Aucun root : contrôle matériel via **Shizuku** (privilèges ADB).
-- Priorité de résolution : **contact > groupe > application**.
+- 100% local: no network permission, no backend, no telemetry.
+- No root: hardware control via **Shizuku** (ADB privileges).
+- Resolution priority: **contact > group > app**.
 
-> Voir [`phase0/REPORT.md`](phase0/REPORT.md) pour le spike de faisabilité (découverte du service `miui.lights.ILightsManager`).
+> See [`phase0/REPORT.md`](phase0/REPORT.md) for the feasibility spike (discovery of the `miui.lights.ILightsManager` service).
 
-## Fonctionnalités
+## Features
 
-- **Couleur par application** : chaque app activée a une couleur de LED par défaut.
-- **Couleur + animation par contact/groupe** : messages (WhatsApp…) et appels peuvent être distingués par expéditeur (respiration, clignotement, arc-en-ciel, alerte).
-- **Écran éteint uniquement** : aucune LED quand l'écran est allumé (économie de batterie).
-- **« La dernière gagne »** : une nouvelle notification remplace immédiatement l'état LED précédent.
-- **Désactivation de la LED système** HyperOS pour éviter tout double allumage (pilote unique).
-- **Durée d'allumage configurable** (1–30 s, défaut 10 s).
-- Fonctionne même si le **contenu des notifications est masqué sur l'écran de verrouillage** (récupération du contenu via Shizuku — voir *Comment ça marche*).
+- **Color per app**: each enabled app has a default LED color.
+- **Color + animation per contact/group**: messages (WhatsApp…) and calls can be distinguished by sender (breathing, flashing, rainbow, alert).
+- **Screen off only**: no LED while the screen is on (battery saving).
+- **"Last one wins"**: a new notification immediately replaces the previous LED state.
+- **System LED disabled** on HyperOS to avoid double lighting (single driver).
+- **Configurable light duration** (1–30 s, default 10 s).
+- Works even when **notification content is hidden on the lock screen** (content recovered via Shizuku — see *How it works*).
 
-## Prérequis
+## Prerequisites
 
-### Matériel / système
-- **POCO X8 Pro** sous **HyperOS 3** (Android 16). C'est le seul appareil ciblé ; d'autres modèles ne sont pas supportés.
-- **Shizuku** installé et activé (voir ci-dessous).
+### Hardware / system
+- **POCO X8 Pro** running **HyperOS 3** (Android 16). This is the only targeted device; other models are not supported.
+- **Shizuku** installed and enabled (see below).
 
-### Environnement de build
+### Build environment
 - JDK **17**
 - **Android SDK** (compileSdk 36, minSdk 26)
-- Gradle **8.13+** (le wrapper est fourni, rien à installer)
+- Gradle **8.13+** (the wrapper is provided, nothing to install)
 
 ## Build
 
@@ -41,45 +41,45 @@ Application Android **open source** qui pilote les **anneaux LED RGB** à l'arri
 gradlew.bat assembleDebug
 ```
 
-L'APK est généré dans :
+The APK is generated at:
 
 ```
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-### Installation sur l'appareil
+### Installing on the device
 
 ```bash
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## Mise en route
+## Getting started
 
-1. **Activer Shizuku** sur le téléphone (démarrage ADB via un PC, ou démarrage sans fil), puis installer l'APK.
-2. Ouvrir **Aura** et accorder :
-   - l'**autorisation de notifications** ;
-   - l'**autorisation Shizuku** (bouton dans l'app).
-3. Activer les applications souhaitées et choisir leur **couleur par défaut**.
-4. Pour les messageries/appels, activer **« Identifier l'expéditeur »** puis ajouter des règles **contact** / **groupe** (couleur + animation).
-5. Désactiver la **LED système HyperOS** depuis l'app (section « LED système ») pour éviter le double allumage.
-6. Recommandé : **exclure Aura de l'optimisation batterie** (section « Robustesse ») pour que le service survive en arrière-plan.
+1. **Enable Shizuku** on the phone (ADB startup via a PC, or wireless startup), then install the APK.
+2. Open **Aura** and grant:
+   - the **notification access**;
+   - the **Shizuku permission** (button in the app).
+3. Enable the apps you want and choose their **default color**.
+4. For messaging/calls, enable **"Identify sender"** then add **contact** / **group** rules (color + animation).
+5. Disable the **HyperOS system LED** from the app ("System LED" section) to avoid double lighting.
+6. Recommended: **exclude Aura from battery optimization** ("Robustness" section) so the service survives in the background.
 
-## Comment ça marche
+## How it works
 
-- **`notification/AuraNotificationListener`** : détecte les notifications (`NotificationListenerService`) et n'émet une commande LED que si l'écran est éteint.
-- **`engine/RuleEngine`** : résout la règle selon la priorité contact → groupe → app.
-- **`led/ShizukuLEDController`** : pilote les anneaux via le service système `miui.lights.ILightsManager` (`setCustomLight`), appelé à travers Shizuku (UID shell autorisé). La couleur est arbitraire (RGB) et la LED s'éteint automatiquement après le timeout.
-- **`notification/FullNotificationReader`** : quand Android masque le contenu des notifications sur l'écran de verrouillage, le listener ne reçoit qu'une version expurgée (titre/texte vides). Aura récupère alors le contenu complet via `dumpsys notification --noredact` (exécuté par Shizuku) afin que les règles par contact/groupe — et leurs animations — continuent de fonctionner écran éteint.
-- **`data/`** : persistance locale des règles et réglages avec **Room**.
-- **`ui/`** : interface **Jetpack Compose**.
+- **`notification/AuraNotificationListener`**: detects notifications (`NotificationListenerService`) and only emits a LED command when the screen is off.
+- **`engine/RuleEngine`**: resolves the rule according to the contact → group → app priority.
+- **`led/ShizukuLEDController`**: drives the rings via the `miui.lights.ILightsManager` system service (`setCustomLight`), called through Shizuku (allowed shell UID). The color is arbitrary (RGB) and the LED turns off automatically after the timeout.
+- **`notification/FullNotificationReader`**: when Android hides notification content on the lock screen, the listener only receives a redacted version (empty title/text). Aura then recovers the full content via `dumpsys notification --noredact` (run through Shizuku) so contact/group rules — and their animations — keep working while the screen is off.
+- **`data/`**: local persistence of rules and settings with **Room**.
+- **`ui/`**: **Jetpack Compose** UI.
 
-## Stack technique
+## Tech stack
 
 - Kotlin 2.1, Jetpack Compose (Material 3)
-- Room (persistance locale)
+- Room (local persistence)
 - Kotlin Coroutines / Flow
 - [Shizuku](https://github.com/RikkaApps/Shizuku) (API 13.1.5)
 
-## Licence
+## License
 
 [MIT](LICENSE) — © 2026 Aura Contributors
