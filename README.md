@@ -16,8 +16,10 @@ Open-source Android app that drives the **RGB LED rings** on the back of the **P
 
 - **Color per app**: each enabled app has a default LED color.
 - **Color + animation per contact/group**: messages (WhatsApp…) and calls can be distinguished by sender (breathing, flashing, rainbow, alert).
-- **Screen off only**: no LED while the screen is on (battery saving).
-- **"Last one wins"**: a new notification immediately replaces the previous LED state.
+- **Lock screen aware**: the LED drives when the screen is off **or** the device is locked; it stays off only while you're actively using the phone.
+- **"Last one wins" with smart fallback**: a new notification replaces the previous state, and dismissing it falls back to the previous one.
+- **Auto-restart on boot**: the service and notification listener reconnect automatically after a reboot.
+- **Light / dark / auto theme**: manual toggle in Settings (follows the system by default).
 - **System LED disabled** on HyperOS to avoid double lighting (single driver).
 - **Configurable light duration** (1–30 s, default 10 s).
 - **English / French UI**: language picker on first launch (choice persisted, switchable from Settings).
@@ -33,7 +35,7 @@ Open-source Android app that drives the **RGB LED rings** on the back of the **P
 
 Get the latest signed APK from the [releases page](https://github.com/tgvdufuture/Aura/releases/latest):
 
-- **[v0.1.0](https://github.com/tgvdufuture/Aura/releases/tag/v0.1.0)** — `app-release.apk`
+- **[v0.2.0](https://github.com/tgvdufuture/Aura/releases/tag/v0.2.0)** — `app-release.apk`
 
 ## Prerequisites
 
@@ -81,7 +83,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ## How it works
 
-- **`notification/AuraNotificationListener`**: detects notifications (`NotificationListenerService`) and only emits a LED command when the screen is off.
+- **`notification/AuraNotificationListener`**: detects notifications (`NotificationListenerService`) and only emits a LED command while the device is not actively used (screen off or locked).
 - **`engine/RuleEngine`**: resolves the rule according to the contact → group → app priority.
 - **`led/ShizukuLEDController`**: drives the rings via the `miui.lights.ILightsManager` system service (`setCustomLight`), called through Shizuku (allowed shell UID). The color is arbitrary (RGB) and the LED turns off automatically after the timeout.
 - **`notification/FullNotificationReader`**: when Android hides notification content on the lock screen, the listener only receives a redacted version (empty title/text). Aura then recovers the full content via `dumpsys notification --noredact` (run through Shizuku) so contact/group rules — and their animations — keep working while the screen is off.
