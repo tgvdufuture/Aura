@@ -1,0 +1,57 @@
+<resources>
+    <string name="app_name">Aura</string>
+    <string name="notification_listener_label">Aura — notif LED</string>
+    <string name="service_channel_name">Aura — service actif</string>
+    <string name="service_notification_title">Aura est actif</string>
+    <string name="service_notification_text">Les notifications pilotent les LED en arrière-plan</string>
+
+    <string name="language_title">Choisissez votre langue</string>
+    <string name="language_label">Langue</string>
+
+    <string name="section_applications">Applications</string>
+    <string name="search_hint">Rechercher une app</string>
+    <string name="no_apps_found">Aucune app trouvée</string>
+
+    <string name="shizuku">Shizuku</string>
+    <string name="shizuku_reactivate">Shizuku à réactiver (redémarrage ?)</string>
+    <string name="shizuku_permission_required">Shizuku actif — autorisation Aura requise</string>
+    <string name="shizuku_connected">Shizuku connecté</string>
+    <string name="shizuku_help">Ouvre l\'app Shizuku → « Démarrer par connexion à un ordinateur » → « Voir la commande », puis exécute-la depuis le PC.</string>
+    <string name="shizuku_request_permission">Demander l\'autorisation</string>
+    <string name="shizuku_test_led">Tester la LED (rouge)</string>
+
+    <string name="system_led">LED système</string>
+    <string name="system_led_shizuku_required">Shizuku est requis pour désactiver la LED de notification d\'HyperOS.</string>
+    <string name="system_led_disable">Désactiver la LED HyperOS</string>
+    <string name="system_led_disabled">LED système désactivée ✓</string>
+    <string name="system_led_active">LED système active (double allumage possible)</string>
+
+    <string name="robustness">Robustesse</string>
+    <string name="service_background">Service en arrière-plan</string>
+    <string name="service_running">Service actif ✓ (notification persistante)</string>
+    <string name="service_stopped">Service arrêté — les notifications ne piloteront plus les LED en arrière-plan</string>
+    <string name="battery_optimization_warning">L\'optimisation batterie d\'HyperOS peut tuer Aura en arrière-plan.</string>
+    <string name="battery_exclude">Exclure de l\'optimisation batterie</string>
+    <string name="battery_excluded">Optimisation batterie : exclu ✓</string>
+    <string name="led_duration">Durée d\'allumage LED : %1$d s</string>
+
+    <string name="default_color">Couleur par défaut</string>
+    <string name="identify_sender">Identifier l\'expéditeur</string>
+    <string name="sender_rules">Règles expéditeur</string>
+    <string name="no_rules">Aucune règle.</string>
+    <string name="group">Groupe</string>
+    <string name="contact">Contact</string>
+    <string name="add_rule">Ajouter la règle</string>
+    <string name="sender_name_hint">Nom du contact / groupe</string>
+
+    <string name="animation_static">Statique</string>
+    <string name="animation_breathing">Respiration</string>
+    <string name="animation_charging">Clignotement</string>
+    <string name="animation_rainbow">Arc-en-ciel</string>
+    <string name="animation_alert">Alerte</string>
+
+    <string name="custom_color">Couleur personnalisée</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Annuler</string>
+    <string name="hsv_label">T %1$d° · S %2$d%% · L %3$d%%</string>
+</resources>

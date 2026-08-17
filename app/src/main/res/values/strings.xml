@@ -1,7 +1,65 @@
 <resources>
     <string name="app_name">Aura</string>
-    <string name="notification_listener_label">Aura — notif LED</string>
-    <string name="service_channel_name">Aura — service actif</string>
-    <string name="service_notification_title">Aura est actif</string>
-    <string name="service_notification_text">Les notifications pilotent les LED en arrière-plan</string>
+    <string name="notification_listener_label">Aura — notification LED</string>
+    <string name="service_channel_name">Aura — running service</string>
+    <string name="service_notification_title">Aura is active</string>
+    <string name="service_notification_text">Notifications drive the LEDs in the background</string>
+
+    <!-- Language picker -->
+    <string name="language_title">Choose your language</string>
+    <string name="language_label">Language</string>
+
+    <!-- Main screen -->
+    <string name="section_applications">Applications</string>
+    <string name="search_hint">Search for an app</string>
+    <string name="no_apps_found">No apps found</string>
+
+    <!-- Shizuku -->
+    <string name="shizuku">Shizuku</string>
+    <string name="shizuku_reactivate">Shizuku needs to be re-enabled (reboot?)</string>
+    <string name="shizuku_permission_required">Shizuku active — Aura authorization required</string>
+    <string name="shizuku_connected">Shizuku connected</string>
+    <string name="shizuku_help">Open the Shizuku app → “Start via computer connection” → “Show command”, then run it from the PC.</string>
+    <string name="shizuku_request_permission">Request authorization</string>
+    <string name="shizuku_test_led">Test the LED (red)</string>
+
+    <!-- System LED -->
+    <string name="system_led">System LED</string>
+    <string name="system_led_shizuku_required">Shizuku is required to disable the HyperOS notification LED.</string>
+    <string name="system_led_disable">Disable the HyperOS LED</string>
+    <string name="system_led_disabled">System LED disabled ✓</string>
+    <string name="system_led_active">System LED active (double lighting possible)</string>
+
+    <!-- Robustness -->
+    <string name="robustness">Robustness</string>
+    <string name="service_background">Background service</string>
+    <string name="service_running">Service active ✓ (persistent notification)</string>
+    <string name="service_stopped">Service stopped — notifications will no longer drive the LEDs in the background</string>
+    <string name="battery_optimization_warning">HyperOS battery optimization may kill Aura in the background.</string>
+    <string name="battery_exclude">Exclude from battery optimization</string>
+    <string name="battery_excluded">Battery optimization: excluded ✓</string>
+    <string name="led_duration">LED light duration: %1$d s</string>
+
+    <!-- App rules -->
+    <string name="default_color">Default color</string>
+    <string name="identify_sender">Identify sender</string>
+    <string name="sender_rules">Sender rules</string>
+    <string name="no_rules">No rules.</string>
+    <string name="group">Group</string>
+    <string name="contact">Contact</string>
+    <string name="add_rule">Add rule</string>
+    <string name="sender_name_hint">Contact / group name</string>
+
+    <!-- Animations -->
+    <string name="animation_static">Static</string>
+    <string name="animation_breathing">Breathing</string>
+    <string name="animation_charging">Flashing</string>
+    <string name="animation_rainbow">Rainbow</string>
+    <string name="animation_alert">Alert</string>
+
+    <!-- Color picker -->
+    <string name="custom_color">Custom color</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="hsv_label">H %1$d° · S %2$d%% · V %3$d%%</string>
 </resources>

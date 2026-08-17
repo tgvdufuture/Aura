@@ -63,6 +63,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -72,6 +73,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aura.led.AuraApp
+import com.aura.led.LanguageManager
+import com.aura.led.R
 import com.aura.led.data.AppRule
 import com.aura.led.data.SenderKind
 import com.aura.led.data.SenderRule
@@ -95,11 +98,11 @@ val PALETTE = listOf(
 )
 
 private val ANIMATION_OPTIONS = listOf(
-    null to "Statique",
-    Animations.BREATHING to "Respiration",
-    Animations.CHARGING to "Clignotement",
-    Animations.RAINBOW to "Arc-en-ciel",
-    Animations.POLICE to "Alerte",
+    null to R.string.animation_static,
+    Animations.BREATHING to R.string.animation_breathing,
+    Animations.CHARGING to R.string.animation_charging,
+    Animations.RAINBOW to R.string.animation_rainbow,
+    Animations.POLICE to R.string.animation_alert,
 )
 
 @Composable
@@ -249,7 +252,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(viewModel: MainViewModel = viewModel()) {
+fun MainScreen(
+    currentLanguage: String,
+    onLanguageChange: (String) -> Unit,
+    viewModel: MainViewModel = viewModel(),
+) {
     val appRules by viewModel.appRules.collectAsState()
     val senderRules by viewModel.senderRules.collectAsState()
     val shizuku by viewModel.shizuku.collectAsState()
@@ -269,7 +276,7 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Aura") }) },
+        topBar = { TopAppBar(title = { Text(stringResource(R.string.app_name)) }) },
     ) { padding ->
         LazyColumn(
             modifier = Modifier
@@ -278,6 +285,7 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            item { LanguageToggle(currentLanguage, onLanguageChange) }
             item { ShizukuCard(shizuku, onRequest = viewModel::requestShizuku, onTest = viewModel::testLed) }
             item {
                 SystemLedCard(
@@ -296,18 +304,18 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
                     onRefresh = viewModel::refreshHealth,
                 )
             }
-            item { Text("Applications", style = MaterialTheme.typography.titleMedium) }
+            item { Text(stringResource(R.string.section_applications), style = MaterialTheme.typography.titleMedium) }
             item {
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    label = { Text("Rechercher une app") },
+                    label = { Text(stringResource(R.string.search_hint)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
             if (filteredApps.isEmpty()) {
-                item { Text("Aucune app trouvée", style = MaterialTheme.typography.bodyMedium) }
+                item { Text(stringResource(R.string.no_apps_found), style = MaterialTheme.typography.bodyMedium) }
             }
             items(filteredApps) { app ->
                 val rule = appRules.firstOrNull { it.packageName == app.packageName }
@@ -330,34 +338,34 @@ fun MainScreen(viewModel: MainViewModel = viewModel()) {
 
 @Composable
 private fun ShizukuCard(state: ShizukuState, onRequest: () -> Unit, onTest: () -> Unit) {
-    val (statusColor, statusText) = when {
-        !state.alive -> Color(0xFFD32F2F) to "Shizuku à réactiver (redémarrage ?)"
-        !state.hasPermission -> Color(0xFFF57C00) to "Shizuku actif — autorisation Aura requise"
-        else -> Color(0xFF2E7D32) to "Shizuku connecté"
+    val (statusColor, statusTextRes) = when {
+        !state.alive -> Color(0xFFD32F2F) to R.string.shizuku_reactivate
+        !state.hasPermission -> Color(0xFFF57C00) to R.string.shizuku_permission_required
+        else -> Color(0xFF2E7D32) to R.string.shizuku_connected
     }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Shizuku", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.shizuku), style = MaterialTheme.typography.titleMedium)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(statusColor))
-                Text(statusText, style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(statusTextRes), style = MaterialTheme.typography.bodyMedium)
             }
             if (!state.alive) {
                 Text(
-                    "Ouvre l'app Shizuku → « Démarrer par connexion à un ordinateur » → « Voir la commande », puis exécute-la depuis le PC.",
+                    stringResource(R.string.shizuku_help),
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
             if (state.alive && !state.hasPermission) {
-                Button(onClick = onRequest) { Text("Demander l'autorisation") }
+                Button(onClick = onRequest) { Text(stringResource(R.string.shizuku_request_permission)) }
             }
             if (state.hasPermission) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = onTest) { Text("Tester la LED (rouge)") }
+                    Button(onClick = onTest) { Text(stringResource(R.string.shizuku_test_led)) }
                 }
             }
         }
@@ -381,20 +389,19 @@ private fun SystemLedCard(
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("LED système", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.system_led), style = MaterialTheme.typography.titleMedium)
             if (!state.canControl) {
                 Text(
-                    "Shizuku est requis pour désactiver la LED de notification d'HyperOS.",
+                    stringResource(R.string.system_led_shizuku_required),
                     style = MaterialTheme.typography.bodyMedium,
                 )
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Désactiver la LED HyperOS", modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.system_led_disable), modifier = Modifier.weight(1f))
                     Switch(checked = state.disabled, onCheckedChange = onToggle)
                 }
                 Text(
-                    if (state.disabled) "LED système désactivée ✓"
-                    else "LED système active (double allumage possible)",
+                    stringResource(if (state.disabled) R.string.system_led_disabled else R.string.system_led_active),
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
@@ -422,30 +429,29 @@ private fun HealthCard(
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Robustesse", style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.robustness), style = MaterialTheme.typography.titleMedium)
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Service en arrière-plan", modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.service_background), modifier = Modifier.weight(1f))
                 Switch(checked = state.serviceRunning, onCheckedChange = onToggleService)
             }
             Text(
-                if (state.serviceRunning) "Service actif ✓ (notification persistante)"
-                else "Service arrêté — les notifications ne piloteront plus les LED en arrière-plan",
+                stringResource(if (state.serviceRunning) R.string.service_running else R.string.service_stopped),
                 style = MaterialTheme.typography.bodyMedium,
             )
 
             if (!state.batteryExempt) {
                 Text(
-                    "L'optimisation batterie d'HyperOS peut tuer Aura en arrière-plan.",
+                    stringResource(R.string.battery_optimization_warning),
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                Button(onClick = onRequestBattery) { Text("Exclure de l'optimisation batterie") }
+                Button(onClick = onRequestBattery) { Text(stringResource(R.string.battery_exclude)) }
             } else {
-                Text("Optimisation batterie : exclu ✓", style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.battery_excluded), style = MaterialTheme.typography.bodyMedium)
             }
 
             Spacer(modifier = Modifier.height(4.dp))
-            Text("Durée d'allumage LED : ${timeoutMs / 1000} s", style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(R.string.led_duration, (timeoutMs / 1000).toInt()), style = MaterialTheme.typography.bodyMedium)
             Slider(
                 value = timeoutMs.toFloat(),
                 onValueChange = { onTimeoutChange(it.toLong()) },
@@ -478,11 +484,11 @@ private fun AppRuleCard(
             }
 
             if (rule?.enabled == true) {
-                Text("Couleur par défaut", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.default_color), style = MaterialTheme.typography.bodySmall)
                 ColorRow(selected = rule.defaultColorHex, onSelect = onColor)
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Identifier l'expéditeur", modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.identify_sender), modifier = Modifier.weight(1f))
                     Switch(checked = rule.senderParsingEnabled, onCheckedChange = onSenderParsing)
                 }
                 if (rule.senderParsingEnabled) {
@@ -565,7 +571,7 @@ private fun ColorPickerDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Couleur personnalisée") },
+        title = { Text(stringResource(R.string.custom_color)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 SaturationValueBox(hue, saturation, value) { s, v ->
@@ -587,7 +593,12 @@ private fun ColorPickerDialog(
                     Column {
                         Text(currentHex, style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "T ${hue.toInt()}° · S ${(saturation * 100).toInt()}% · L ${(value * 100).toInt()}%",
+                            stringResource(
+                                R.string.hsv_label,
+                                hue.toInt(),
+                                (saturation * 100).toInt(),
+                                (value * 100).toInt(),
+                            ),
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
@@ -595,10 +606,10 @@ private fun ColorPickerDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(currentHex) }) { Text("OK") }
+            TextButton(onClick = { onConfirm(currentHex) }) { Text(stringResource(R.string.ok)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Annuler") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         },
     )
 }
@@ -729,20 +740,20 @@ private fun SenderRulesEditor(
     var animation by remember { mutableStateOf<String?>(null) }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Règles expéditeur", style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(R.string.sender_rules), style = MaterialTheme.typography.titleSmall)
 
         if (senderRules.isEmpty()) {
-            Text("Aucune règle.", style = MaterialTheme.typography.bodySmall)
+            Text(stringResource(R.string.no_rules), style = MaterialTheme.typography.bodySmall)
         } else {
             senderRules.forEach { rule ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "${if (rule.kind == SenderKind.GROUP) "Groupe" else "Contact"} · ${rule.matchKey}",
+                            "${stringResource(if (rule.kind == SenderKind.GROUP) R.string.group else R.string.contact)} · ${rule.matchKey}",
                             style = MaterialTheme.typography.bodySmall,
                         )
-                        val animLabel = ANIMATION_OPTIONS.firstOrNull { it.first == rule.animationId }?.second ?: "Statique"
-                        Text("${rule.colorHex} · $animLabel", style = MaterialTheme.typography.bodySmall)
+                        val animLabel = ANIMATION_OPTIONS.firstOrNull { it.first == rule.animationId }?.second ?: R.string.animation_static
+                        Text("${rule.colorHex} · ${stringResource(animLabel)}", style = MaterialTheme.typography.bodySmall)
                     }
                     Text("✕", modifier = Modifier
                         .clickable { onDelete(rule) }
@@ -752,14 +763,14 @@ private fun SenderRulesEditor(
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(selected = kind == SenderKind.CONTACT, onClick = { kind = SenderKind.CONTACT }, label = { Text("Contact") })
-            FilterChip(selected = kind == SenderKind.GROUP, onClick = { kind = SenderKind.GROUP }, label = { Text("Groupe") })
+            FilterChip(selected = kind == SenderKind.CONTACT, onClick = { kind = SenderKind.CONTACT }, label = { Text(stringResource(R.string.contact)) })
+            FilterChip(selected = kind == SenderKind.GROUP, onClick = { kind = SenderKind.GROUP }, label = { Text(stringResource(R.string.group)) })
         }
 
         OutlinedTextField(
             value = name,
             onValueChange = { name = it },
-            label = { Text("Nom du contact / groupe") },
+            label = { Text(stringResource(R.string.sender_name_hint)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -767,11 +778,11 @@ private fun SenderRulesEditor(
         ColorRow(selected = color, onSelect = { color = it })
 
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ANIMATION_OPTIONS.forEach { (id, label) ->
+            ANIMATION_OPTIONS.forEach { (id, labelRes) ->
                 FilterChip(
                     selected = animation == id,
                     onClick = { animation = id },
-                    label = { Text(label) },
+                    label = { Text(stringResource(labelRes)) },
                 )
             }
         }
@@ -781,6 +792,50 @@ private fun SenderRulesEditor(
                 onAdd(kind, name, color, animation)
                 name = ""
             },
-        ) { Text("Ajouter la règle") }
+        ) { Text(stringResource(R.string.add_rule)) }
+    }
+}
+
+@Composable
+fun LanguagePickerScreen(onSelect: (String) -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(stringResource(R.string.language_title), style = MaterialTheme.typography.titleLarge)
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(onClick = { onSelect(LanguageManager.LANG_EN) }, modifier = Modifier.fillMaxWidth()) {
+            Text("English")
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        Button(onClick = { onSelect(LanguageManager.LANG_FR) }, modifier = Modifier.fillMaxWidth()) {
+            Text("Français")
+        }
+    }
+}
+
+@Composable
+private fun LanguageToggle(currentLanguage: String, onLanguageChange: (String) -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(stringResource(R.string.language_label), modifier = Modifier.weight(1f))
+            FilterChip(
+                selected = currentLanguage == LanguageManager.LANG_EN,
+                onClick = { onLanguageChange(LanguageManager.LANG_EN) },
+                label = { Text("EN") },
+            )
+            FilterChip(
+                selected = currentLanguage == LanguageManager.LANG_FR,
+                onClick = { onLanguageChange(LanguageManager.LANG_FR) },
+                label = { Text("FR") },
+            )
+        }
     }
 }
