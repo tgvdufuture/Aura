@@ -10,8 +10,6 @@ Open-source Android app that drives the **RGB LED rings** on the back of the **P
 - No root: hardware control via **Shizuku** (ADB privileges).
 - Resolution priority: **contact > group > app**.
 
-> See [`phase0/REPORT.md`](phase0/REPORT.md) for the feasibility spike (discovery of the `miui.lights.ILightsManager` service).
-
 ## Features
 
 - **Color per app**: each enabled app has a default LED color.

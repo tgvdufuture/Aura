@@ -15,7 +15,7 @@ import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuBinderWrapper
 import rikka.shizuku.SystemServiceHelper
 
-/** Frozen after Phase 0 — see phase0/REPORT.md. */
+/** Frozen after Phase 0. */
 interface LEDController {
     fun setColor(colorHex: String): Result<Boolean>
     fun startAnimation(animationId: String, colorHex: String): Result<Boolean>
