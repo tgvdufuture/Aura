@@ -40,6 +40,10 @@
     <string name="battery_optimization_warning">L\'optimisation batterie d\'HyperOS peut tuer Aura en arrière-plan.</string>
     <string name="battery_exclude">Exclure de l\'optimisation batterie</string>
     <string name="battery_excluded">Optimisation batterie : exclu ✓</string>
+    <string name="listener_status">Listener de notifications</string>
+    <string name="listener_connected">Connecté — les notifications pilotent les LED ✓</string>
+    <string name="listener_disconnected">Déconnecté — aucune LED tant qu\'il n\'est pas reconnecté</string>
+    <string name="listener_reconnect">Reconnecter</string>
     <string name="led_duration">Durée d\'allumage LED : %1$d s</string>
 
     <string name="default_color">Couleur par défaut</string>

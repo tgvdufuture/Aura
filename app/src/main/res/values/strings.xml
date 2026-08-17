@@ -46,6 +46,10 @@
     <string name="battery_optimization_warning">HyperOS battery optimization may kill Aura in the background.</string>
     <string name="battery_exclude">Exclude from battery optimization</string>
     <string name="battery_excluded">Battery optimization: excluded ✓</string>
+    <string name="listener_status">Notification listener</string>
+    <string name="listener_connected">Connected — notifications drive the LEDs ✓</string>
+    <string name="listener_disconnected">Disconnected — no LED until it reconnects</string>
+    <string name="listener_reconnect">Reconnect now</string>
     <string name="led_duration">LED light duration: %1$d s</string>
 
     <!-- App rules -->

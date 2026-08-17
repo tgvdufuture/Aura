@@ -2,10 +2,13 @@ package com.aura.led.ui
 
 import android.app.Activity
 import android.app.Application
+import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
 import android.os.PowerManager
 import android.provider.Settings
+import android.service.notification.NotificationListenerService
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -91,6 +94,8 @@ import com.aura.led.data.SettingsKeys
 import com.aura.led.led.Animations
 import com.aura.led.led.ShizukuLEDController
 import com.aura.led.led.SystemLedManager
+import com.aura.led.notification.AuraNotificationListener
+import com.aura.led.notification.NotificationListenerState
 import com.aura.led.service.AuraForegroundService
 import com.aura.led.shizuku.ShizukuManager
 import com.aura.led.shizuku.ShizukuState
@@ -142,6 +147,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val senderRules = repository.senderRules
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val shizuku = ShizukuManager.state
+
+    /** Whether the notification listener is currently bound and receiving notifications. */
+    val listenerConnected: StateFlow<Boolean> = NotificationListenerState.connected
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), NotificationListenerState.connected.value)
+
+    fun reconnectListener() {
+        runCatching {
+            NotificationListenerService.requestRebind(
+                ComponentName(getApplication(), AuraNotificationListener::class.java),
+            )
+        }.onFailure { Log.w("AuraVM", "requestRebind failed", it) }
+    }
 
     data class SystemLedState(val canControl: Boolean = false, val disabled: Boolean = false)
 
@@ -358,6 +375,7 @@ fun SettingsScreen(
     val systemLed by viewModel.systemLed.collectAsState()
     val health by viewModel.health.collectAsState()
     val ledSettings by viewModel.ledSettings.collectAsState()
+    val listenerConnected by viewModel.listenerConnected.collectAsState()
 
     Scaffold(
         topBar = {
@@ -394,11 +412,13 @@ fun SettingsScreen(
             item {
                 HealthCard(
                     state = health,
+                    listenerConnected = listenerConnected,
                     timeoutMs = ledSettings.timeoutMs,
                     onToggleService = viewModel::setServiceRunning,
                     onRequestBattery = viewModel::requestBatteryExemption,
                     onTimeoutChange = viewModel::setLedTimeout,
                     onRefresh = viewModel::refreshHealth,
+                    onReconnectListener = viewModel::reconnectListener,
                 )
             }
         }
@@ -481,11 +501,13 @@ private fun SystemLedCard(
 @Composable
 private fun HealthCard(
     state: MainViewModel.HealthState,
+    listenerConnected: Boolean,
     timeoutMs: Long,
     onToggleService: (Boolean) -> Unit,
     onRequestBattery: () -> Unit,
     onTimeoutChange: (Long) -> Unit,
     onRefresh: () -> Unit,
+    onReconnectListener: () -> Unit,
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -508,6 +530,27 @@ private fun HealthCard(
                 stringResource(if (state.serviceRunning) R.string.service_running else R.string.service_stopped),
                 style = MaterialTheme.typography.bodyMedium,
             )
+
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(stringResource(R.string.listener_status), style = MaterialTheme.typography.titleSmall)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .clip(CircleShape)
+                        .background(if (listenerConnected) Color(0xFF2E7D32) else Color(0xFFD32F2F)),
+                )
+                Text(
+                    stringResource(if (listenerConnected) R.string.listener_connected else R.string.listener_disconnected),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            if (!listenerConnected) {
+                Button(onClick = onReconnectListener) { Text(stringResource(R.string.listener_reconnect)) }
+            }
 
             if (!state.batteryExempt) {
                 Text(

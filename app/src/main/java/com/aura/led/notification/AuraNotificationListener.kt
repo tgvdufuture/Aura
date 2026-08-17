@@ -2,6 +2,9 @@ package com.aura.led.notification
 
 import android.app.KeyguardManager
 import android.app.Notification
+import android.content.ComponentName
+import android.os.Handler
+import android.os.Looper
 import android.os.PowerManager
 import android.util.Log
 import android.service.notification.NotificationListenerService
@@ -28,6 +31,18 @@ import kotlinx.coroutines.launch
 class AuraNotificationListener : NotificationListenerService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
+
+    /** Schedules the rebind after a disconnect; kept on the main looper so it survives service teardown. */
+    private val rebindHandler = Handler(Looper.getMainLooper())
+
+    private val rebindRunnable = Runnable {
+        Log.d(TAG, "requesting rebind")
+        runCatching {
+            NotificationListenerService.requestRebind(
+                ComponentName(this@AuraNotificationListener, AuraNotificationListener::class.java),
+            )
+        }.onFailure { Log.w(TAG, "requestRebind failed", it) }
+    }
 
     private lateinit var repository: RuleRepository
     private lateinit var engine: RuleEngine
@@ -58,6 +73,23 @@ class AuraNotificationListener : NotificationListenerService() {
     override fun onDestroy() {
         scope.cancel()
         super.onDestroy()
+    }
+
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        NotificationListenerState.connected.value = true
+        Log.d(TAG, "listener connected")
+    }
+
+    override fun onListenerDisconnected() {
+        super.onListenerDisconnected()
+        NotificationListenerState.connected.value = false
+        Log.w(TAG, "listener disconnected -> scheduling rebind in ${REBIND_DELAY_MS}ms")
+        // Rebinding from inside onDestroy's scope would be cancelled with it, so schedule
+        // the request on the main looper instead. The process stays alive thanks to the
+        // foreground service, so the request will be sent even after the service is gone.
+        rebindHandler.removeCallbacks(rebindRunnable)
+        rebindHandler.postDelayed(rebindRunnable, REBIND_DELAY_MS)
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -158,6 +190,9 @@ class AuraNotificationListener : NotificationListenerService() {
     private companion object {
         const val TAG = "AuraNLS"
         const val MAX_TRACKED = 50
+
+        /** Delay before re-requesting a bind after a disconnect, to let the system settle. */
+        const val REBIND_DELAY_MS = 2_000L
     }
 
     private fun isScreenOn(): Boolean =
