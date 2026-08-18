@@ -30,6 +30,8 @@
     <string name="shizuku_help">Open the Shizuku app → “Start via computer connection” → “Show command”, then run it from the PC.</string>
     <string name="shizuku_request_permission">Request authorization</string>
     <string name="shizuku_test_led">Test the LED (red)</string>
+    <string name="led_preview">Preview LED</string>
+    <string name="led_preview_failed">Couldn\'t light the LED — is Shizuku active and authorized?</string>
 
     <!-- System LED -->
     <string name="system_led">System LED</string>
@@ -49,7 +51,10 @@
     <string name="listener_status">Notification listener</string>
     <string name="listener_connected">Connected — notifications drive the LEDs ✓</string>
     <string name="listener_disconnected">Disconnected — no LED until it reconnects</string>
-    <string name="listener_reconnect">Reconnect now</string>
+    <string name="listener_reconnect">Open notification settings</string>
+    <string name="autostart_title">Autostart (HyperOS)</string>
+    <string name="autostart_warning">HyperOS blocks Aura from restarting in the background. Enable Autostart so the LED keeps working after a reboot.</string>
+    <string name="autostart_open">Open Autostart settings</string>
     <string name="led_duration">LED light duration: %1$d s</string>
 
     <!-- App rules -->

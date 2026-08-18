@@ -21,9 +21,10 @@ class AuraApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        // The listener is declared with default_autobind=false, so we control when it binds
-        // (HyperOS doesn't reliably rebind notification listeners after a reboot). Request a
-        // rebind whenever the process starts so it reconnects without opening the app.
+        // Best-effort rebind safety net. The listener auto-binds through the system
+        // whenever access is granted, but HyperOS can leave it unbound after a process
+        // kill or reboot; requesting a rebind on startup reconnects it without opening
+        // the app.
         runCatching {
             NotificationListenerService.requestRebind(
                 ComponentName(this, AuraNotificationListener::class.java),

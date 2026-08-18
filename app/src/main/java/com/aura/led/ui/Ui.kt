@@ -5,10 +5,12 @@ import android.app.Application
 import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -41,6 +43,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -52,6 +55,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -100,9 +104,11 @@ import com.aura.led.service.AuraForegroundService
 import com.aura.led.shizuku.ShizukuManager
 import com.aura.led.shizuku.ShizukuState
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -118,6 +124,10 @@ private val ANIMATION_OPTIONS = listOf(
     Animations.RAINBOW to R.string.animation_rainbow,
     Animations.POLICE to R.string.animation_alert,
 )
+
+// How long to wait after the last color change before re-sending the settled color with a
+// long duration (so the preview stays lit once the user stops dragging).
+private const val SETTLE_DEBOUNCE_MS = 300L
 
 @Composable
 fun AuraTheme(
@@ -153,11 +163,43 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), NotificationListenerState.connected.value)
 
     fun reconnectListener() {
+        val ctx = getApplication<Application>()
+        // requestRebind is silently ignored on HyperOS/MIUI, so request it as a
+        // best-effort and open the notification-access screen where the listener
+        // can actually be re-enabled by the user.
         runCatching {
             NotificationListenerService.requestRebind(
-                ComponentName(getApplication(), AuraNotificationListener::class.java),
+                ComponentName(ctx, AuraNotificationListener::class.java),
             )
         }.onFailure { Log.w("AuraVM", "requestRebind failed", it) }
+        runCatching {
+            ctx.startActivity(
+                Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }.onFailure { Log.w("AuraVM", "open notification listener settings failed", it) }
+    }
+
+    /** Opens HyperOS's autostart manager so the listener/service can restart after a reboot. */
+    fun openAutostartSettings() {
+        val ctx = getApplication<Application>()
+        val miui = Intent().setComponent(
+            ComponentName(
+                "com.miui.securitycenter",
+                "com.miui.permcenter.autostart.AutoStartManagementActivity",
+            ),
+        )
+        runCatching {
+            ctx.startActivity(miui.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }.onFailure {
+            Log.w("AuraVM", "open autostart settings failed, falling back to app details", it)
+            runCatching {
+                ctx.startActivity(
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}"))
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            }
+        }
     }
 
     data class SystemLedState(val canControl: Boolean = false, val disabled: Boolean = false)
@@ -275,6 +317,44 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         led.setColor("#ff0000")
     }
 
+    // Latest requested preview (color, animation); null = stop. A StateFlow keeps the
+    // newest request, and collectLatest below applies it as soon as the previous command
+    // completes, so the light service never receives concurrent or out-of-order commands.
+    private val previewRequests = MutableStateFlow<Pair<String, String?>?>(null)
+
+    fun previewLed(colorHex: String, animationId: String? = null) {
+        previewRequests.value = colorHex to animationId
+    }
+
+    /** Turns the preview LED off (e.g. when the color picker is dismissed). */
+    fun stopLedPreview() {
+        previewRequests.value = null
+    }
+
+    private fun logPreviewResult(request: Pair<String, String?>?, result: Result<Boolean>) {
+        if (request == null) {
+            result.onSuccess { Log.i("AuraVM", "LED preview stopped") }
+            result.onFailure { Log.w("AuraVM", "LED preview stop failed", it) }
+        } else {
+            result.onSuccess { Log.i("AuraVM", "LED preview OK: ${request.first} / ${request.second}") }
+            result.onFailure {
+                Log.w("AuraVM", "LED preview failed for ${request.first} / ${request.second}", it)
+                val now = System.currentTimeMillis()
+                if (now - lastPreviewFailureToast > 2_000L) {
+                    lastPreviewFailureToast = now
+                    Toast.makeText(
+                        getApplication(),
+                        getApplication<Application>().getString(R.string.led_preview_failed),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            }
+        }
+    }
+
+    @Volatile
+    private var lastPreviewFailureToast = 0L
+
     init {
         refreshSystemLed()
         refreshHealth()
@@ -283,6 +363,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val clamped = (ms / 1000).coerceIn(1, 30) * 1000L
             ShizukuLEDController.ledTimeoutMs = clamped
             _ledSettings.value = LedSettingsState(timeoutMs = clamped)
+        }
+        // Single serialized worker for previews. collectLatest cancels the pending settle
+        // whenever a new color arrives, and re-applies the settled color with a long
+        // duration once the user stops changing it for a beat.
+        viewModelScope.launch(Dispatchers.IO) {
+            previewRequests.collectLatest { request ->
+                if (request == null) {
+                    logPreviewResult(null, led.stopPreview())
+                } else {
+                    val (color, animationId) = request
+                    if (animationId != null) {
+                        logPreviewResult(request, led.startAnimation(animationId, color))
+                    } else {
+                        logPreviewResult(request, led.previewColor(color))
+                        delay(SETTLE_DEBOUNCE_MS)
+                        if (previewRequests.value == request) {
+                            logPreviewResult(request, led.settleColor(color))
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -350,10 +451,13 @@ fun MainScreen(
                     senderRules = rulesByApp[app.packageName].orEmpty(),
                     onToggle = { viewModel.setEnabled(app.packageName, app.label, it) },
                     onColor = { viewModel.setColor(app.packageName, app.label, it) },
+                    onPreviewColor = { viewModel.previewLed(it) },
+                    onStopPreview = viewModel::stopLedPreview,
                     onSenderParsing = { viewModel.setSenderParsing(app.packageName, app.label, it) },
                     onAddSender = { kind, name, color, anim ->
                         viewModel.addSenderRule(app.packageName, kind, name, color, anim)
                     },
+                    onPreviewSender = { color, anim -> viewModel.previewLed(color, anim) },
                     onDeleteSender = viewModel::deleteSenderRule,
                 )
             }
@@ -419,6 +523,7 @@ fun SettingsScreen(
                     onTimeoutChange = viewModel::setLedTimeout,
                     onRefresh = viewModel::refreshHealth,
                     onReconnectListener = viewModel::reconnectListener,
+                    onOpenAutostart = viewModel::openAutostartSettings,
                 )
             }
         }
@@ -508,6 +613,7 @@ private fun HealthCard(
     onTimeoutChange: (Long) -> Unit,
     onRefresh: () -> Unit,
     onReconnectListener: () -> Unit,
+    onOpenAutostart: () -> Unit,
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -552,6 +658,16 @@ private fun HealthCard(
                 Button(onClick = onReconnectListener) { Text(stringResource(R.string.listener_reconnect)) }
             }
 
+            if (Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true)) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(stringResource(R.string.autostart_title), style = MaterialTheme.typography.titleSmall)
+                Text(
+                    stringResource(R.string.autostart_warning),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Button(onClick = onOpenAutostart) { Text(stringResource(R.string.autostart_open)) }
+            }
+
             if (!state.batteryExempt) {
                 Text(
                     stringResource(R.string.battery_optimization_warning),
@@ -581,8 +697,11 @@ private fun AppRuleCard(
     senderRules: List<SenderRule>,
     onToggle: (Boolean) -> Unit,
     onColor: (String) -> Unit,
+    onPreviewColor: (String) -> Unit,
+    onStopPreview: () -> Unit,
     onSenderParsing: (Boolean) -> Unit,
     onAddSender: (kind: String, name: String, color: String, animationId: String?) -> Unit,
+    onPreviewSender: (color: String, animationId: String?) -> Unit,
     onDeleteSender: (SenderRule) -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -597,7 +716,7 @@ private fun AppRuleCard(
 
             if (rule?.enabled == true) {
                 Text(stringResource(R.string.default_color), style = MaterialTheme.typography.bodySmall)
-                ColorRow(selected = rule.defaultColorHex, onSelect = onColor)
+                ColorRow(selected = rule.defaultColorHex, onSelect = onColor, onPreview = onPreviewColor, onStopPreview = onStopPreview)
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.identify_sender), modifier = Modifier.weight(1f))
@@ -607,6 +726,8 @@ private fun AppRuleCard(
                     SenderRulesEditor(
                         senderRules = senderRules,
                         onAdd = onAddSender,
+                        onPreview = onPreviewSender,
+                        onStopPreview = onStopPreview,
                         onDelete = onDeleteSender,
                     )
                 }
@@ -616,7 +737,12 @@ private fun AppRuleCard(
 }
 
 @Composable
-private fun ColorRow(selected: String, onSelect: (String) -> Unit) {
+private fun ColorRow(
+    selected: String,
+    onSelect: (String) -> Unit,
+    onPreview: ((String) -> Unit)? = null,
+    onStopPreview: (() -> Unit)? = null,
+) {
     var showPicker by remember { mutableStateOf(false) }
     val isCustom = PALETTE.none { it.equals(selected, ignoreCase = true) }
 
@@ -637,7 +763,10 @@ private fun ColorRow(selected: String, onSelect: (String) -> Unit) {
                         color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
                         shape = CircleShape,
                     )
-                    .clickable { onSelect(hex) },
+                    .clickable {
+                        onSelect(hex)
+                        onPreview?.invoke(hex)
+                    },
             )
         }
 
@@ -661,8 +790,16 @@ private fun ColorRow(selected: String, onSelect: (String) -> Unit) {
     if (showPicker) {
         ColorPickerDialog(
             initialColor = selected,
-            onConfirm = { onSelect(it); showPicker = false },
-            onDismiss = { showPicker = false },
+            onConfirm = {
+                onSelect(it)
+                onStopPreview?.invoke()
+                showPicker = false
+            },
+            onDismiss = {
+                onStopPreview?.invoke()
+                showPicker = false
+            },
+            onPreview = { onPreview?.invoke(it) },
         )
     }
 }
@@ -672,6 +809,7 @@ private fun ColorPickerDialog(
     initialColor: String,
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
+    onPreview: (String) -> Unit,
 ) {
     val initialHsv = remember(initialColor) { hexToHsv(initialColor) }
     var hue by remember { mutableFloatStateOf(initialHsv[0]) }
@@ -680,6 +818,11 @@ private fun ColorPickerDialog(
 
     val currentColor = Color.hsv(hue, saturation, value)
     val currentHex = remember(hue, saturation, value) { hsvToHex(floatArrayOf(hue, saturation, value)) }
+
+    // Live LED preview: fire on every color change, in real time, with no debounce.
+    LaunchedEffect(hue, saturation, value) {
+        onPreview(currentHex)
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -844,6 +987,8 @@ private fun hsvToHex(hsv: FloatArray): String {
 private fun SenderRulesEditor(
     senderRules: List<SenderRule>,
     onAdd: (kind: String, name: String, color: String, animationId: String?) -> Unit,
+    onPreview: (color: String, animationId: String?) -> Unit,
+    onStopPreview: () -> Unit,
     onDelete: (SenderRule) -> Unit,
 ) {
     var kind by remember { mutableStateOf(SenderKind.CONTACT) }
@@ -887,7 +1032,7 @@ private fun SenderRulesEditor(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        ColorRow(selected = color, onSelect = { color = it })
+        ColorRow(selected = color, onSelect = { color = it }, onPreview = { onPreview(it, animation) }, onStopPreview = onStopPreview)
 
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ANIMATION_OPTIONS.forEach { (id, labelRes) ->
@@ -899,12 +1044,17 @@ private fun SenderRulesEditor(
             }
         }
 
-        Button(
-            onClick = {
-                onAdd(kind, name, color, animation)
-                name = ""
-            },
-        ) { Text(stringResource(R.string.add_rule)) }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = {
+                    onAdd(kind, name, color, animation)
+                    name = ""
+                },
+            ) { Text(stringResource(R.string.add_rule)) }
+            OutlinedButton(onClick = { onPreview(color, animation) }) {
+                Text(stringResource(R.string.led_preview))
+            }
+        }
     }
 }
 

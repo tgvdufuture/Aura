@@ -13,6 +13,7 @@ Open-source Android app that drives the **RGB LED rings** on the back of the **P
 ## Features
 
 - **Color per app**: each enabled app has a default LED color.
+- **Live LED preview**: tap a color in the picker to preview it on the ring in real time before saving.
 - **Color + animation per contact/group**: messages (WhatsApp…) and calls can be distinguished by sender (breathing, flashing, rainbow, alert).
 - **Lock screen aware**: the LED drives when the screen is off **or** the device is locked; it stays off only while you're actively using the phone.
 - **"Last one wins" with smart fallback**: a new notification replaces the previous state, and dismissing it falls back to the previous one.
@@ -33,7 +34,7 @@ Open-source Android app that drives the **RGB LED rings** on the back of the **P
 
 Get the latest signed APK from the [releases page](https://github.com/tgvdufuture/Aura/releases/latest):
 
-- **[v0.2.1](https://github.com/tgvdufuture/Aura/releases/tag/v0.2.1)** — `app-release.apk`
+- **[v0.3.0](https://github.com/tgvdufuture/Aura/releases/tag/v0.3.0)** — `app-release.apk`
 
 ## Prerequisites
 

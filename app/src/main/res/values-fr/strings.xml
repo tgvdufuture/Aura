@@ -26,6 +26,8 @@
     <string name="shizuku_help">Ouvre l\'app Shizuku → « Démarrer par connexion à un ordinateur » → « Voir la commande », puis exécute-la depuis le PC.</string>
     <string name="shizuku_request_permission">Demander l\'autorisation</string>
     <string name="shizuku_test_led">Tester la LED (rouge)</string>
+    <string name="led_preview">Aperçu LED</string>
+    <string name="led_preview_failed">Impossible d\'allumer la LED — Shizuku actif et autorisé ?</string>
 
     <string name="system_led">LED système</string>
     <string name="system_led_shizuku_required">Shizuku est requis pour désactiver la LED de notification d\'HyperOS.</string>
@@ -43,7 +45,10 @@
     <string name="listener_status">Listener de notifications</string>
     <string name="listener_connected">Connecté — les notifications pilotent les LED ✓</string>
     <string name="listener_disconnected">Déconnecté — aucune LED tant qu\'il n\'est pas reconnecté</string>
-    <string name="listener_reconnect">Reconnecter</string>
+    <string name="listener_reconnect">Ouvrir les réglages d\'accès aux notifications</string>
+    <string name="autostart_title">Démarrage auto (HyperOS)</string>
+    <string name="autostart_warning">HyperOS empêche Aura de redémarrer en arrière-plan. Autorisez le démarrage auto pour que la LED continue après un redémarrage.</string>
+    <string name="autostart_open">Ouvrir les réglages de démarrage auto</string>
     <string name="led_duration">Durée d\'allumage LED : %1$d s</string>
 
     <string name="default_color">Couleur par défaut</string>
