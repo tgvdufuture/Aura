@@ -73,6 +73,8 @@ class ShizukuLEDController : LEDController {
         // the update rate; the settle step re-sends the same color with a long onMs.
         private const val PREVIEW_DRAG_ON_MS = 150
         private const val PREVIEW_SETTLE_ON_MS = 60_000
+        // One-shot preview for the default swatches: lights ~1.5s then auto-off.
+        private const val PREVIEW_FLASH_ON_MS = 1_500
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -115,6 +117,17 @@ class ShizukuLEDController : LEDController {
         val color = ColorMapper.hexToInt(colorHex)
             ?: return Result.failure(IllegalArgumentException("Bad color: $colorHex"))
         return setWithClear(color, MODE_STEADY, PREVIEW_SETTLE_ON_MS)
+    }
+
+    /**
+     * Short one-shot preview for the default color swatches: lights the ring for a
+     * moment, then the service's own auto-off timer extinguishes it (no settle step).
+     */
+    fun flashColor(colorHex: String): Result<Boolean> {
+        val color = ColorMapper.hexToInt(colorHex)
+            ?: return Result.failure(IllegalArgumentException("Bad color: $colorHex"))
+        cancelAnimation()
+        return setWithClear(color, MODE_STEADY, PREVIEW_FLASH_ON_MS)
     }
 
     override fun startAnimation(animationId: String, colorHex: String): Result<Boolean> {

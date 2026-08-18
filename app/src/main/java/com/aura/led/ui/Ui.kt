@@ -317,13 +317,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         led.setColor("#ff0000")
     }
 
-    // Latest requested preview (color, animation); null = stop. A StateFlow keeps the
-    // newest request, and collectLatest below applies it as soon as the previous command
-    // completes, so the light service never receives concurrent or out-of-order commands.
-    private val previewRequests = MutableStateFlow<Pair<String, String?>?>(null)
+    // Latest requested preview (color, animation, persistence); null = stop. A StateFlow
+    // keeps the newest request, and collectLatest below applies it as soon as the previous
+    // command completes, so the light service never receives concurrent or out-of-order commands.
+    private val previewRequests = MutableStateFlow<LedPreviewRequest?>(null)
 
+    private data class LedPreviewRequest(
+        val color: String,
+        val animationId: String? = null,
+        val persistent: Boolean = false,
+    )
+
+    /** Persistent preview (custom picker / sender rules): tracks, then stays lit. */
     fun previewLed(colorHex: String, animationId: String? = null) {
-        previewRequests.value = colorHex to animationId
+        previewRequests.value = LedPreviewRequest(colorHex, animationId, persistent = true)
+    }
+
+    /** Transient preview (default swatches): brief flash, then auto-off. */
+    fun flashLed(colorHex: String) {
+        previewRequests.value = LedPreviewRequest(colorHex, persistent = false)
     }
 
     /** Turns the preview LED off (e.g. when the color picker is dismissed). */
@@ -331,14 +343,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         previewRequests.value = null
     }
 
-    private fun logPreviewResult(request: Pair<String, String?>?, result: Result<Boolean>) {
+    private fun logPreviewResult(request: LedPreviewRequest?, result: Result<Boolean>) {
         if (request == null) {
             result.onSuccess { Log.i("AuraVM", "LED preview stopped") }
             result.onFailure { Log.w("AuraVM", "LED preview stop failed", it) }
         } else {
-            result.onSuccess { Log.i("AuraVM", "LED preview OK: ${request.first} / ${request.second}") }
+            result.onSuccess { Log.i("AuraVM", "LED preview OK: ${request.color} / ${request.animationId}") }
             result.onFailure {
-                Log.w("AuraVM", "LED preview failed for ${request.first} / ${request.second}", it)
+                Log.w("AuraVM", "LED preview failed for ${request.color} / ${request.animationId}", it)
                 val now = System.currentTimeMillis()
                 if (now - lastPreviewFailureToast > 2_000L) {
                     lastPreviewFailureToast = now
@@ -371,17 +383,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             previewRequests.collectLatest { request ->
                 if (request == null) {
                     logPreviewResult(null, led.stopPreview())
-                } else {
-                    val (color, animationId) = request
-                    if (animationId != null) {
-                        logPreviewResult(request, led.startAnimation(animationId, color))
-                    } else {
-                        logPreviewResult(request, led.previewColor(color))
-                        delay(SETTLE_DEBOUNCE_MS)
-                        if (previewRequests.value == request) {
-                            logPreviewResult(request, led.settleColor(color))
-                        }
+                } else if (request.animationId != null) {
+                    logPreviewResult(request, led.startAnimation(request.animationId, request.color))
+                } else if (request.persistent) {
+                    logPreviewResult(request, led.previewColor(request.color))
+                    delay(SETTLE_DEBOUNCE_MS)
+                    if (previewRequests.value == request) {
+                        logPreviewResult(request, led.settleColor(request.color))
                     }
+                } else {
+                    logPreviewResult(request, led.flashColor(request.color))
                 }
             }
         }
@@ -451,6 +462,7 @@ fun MainScreen(
                     senderRules = rulesByApp[app.packageName].orEmpty(),
                     onToggle = { viewModel.setEnabled(app.packageName, app.label, it) },
                     onColor = { viewModel.setColor(app.packageName, app.label, it) },
+                    onFlashColor = { viewModel.flashLed(it) },
                     onPreviewColor = { viewModel.previewLed(it) },
                     onStopPreview = viewModel::stopLedPreview,
                     onSenderParsing = { viewModel.setSenderParsing(app.packageName, app.label, it) },
@@ -697,6 +709,7 @@ private fun AppRuleCard(
     senderRules: List<SenderRule>,
     onToggle: (Boolean) -> Unit,
     onColor: (String) -> Unit,
+    onFlashColor: (String) -> Unit,
     onPreviewColor: (String) -> Unit,
     onStopPreview: () -> Unit,
     onSenderParsing: (Boolean) -> Unit,
@@ -716,7 +729,7 @@ private fun AppRuleCard(
 
             if (rule?.enabled == true) {
                 Text(stringResource(R.string.default_color), style = MaterialTheme.typography.bodySmall)
-                ColorRow(selected = rule.defaultColorHex, onSelect = onColor, onPreview = onPreviewColor, onStopPreview = onStopPreview)
+                ColorRow(selected = rule.defaultColorHex, onSelect = onColor, onFlash = onFlashColor, onPreview = onPreviewColor, onStopPreview = onStopPreview)
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.identify_sender), modifier = Modifier.weight(1f))
@@ -741,6 +754,7 @@ private fun ColorRow(
     selected: String,
     onSelect: (String) -> Unit,
     onPreview: ((String) -> Unit)? = null,
+    onFlash: ((String) -> Unit)? = null,
     onStopPreview: (() -> Unit)? = null,
 ) {
     var showPicker by remember { mutableStateOf(false) }
@@ -765,7 +779,7 @@ private fun ColorRow(
                     )
                     .clickable {
                         onSelect(hex)
-                        onPreview?.invoke(hex)
+                        (onFlash ?: onPreview)?.invoke(hex)
                     },
             )
         }
