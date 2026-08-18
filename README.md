@@ -73,7 +73,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 Aura needs a few one-time permissions to take control of the ring. Do these in order.
 
-> **Enable the notification LED on the phone first:** make sure the LED / light ring is switched on in your phone's own settings (e.g. **Settings → Notifications → Notification light**, or the equivalent in your HyperOS version). Aura can only drive the ring if the system LED is enabled there.
+> **Enable the notification LED on the phone first:** turn on the back light in **Settings → Additional settings → Back light effects** (French: *Paramètres supplémentaires → Effets de lumière arrière*). Without it the ring won't light up, even though Aura is running.
 
 ### 1. Install Aura
 
