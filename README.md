@@ -39,7 +39,7 @@ Get the latest signed APK from the [releases page](https://github.com/tgvdufutur
 ## Prerequisites
 
 ### Hardware / system
-- **POCO X8 Pro** running **HyperOS 3** (Android 16). This is the only targeted device; other models are not supported.
+- **POCO X8 Pro** running **HyperOS 3** (Android 16). This is the only device it has been developed and tested on. The **POCO X8 Pro Max** (a.k.a. Redmi Turbo 5 Max) shares the same RGB ring hardware and HyperOS version, so it should work too — but it is **untested**.
 - **Shizuku** installed and enabled (see below).
 
 ### Build environment
