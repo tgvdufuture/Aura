@@ -39,7 +39,7 @@ Get the latest signed APK from the [releases page](https://github.com/tgvdufutur
 ## Prerequisites
 
 ### Hardware / system
-- **POCO X8 Pro** running **HyperOS 3** (Android 16). This is the only device it has been developed and tested on. The **POCO X8 Pro Max** (a.k.a. Redmi Turbo 5 Max) shares the same RGB ring hardware and HyperOS version, so it should work too — but it is **untested**.
+- **POCO X8 Pro** running **HyperOS 3** (Android 16). This is the only device it has been developed and tested on. The **POCO X8 Pro Max** (a.k.a. Redmi Turbo 5 Max) shares the same RGB ring hardware and HyperOS version, and has been **confirmed working** by users.
 - **Shizuku** installed and enabled (see below).
 
 ### Build environment
@@ -72,6 +72,8 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 ## Getting started
 
 Aura needs a few one-time permissions to take control of the ring. Do these in order.
+
+> **Enable the notification LED on the phone first:** make sure the LED / light ring is switched on in your phone's own settings (e.g. **Settings → Notifications → Notification light**, or the equivalent in your HyperOS version). Aura can only drive the ring if the system LED is enabled there.
 
 ### 1. Install Aura
 
