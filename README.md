@@ -71,14 +71,47 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ## Getting started
 
-1. **Enable Shizuku** on the phone (ADB startup via a PC, or wireless startup), then install the APK.
-2. Open **Aura**, choose your language (**English** / **Français**) on first launch, then expand **Settings** and grant:
-   - the **notification access**;
-   - the **Shizuku permission** (button in the app).
-3. Enable the apps you want and choose their **default color**.
-4. For messaging/calls, enable **"Identify sender"** then add **contact** / **group** rules (color + animation).
-5. Disable the **HyperOS system LED** from **Settings** ("System LED") to avoid double lighting.
-6. Recommended: **exclude Aura from battery optimization** (**Settings** → "Robustness") so the service survives in the background.
+Aura needs a few one-time permissions to take control of the ring. Do these in order.
+
+### 1. Install Aura
+
+1. Download the latest `app-release.apk` from the [releases page](https://github.com/tgvdufuture/Aura/releases/latest).
+2. Open the APK and allow the install when your browser / file manager asks ("Install unknown apps").
+
+### 2. Set up Shizuku
+
+Aura drives the LED through **Shizuku** (no root — it only needs ADB-level privileges).
+
+1. Install **Shizuku** from the [Play Store](https://play.google.com/store/apps/details?id=moe.shizuku.privileged.api) or [shizuku.rikka.app](https://shizuku.rikka.app/).
+2. Start it, one of two ways:
+   - **Wireless (recommended, no PC):** enable **Developer options** (Settings → About phone → tap the **HyperOS version** 7 times), then turn on **Wireless debugging**. In Shizuku, tap **Start → Wireless debugging** and follow the pairing prompts.
+   - **Via a PC (ADB):** connect the phone to a computer that has `adb`, then run the command Shizuku shows under **"Start via computer connection" → "Show command"**.
+3. Wait until Shizuku shows **"Shizuku is running"**.
+
+### 3. Grant Aura's permissions
+
+Open **Aura**, pick your language, then open **Settings**:
+
+1. **Notification access** — in **Settings → Robustness**, the **notification listener** row shows its status; tap it to open the system screen and enable Aura.
+2. **Shizuku permission** — tap **"Request authorization"**, then **"Test the LED (red)"** to confirm the ring lights up.
+
+### 4. Let it survive HyperOS (important)
+
+HyperOS aggressively kills background apps, so do both of these in **Settings → Robustness**:
+
+1. Tap **"Open Autostart settings"** and **enable Aura** in the MIUI autostart manager.
+2. Tap **"Exclude from battery optimization"** and choose **"No restrictions"**.
+
+> Without autostart, HyperOS may block the notification listener after a reboot.
+
+### 5. Choose your colors
+
+1. On the main screen, toggle the apps you want and pick a **default color** (tap a swatch, or the **+** for a custom color — the ring shows a live preview).
+2. For messages and calls, turn on **"Identify sender"** and add **contact** / **group** rules with their own color and animation.
+
+### 6. (Optional) Avoid double lighting
+
+HyperOS lights the ring itself too. In **Settings**, disable **"System LED"** so only Aura drives the ring.
 
 ## How it works
 
