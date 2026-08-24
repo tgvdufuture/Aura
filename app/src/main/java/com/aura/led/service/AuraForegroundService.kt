@@ -7,8 +7,11 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.os.IBinder
+import android.util.Log
 import androidx.core.content.ContextCompat
 import com.aura.led.R
+import com.aura.led.led.Animations
+import com.aura.led.led.ShizukuLEDController
 
 /**
  * Persistent foreground service whose notification keeps Aura's process alive so the
@@ -17,8 +20,12 @@ import com.aura.led.R
  */
 class AuraForegroundService : Service() {
 
+    private lateinit var led: ShizukuLEDController
+
     override fun onCreate() {
         super.onCreate()
+        led = ShizukuLEDController()
+        NewYearScheduler.schedule(this)
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
             NotificationChannel(
@@ -37,7 +44,14 @@ class AuraForegroundService : Service() {
         running = true
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int = START_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == NewYearScheduler.ACTION_NEW_YEAR) {
+            Log.d(TAG, "starting New Year's LED animation")
+            led.startAnimation(Animations.RAINBOW, "#FFFFFF")
+            NewYearScheduler.schedule(this)
+        }
+        return START_STICKY
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -65,7 +79,10 @@ class AuraForegroundService : Service() {
 
         fun stop(context: Context) {
             running = false
+            NewYearScheduler.cancel(context)
             context.stopService(Intent(context, AuraForegroundService::class.java))
         }
+
+        private const val TAG = "AuraNewYear"
     }
 }
