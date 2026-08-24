@@ -3,18 +3,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Aura: Custom LED and notification light for POCO X8 Pro</title>
+  <meta name="theme-color" content="#080711">
+  <meta name="robots" content="index, follow">
+  <title>Aura — Custom LED notifications for POCO X8 Pro</title>
   <meta name="description" content="Aura customizes the POCO X8 Pro back RGB LED rings on HyperOS with per-app, per-contact and per-group notification colors and animations. No root required with Shizuku.">
   <meta name="google-site-verification" content="jl76OWsboCKM71VnYAH4a3_iB4PH8HerU5GQY4yQs1Q">
   <link rel="canonical" href="https://tgvdufuture.github.io/Aura/">
+  <link rel="icon" type="image/png" href="icon.png">
   <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Aura">
   <meta property="og:title" content="Aura — Custom LED for POCO X8 Pro">
   <meta property="og:description" content="Custom RGB notification lights and back LED effects for POCO X8 Pro and POCO X8 Pro Max / Redmi Turbo 5 Max.">
   <meta property="og:url" content="https://tgvdufuture.github.io/Aura/">
-  <meta property="og:image" content="https://raw.githubusercontent.com/tgvdufuture/Aura/main/icon.png">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:image" content="https://tgvdufuture.github.io/Aura/icon.png">
+  <meta property="og:image:width" content="512">
+  <meta property="og:image:height" content="512">
+  <meta property="og:image:alt" content="Aura app icon with a multicolor LED ring">
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="Aura — Custom LED for POCO X8 Pro">
   <meta name="twitter:description" content="Per-app and per-sender RGB notification LED colors and animations for HyperOS.">
+  <meta name="twitter:image" content="https://tgvdufuture.github.io/Aura/icon.png">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -25,8 +34,10 @@
     "operatingSystem": "Android 16, HyperOS 3",
     "description": "Custom RGB notification LED and back light effects for the POCO X8 Pro, with per-app, per-contact and per-group colors and animations.",
     "url": "https://tgvdufuture.github.io/Aura/",
+    "image": "https://tgvdufuture.github.io/Aura/icon.png",
     "downloadUrl": "https://github.com/tgvdufuture/Aura/releases/latest",
     "softwareVersion": "0.4.0",
+    "isAccessibleForFree": true,
     "license": "https://github.com/tgvdufuture/Aura/blob/main/LICENSE",
     "codeRepository": "https://github.com/tgvdufuture/Aura",
     "featureList": [
@@ -37,67 +48,451 @@
     ]
   }
   </script>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": [
+      {
+        "@type": "Question",
+        "name": "Can I customize the LEDs on a POCO X8 Pro?",
+        "acceptedAnswer": {"@type": "Answer", "text": "Yes. Aura controls the back RGB LED rings and supports a color and animation for each app, contact or group notification."}
+      },
+      {
+        "@type": "Question",
+        "name": "Does Aura support HyperOS?",
+        "acceptedAnswer": {"@type": "Answer", "text": "Yes. Aura is developed and tested for the POCO X8 Pro running HyperOS 3. Enable the phone's back light effects first, then disable HyperOS System LED in Aura to avoid double lighting."}
+      },
+      {
+        "@type": "Question",
+        "name": "Does Aura need root?",
+        "acceptedAnswer": {"@type": "Answer", "text": "No. The validated setup uses Shizuku with ADB-level privileges. An experimental root fallback is also included."}
+      },
+      {
+        "@type": "Question",
+        "name": "Is the POCO X8 Pro Max supported?",
+        "acceptedAnswer": {"@type": "Answer", "text": "The POCO X8 Pro Max, also known as Redmi Turbo 5 Max, shares the same RGB ring hardware and has been confirmed working by users. Other POCO models are not guaranteed."}
+      },
+      {
+        "@type": "Question",
+        "name": "Quels sont les termes de recherche en français ?",
+        "acceptedAnswer": {"@type": "Answer", "text": "Aura permet la LED personnalisée du POCO X8 Pro, la lumière arrière POCO, l'anneau LED de notification HyperOS et la couleur LED par application POCO."}
+      }
+    ]
+  }
+  </script>
   <style>
-    :root { color-scheme: dark; font-family: system-ui, sans-serif; line-height: 1.6; }
-    body { margin: 0; background: #101016; color: #f2f2f7; }
-    main { max-width: 860px; margin: 0 auto; padding: 3rem 1.25rem 5rem; }
-    a { color: #9cc7ff; }
-    .hero { display: grid; gap: 1.5rem; grid-template-columns: 1fr 180px; align-items: center; }
-    .hero img { width: 180px; height: 180px; border-radius: 28px; }
-    h1 { line-height: 1.15; font-size: clamp(2.2rem, 6vw, 4rem); margin: 0; }
-    h2 { margin-top: 2.5rem; }
-    .lead { color: #c9c9d4; font-size: 1.2rem; }
-    .button { display: inline-block; padding: .7rem 1rem; border-radius: .6rem; background: #6ea8fe; color: #101016; font-weight: 700; text-decoration: none; }
-    .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-    article { padding: 1rem; border: 1px solid #30303d; border-radius: .8rem; background: #181820; }
-    footer { margin-top: 3rem; color: #a7a7b5; }
-    @media (max-width: 640px) { .hero { grid-template-columns: 1fr; } .hero img { width: 120px; height: 120px; } }
+    :root {
+      color-scheme: dark;
+      --ink: #f4f1ff;
+      --muted: #aaa6c2;
+      --faint: #79758f;
+      --bg: #080711;
+      --panel: rgba(20, 17, 42, .78);
+      --panel-solid: #15112d;
+      --line: rgba(150, 125, 255, .25);
+      --violet: #d09aff;
+      --cyan: #63e7ff;
+      --lime: #d7ff6a;
+      --display: "Arial Black", Impact, system-ui, sans-serif;
+      --body: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 78% 4%, rgba(126, 74, 255, .19), transparent 28rem),
+        radial-gradient(circle at 4% 48%, rgba(34, 131, 255, .1), transparent 24rem),
+        var(--bg);
+      font-family: var(--body);
+      line-height: 1.65;
+    }
+
+    body::before {
+      position: fixed;
+      z-index: -1;
+      inset: 0;
+      background-image: linear-gradient(rgba(146, 111, 255, .055) 1px, transparent 1px), linear-gradient(90deg, rgba(146, 111, 255, .055) 1px, transparent 1px);
+      background-size: 48px 48px;
+      content: "";
+      mask-image: linear-gradient(to bottom, black, transparent 85%);
+      pointer-events: none;
+    }
+
+    body::after {
+      position: fixed;
+      z-index: 10;
+      inset: 0;
+      background: repeating-linear-gradient(0deg, rgba(255,255,255,.018), rgba(255,255,255,.018) 1px, transparent 1px, transparent 4px);
+      content: "";
+      opacity: .18;
+      pointer-events: none;
+    }
+
+    a { color: var(--cyan); text-underline-offset: .2em; }
+    a:hover { color: var(--violet); }
+    a:focus-visible, summary:focus-visible { outline: 2px solid var(--lime); outline-offset: 4px; }
+    .skip-link { position: absolute; left: 1rem; top: -4rem; z-index: 20; padding: .6rem .9rem; background: var(--lime); color: #171323; font-weight: 800; }
+    .skip-link:focus { top: 1rem; }
+    .shell { width: min(1180px, calc(100% - 2.5rem)); margin: 0 auto; }
+    .site-header { padding: 1.3rem 0; border-bottom: 1px solid rgba(150, 125, 255, .16); }
+    .nav { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }
+    .brand { display: inline-flex; align-items: center; gap: .75rem; color: var(--ink); font-family: var(--mono); font-size: .82rem; font-weight: 800; letter-spacing: .08em; text-decoration: none; text-transform: uppercase; }
+    .brand-mark { display: grid; width: 2rem; height: 2rem; place-items: center; border: 1px solid var(--cyan); border-radius: 50%; box-shadow: 0 0 18px rgba(99, 231, 255, .48); color: var(--cyan); font-size: .7rem; }
+    .nav-links { display: flex; flex-wrap: wrap; gap: 1.25rem; margin: 0; padding: 0; list-style: none; font-family: var(--mono); font-size: .72rem; text-transform: uppercase; }
+    .nav-links a { color: var(--muted); text-decoration: none; }
+    .nav-links a:hover { color: var(--ink); }
+    .eyebrow { display: flex; align-items: center; gap: .6rem; margin: 0 0 1rem; color: var(--lime); font-family: var(--mono); font-size: .74rem; letter-spacing: .13em; text-transform: uppercase; }
+    .eyebrow::before { width: 1.7rem; height: 1px; background: currentColor; content: ""; }
+    .hero { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr); gap: clamp(2.5rem, 8vw, 7rem); align-items: center; min-height: 680px; padding: 5.5rem 0 6rem; }
+    h1, h2, h3 { margin: 0; line-height: 1.1; }
+    h1 { max-width: 780px; font-family: var(--display); font-size: clamp(3.2rem, 8vw, 7.4rem); font-weight: 900; letter-spacing: -.065em; text-transform: uppercase; }
+    h1 span { color: var(--violet); text-shadow: 0 0 30px rgba(208, 154, 255, .3); }
+    .hero-copy { max-width: 650px; margin: 1.7rem 0 2rem; color: var(--muted); font-size: clamp(1.05rem, 2vw, 1.25rem); }
+    .actions { display: flex; flex-wrap: wrap; align-items: center; gap: .85rem; }
+    .button { display: inline-flex; align-items: center; justify-content: center; min-height: 3.1rem; padding: .75rem 1.15rem; border: 1px solid var(--violet); background: var(--violet); color: #150d27; font-family: var(--mono); font-size: .78rem; font-weight: 900; letter-spacing: .02em; text-decoration: none; text-transform: uppercase; box-shadow: 5px 5px 0 var(--cyan); }
+    .button:hover { background: var(--cyan); border-color: var(--cyan); color: #081019; box-shadow: 5px 5px 0 var(--violet); }
+    .button.secondary { border-color: var(--line); background: transparent; color: var(--ink); box-shadow: none; }
+    .button.secondary:hover { border-color: var(--cyan); background: rgba(99, 231, 255, .08); color: var(--cyan); }
+    .hero-art { position: relative; min-height: 400px; }
+    .orb { position: absolute; top: 15%; right: 12%; width: min(27rem, 75vw); aspect-ratio: 1; border: 1px solid rgba(99, 231, 255, .4); border-radius: 50%; background: radial-gradient(circle, rgba(157, 114, 255, .22) 0 22%, transparent 23%), repeating-conic-gradient(from 8deg, rgba(99,231,255,.5) 0 2deg, transparent 2deg 15deg); box-shadow: 0 0 80px rgba(104, 69, 255, .28), inset 0 0 50px rgba(99, 231, 255, .16); transform: rotate(-16deg); }
+    .orb::before, .orb::after { position: absolute; border: 1px solid var(--violet); border-radius: 50%; content: ""; }
+    .orb::before { inset: 14%; box-shadow: 0 0 28px var(--violet), inset 0 0 20px rgba(208, 154, 255, .8); }
+    .orb::after { inset: 31%; border-color: var(--cyan); box-shadow: 0 0 25px var(--cyan); }
+    .app-icon { position: absolute; z-index: 1; right: 1%; bottom: 4%; width: clamp(8.5rem, 19vw, 12rem); height: auto; border: 4px solid #0d0920; outline: 1px solid var(--cyan); box-shadow: 13px 13px 0 rgba(99, 231, 255, .22), 0 0 35px rgba(157, 114, 255, .45); transform: rotate(5deg); }
+    .status-card { position: absolute; left: 0; bottom: 10%; width: min(240px, 56%); padding: 1rem; border: 1px solid var(--line); background: rgba(13, 10, 30, .88); box-shadow: 7px 7px 0 rgba(157, 114, 255, .18); font-family: var(--mono); font-size: .72rem; }
+    .status-card strong { display: block; margin-bottom: .5rem; color: var(--lime); font-size: .78rem; text-transform: uppercase; }
+    .status-line { display: flex; align-items: center; gap: .5rem; color: var(--muted); }
+    .status-dot { width: .55rem; height: .55rem; border-radius: 50%; background: var(--lime); box-shadow: 0 0 12px var(--lime); }
+    .section { padding: 6rem 0; border-top: 1px solid rgba(150, 125, 255, .16); }
+    .section-heading { display: flex; align-items: end; justify-content: space-between; gap: 2rem; margin-bottom: 2rem; }
+    h2 { max-width: 760px; font-family: var(--display); font-size: clamp(2.1rem, 5vw, 4rem); letter-spacing: -.055em; text-transform: uppercase; }
+    h3 { font-size: 1.15rem; }
+    .section-intro { max-width: 760px; color: var(--muted); font-size: 1.05rem; }
+    .section-intro strong { color: var(--ink); }
+    .feature-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; border: 1px solid var(--line); background: var(--line); }
+    .feature { min-height: 230px; padding: 1.5rem; background: var(--panel); }
+    .feature:nth-child(2) { background: linear-gradient(150deg, rgba(99, 231, 255, .1), var(--panel-solid)); }
+    .feature:nth-child(3) { background: linear-gradient(150deg, rgba(208, 154, 255, .12), var(--panel-solid)); }
+    .feature-index { display: block; margin-bottom: 3.2rem; color: var(--cyan); font-family: var(--mono); font-size: .72rem; }
+    .feature p { margin: .7rem 0 0; color: var(--muted); font-size: .94rem; }
+    .split { display: grid; grid-template-columns: .9fr 1.1fr; gap: clamp(2rem, 6vw, 5.5rem); align-items: start; }
+    .terminal { overflow: hidden; border: 1px solid var(--line); background: #0c0a19; box-shadow: 10px 10px 0 rgba(99, 231, 255, .12); font-family: var(--mono); }
+    .terminal-bar { display: flex; align-items: center; gap: .4rem; padding: .75rem 1rem; border-bottom: 1px solid var(--line); color: var(--faint); font-size: .68rem; }
+    .terminal-bar i { width: .55rem; height: .55rem; border-radius: 50%; background: var(--violet); }
+    .terminal-bar i:nth-child(2) { background: var(--cyan); }
+    .terminal-bar i:nth-child(3) { background: var(--lime); }
+    .terminal-body { padding: 1.25rem; color: var(--muted); font-size: .78rem; }
+    .terminal-body p { margin: .75rem 0; }
+    .terminal-body .prompt { color: var(--lime); }
+    .terminal-body .value { color: var(--cyan); }
+    .rule-list { display: grid; gap: 1px; margin: 0; padding: 0; list-style: none; border: 1px solid var(--line); background: var(--line); }
+    .rule-list li { display: grid; grid-template-columns: 2.5rem 1fr; gap: 1rem; padding: 1rem; background: var(--panel); }
+    .rule-list strong { color: var(--ink); }
+    .rule-list span { color: var(--faint); font-family: var(--mono); font-size: .7rem; }
+    .screenshots { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .shot { margin: 0; border: 1px solid var(--line); background: #0d0a20; }
+    .shot img { display: block; width: 100%; height: auto; aspect-ratio: 9 / 19; object-fit: cover; object-position: top; }
+    .shot figcaption { padding: .7rem .9rem; color: var(--muted); font-family: var(--mono); font-size: .7rem; text-transform: uppercase; }
+    .faq { display: grid; gap: .7rem; max-width: 900px; }
+    details { border: 1px solid var(--line); background: var(--panel); }
+    summary { display: flex; justify-content: space-between; gap: 1rem; cursor: pointer; padding: 1.1rem 1.2rem; font-weight: 800; list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+    summary::after { color: var(--cyan); content: "+"; font-family: var(--mono); font-size: 1.2rem; }
+    details[open] summary::after { content: "−"; }
+    details p { max-width: 760px; margin: 0; padding: 0 1.2rem 1.2rem; color: var(--muted); }
+    .cta { display: grid; grid-template-columns: 1fr auto; gap: 2rem; align-items: center; padding: clamp(1.5rem, 4vw, 3rem); border: 1px solid var(--violet); background: linear-gradient(115deg, rgba(157, 114, 255, .18), rgba(99, 231, 255, .06)); box-shadow: 10px 10px 0 rgba(157, 114, 255, .14); }
+    .cta p { max-width: 650px; margin: .8rem 0 0; color: var(--muted); }
+    .footer { padding: 2rem 0 4rem; color: var(--faint); font-family: var(--mono); font-size: .72rem; }
+    .footer-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; }
+    .footer a { color: var(--muted); }
+
+    @media (max-width: 900px) {
+      .hero { grid-template-columns: 1fr; min-height: auto; padding: 4rem 0 5rem; }
+      .hero-art { min-height: 360px; }
+      .feature-grid { grid-template-columns: repeat(2, 1fr); }
+      .split { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 620px) {
+      .shell { width: min(100% - 1.5rem, 1180px); }
+      .site-header { padding: 1rem 0; }
+      .nav { align-items: flex-start; flex-direction: column; gap: .9rem; }
+      .nav-links { gap: .8rem; font-size: .65rem; }
+      h1 { font-size: clamp(3rem, 16vw, 5rem); }
+      .hero-art { min-height: 290px; }
+      .orb { right: 4%; width: min(20rem, 78vw); }
+      .app-icon { width: 7.7rem; }
+      .status-card { bottom: 1%; width: 58%; }
+      .section { padding: 4rem 0; }
+      .section-heading { display: block; }
+      .feature-grid, .screenshots { grid-template-columns: 1fr; }
+      .feature { min-height: 0; }
+      .feature-index { margin-bottom: 1.5rem; }
+      .cta { grid-template-columns: 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  </style>
+  <style id="flat-design">
+    :root {
+      color-scheme: light;
+      --ink: #172033;
+      --muted: #5f6b7d;
+      --faint: #7c8798;
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --line: #e1e5ed;
+      --violet: #6845d8;
+      --violet-soft: #eeeaff;
+      --cyan: #176b83;
+      --lime: #4d7c0f;
+      --body: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+    body { color: var(--ink); background: var(--bg); font-family: var(--body); line-height: 1.65; }
+    body::before, body::after { display: none; }
+    a { color: var(--violet); text-underline-offset: .2em; }
+    a:hover { color: #4827ae; }
+    a:focus-visible, summary:focus-visible { outline: 3px solid #b9a9ff; outline-offset: 3px; }
+    .skip-link { background: var(--violet); color: #fff; }
+    .site-header { padding: 1rem 0; border-bottom: 1px solid var(--line); background: #fff; }
+    .brand { color: var(--ink); font-family: var(--body); font-size: .9rem; letter-spacing: 0; text-transform: none; }
+    .brand-mark { width: 2.25rem; height: 2.25rem; border: 0; border-radius: .65rem; background: var(--violet); box-shadow: none; color: #fff; font-size: .85rem; }
+    .nav-links { gap: 1.5rem; font-family: var(--body); font-size: .9rem; text-transform: none; }
+    .nav-links a { color: var(--muted); }
+    .nav-links a:hover { color: var(--violet); }
+    .eyebrow { gap: .5rem; margin-bottom: .9rem; color: var(--violet); font-family: var(--body); font-size: .76rem; font-weight: 800; letter-spacing: .08em; }
+    .eyebrow::before { width: 1rem; background: currentColor; }
+    .hero { min-height: 0; padding: 5.75rem 0 6rem; gap: clamp(3rem, 8vw, 7rem); }
+    h1, h2, h3 { line-height: 1.15; }
+    h1 { max-width: 720px; font-family: var(--body); font-size: clamp(2.8rem, 5.5vw, 4.8rem); font-weight: 800; letter-spacing: -.055em; text-transform: none; }
+    h1 span { color: var(--violet); text-shadow: none; }
+    .hero-copy { margin: 1.35rem 0 2rem; color: var(--muted); font-size: clamp(1rem, 2vw, 1.15rem); }
+    .button { min-height: 3rem; padding: .75rem 1.15rem; border: 1px solid var(--violet); border-radius: .6rem; background: var(--violet); color: #fff; font-family: var(--body); font-size: .9rem; font-weight: 750; letter-spacing: 0; text-transform: none; box-shadow: none; }
+    .button:hover { border-color: #4827ae; background: #4827ae; color: #fff; box-shadow: none; }
+    .button.secondary { border-color: var(--line); background: #fff; color: var(--ink); }
+    .button.secondary:hover { border-color: var(--violet); background: var(--violet-soft); color: var(--violet); }
+    .hero-art { min-height: 390px; overflow: hidden; border: 1px solid #d9d1ff; border-radius: 1.25rem; background: var(--violet-soft); }
+    .orb { top: 50%; right: 50%; width: min(19rem, 62vw); border: 0; background: var(--violet); box-shadow: none; transform: translate(50%, -50%); }
+    .orb::before { inset: 25%; border: 1.5rem solid #fff; background: transparent; box-shadow: none; }
+    .orb::after { display: none; }
+    .app-icon { right: 10%; bottom: 9%; width: clamp(7rem, 16vw, 10rem); border: .5rem solid #fff; border-radius: 1rem; outline: 0; box-shadow: 0 .75rem 1.5rem rgba(47, 35, 110, .18); transform: none; }
+    .status-card { left: 8%; bottom: 10%; width: min(230px, 52%); padding: 1rem; border: 1px solid var(--line); border-radius: .75rem; background: #fff; box-shadow: 0 .75rem 1.5rem rgba(47, 35, 110, .12); font-family: var(--body); font-size: .78rem; }
+    .status-card strong { color: var(--ink); font-size: .82rem; text-transform: none; }
+    .status-line { color: var(--muted); }
+    .status-dot { background: #65a30d; box-shadow: none; }
+    .section { padding: 5.5rem 0; border-top: 1px solid var(--line); }
+    .section-heading { margin-bottom: 1.75rem; }
+    h2 { max-width: 760px; font-family: var(--body); font-size: clamp(2rem, 4.5vw, 3.75rem); font-weight: 800; letter-spacing: -.045em; text-transform: none; }
+    h3 { font-size: 1.15rem; }
+    .section-intro { color: var(--muted); font-size: 1rem; }
+    .section-intro strong { color: var(--ink); }
+    .feature-grid { gap: 1rem; border: 0; background: transparent; }
+    .feature, .feature:nth-child(2), .feature:nth-child(3) { min-height: 220px; padding: 1.5rem; border: 1px solid var(--line); border-radius: .9rem; background: var(--panel); }
+    .feature-index { margin-bottom: 2.5rem; color: var(--violet); font-family: var(--body); font-size: .75rem; font-weight: 800; }
+    .feature p { color: var(--muted); font-size: .94rem; }
+    .terminal { border: 1px solid var(--line); border-radius: .9rem; background: #1f293b; box-shadow: none; }
+    .terminal-bar { border-bottom-color: rgba(255,255,255,.12); color: #c5cedd; }
+    .terminal-body { color: #dce3ee; }
+    .terminal-body .prompt { color: #b8d86a; }
+    .terminal-body .value { color: #9dd9e8; }
+    .rule-list { gap: .75rem; margin-top: .75rem; border: 0; background: transparent; }
+    .rule-list li { padding: 1rem; border: 1px solid var(--line); border-radius: .75rem; background: #fff; }
+    .rule-list strong { color: var(--ink); }
+    .rule-list span { color: var(--faint); font-family: var(--body); font-size: .78rem; }
+    .shot { border: 1px solid var(--line); border-radius: .9rem; background: #fff; }
+    .shot img { border-radius: .85rem .85rem 0 0; }
+    .shot figcaption { color: var(--muted); font-family: var(--body); font-size: .78rem; text-transform: none; }
+    .how-layout { grid-template-columns: .95fr 1.05fr; gap: clamp(2.5rem, 6vw, 5rem); }
+    .how-copy { display: flex; align-self: stretch; flex-direction: column; justify-content: center; }
+    .how-copy .section-intro { margin-bottom: 0; }
+    .how-demo { display: grid; align-content: center; gap: 1rem; }
+    .demo-result { display: flex; align-items: center; gap: .75rem; padding: 1rem 1.1rem; border: 1px solid #d9d1ff; border-radius: .9rem; background: var(--violet-soft); }
+    .demo-result-icon { display: grid; flex: 0 0 auto; width: 1.75rem; height: 1.75rem; place-items: center; border-radius: 50%; background: var(--violet); color: #fff; font-weight: 800; }
+    .demo-result strong { display: block; color: var(--ink); font-size: .9rem; }
+    .demo-result p { margin: .1rem 0 0; color: var(--muted); font-size: .82rem; }
+    .demo-swatch { flex: 0 0 auto; width: 2rem; height: 2rem; margin-left: auto; border-radius: 50%; background: #9d72ff; box-shadow: inset 0 0 0 .35rem #fff; }
+    .funnel-visual { padding: 1.25rem 1.25rem 1.5rem; border: 1px solid #d9d1ff; border-radius: 1rem; background: linear-gradient(180deg, #f1edff 0%, #fff 100%); }
+    .funnel-header { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: .1rem .2rem .85rem; border-bottom: 1px solid #ddd6f7; }
+    .funnel-header strong { font-size: .9rem; }
+    .funnel-header span { color: var(--violet); font-size: .76rem; font-weight: 700; }
+    .funnel { display: grid; gap: .75rem; margin: 1.25rem 0 0; padding: 0; list-style: none; }
+    .funnel-step { position: relative; display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto; gap: .75rem; align-items: center; min-height: 4.4rem; margin-inline: auto; padding: .8rem 1rem; border: 1px solid var(--line); border-radius: .85rem; background: #fff; }
+    .funnel-step:nth-child(1) { width: 100%; border-color: #c6b9ff; }
+    .funnel-step:nth-child(2) { width: 90%; }
+    .funnel-step:nth-child(3) { width: 82%; }
+    .funnel-step:nth-child(4) { width: 74%; border-color: #c6b9ff; }
+    .funnel-step:not(:last-child)::after { position: absolute; right: 50%; bottom: -1.15rem; z-index: 1; color: var(--violet); content: "↓"; font-size: 1.1rem; font-weight: 800; transform: translateX(50%); }
+    .funnel-number { color: var(--violet); font-size: .76rem; font-weight: 800; }
+    .funnel-step strong { display: block; color: var(--ink); font-size: .88rem; }
+    .funnel-step small { display: block; margin-top: .15rem; color: var(--muted); font-size: .76rem; }
+    .funnel-tag { color: var(--faint); font-size: .65rem; font-weight: 800; letter-spacing: .06em; }
+    .funnel-output { display: flex; align-items: center; gap: .75rem; margin: 1.6rem auto 0; padding: .85rem 1rem; border: 1px solid #c6b9ff; border-radius: .85rem; background: #fff; }
+    .funnel-output strong { display: block; color: var(--ink); font-size: .88rem; }
+    .funnel-output div span { display: block; margin-top: .1rem; color: var(--muted); font-size: .76rem; }
+    .faq { gap: .75rem; max-width: none; }
+    details { border: 1px solid var(--line); border-radius: .75rem; background: #fff; }
+    summary { padding: 1.1rem 1.2rem; }
+    summary::after { color: var(--violet); font-family: var(--body); }
+    details p { color: var(--muted); }
+    .cta { padding: clamp(1.5rem, 4vw, 3rem); border: 1px solid #d9d1ff; border-radius: 1rem; background: var(--violet-soft); box-shadow: none; }
+    .cta p { color: var(--muted); }
+    .footer { color: var(--faint); font-family: var(--body); font-size: .8rem; }
+    .footer a { color: var(--muted); }
+
+    @media (max-width: 900px) {
+      .how-layout { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 620px) {
+      .funnel-step { grid-template-columns: 1.75rem minmax(0, 1fr); }
+      .funnel-tag { display: none; }
+      .nav { align-items: center; flex-direction: row; gap: .65rem; }
+      .brand { gap: .45rem; }
+      .brand-name { font-size: 0; white-space: nowrap; }
+      .brand-name::after { content: "Aura"; font-size: .82rem; }
+      .nav-links { display: flex; flex-wrap: nowrap; gap: .6rem; width: auto; font-size: .7rem; white-space: nowrap; }
+      .nav-links li:last-child { display: none; }
+      .nav-links a { white-space: nowrap; }
+      .section-heading { display: block; }
+      .section-heading > a { display: inline-block; margin-top: .55rem; }
+      .hero { padding: 4rem 0 4.5rem; }
+      h1 { font-size: clamp(2.7rem, 13vw, 4.5rem); }
+      .hero-art { min-height: 300px; }
+      .orb { width: min(15rem, 65vw); }
+      .app-icon { width: 6.75rem; }
+      .status-card { width: 62%; }
+      .section { padding: 4rem 0; }
+    }
   </style>
 </head>
 <body>
-  <main>
-    <header class="hero">
-      <div>
-        <p>Aura · Open-source Android app</p>
-        <h1>Custom LED and notification light for POCO X8 Pro</h1>
-        <p class="lead">Customize the back RGB LED rings on the POCO X8 Pro running HyperOS. Choose a different color and animation for every app, contact or group notification.</p>
-        <a class="button" href="https://github.com/tgvdufuture/Aura/releases/latest">Download the latest APK</a>
-      </div>
-      <img src="https://raw.githubusercontent.com/tgvdufuture/Aura/main/icon.png" alt="Aura app icon">
-    </header>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <header class="site-header">
+    <div class="shell nav">
+      <a class="brand" href="./" aria-label="Aura home"><span class="brand-mark">A</span><span class="brand-name">Aura / LED control</span></a>
+      <nav aria-label="Main navigation">
+        <ul class="nav-links">
+          <li><a href="#features">Features</a></li>
+          <li><a href="#how-it-works">How it works</a></li>
+          <li><a href="#faq">FAQ</a></li>
+          <li><a href="https://github.com/tgvdufuture/Aura">GitHub ↗</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
 
-    <section>
-      <h2>Custom back LED effects for POCO</h2>
-      <p>If you are searching for a custom notification LED, RGB notification ring, rear light effect or per-app LED color on a POCO X8 Pro, Aura controls the phone's back light while the screen is off. It works locally and does not require root when used with Shizuku.</p>
-      <p>The POCO X8 Pro Max, also known as Redmi Turbo 5 Max, shares the same RGB ring hardware and has been confirmed working by users.</p>
-    </section>
+  <main id="main-content">
+    <div class="shell">
+      <section class="hero" aria-labelledby="hero-title">
+        <div>
+          <p class="eyebrow">Open-source Android app / v0.4.0</p>
+          <h1 id="hero-title">Custom LED <span>notifications</span> for POCO X8 Pro.</h1>
+          <p class="hero-copy">Custom RGB notification lights for the POCO X8 Pro. Give every app, contact and group its own color and animation on the back LED rings.</p>
+          <div class="actions">
+            <a class="button" href="https://github.com/tgvdufuture/Aura/releases/latest">Download latest APK</a>
+            <a class="button secondary" href="#how-it-works">Explore Aura ↓</a>
+          </div>
+        </div>
+        <div class="hero-art" role="img" aria-label="Aura LED ring visual">
+          <div class="orb" aria-hidden="true"></div>
+          <img class="app-icon" src="icon.png" alt="Aura app icon with a multicolor LED ring" width="512" height="512">
+          <div class="status-card">
+            <strong>Signal detected</strong>
+            <div class="status-line"><span class="status-dot"></span> Shizuku connected</div>
+            <div class="status-line"><span class="status-dot"></span> Ring driver ready</div>
+          </div>
+        </div>
+      </section>
 
-    <section>
-      <h2>Features</h2>
-      <div class="grid">
-        <article><h3>Per-app colors</h3><p>Assign a default RGB color to each enabled app.</p></article>
-        <article><h3>Per-sender rules</h3><p>Use different colors and animations for contacts and groups in messaging apps.</p></article>
-        <article><h3>Animations</h3><p>Choose breathing, flashing, rainbow or alert effects.</p></article>
-        <article><h3>No root required</h3><p>Use Shizuku and ADB-level privileges to drive the LED rings.</p></article>
-      </div>
-    </section>
+      <section class="section" id="features" aria-labelledby="features-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">01 / Make it yours</p>
+            <h2 id="features-title">A notification light with a personality.</h2>
+          </div>
+        </div>
+        <p class="section-intro">Aura controls the POCO X8 Pro's rear RGB light while the screen is off. It works locally and <strong>does not require root</strong> when used with Shizuku.</p>
+        <div class="feature-grid">
+          <article class="feature"><span class="feature-index">[ 001 ]</span><h3>Per-app colors</h3><p>Assign a default RGB color to each enabled app and identify what matters at a glance.</p></article>
+          <article class="feature"><span class="feature-index">[ 002 ]</span><h3>Per-sender rules</h3><p>Use different colors and animations for contacts and groups in messaging apps.</p></article>
+          <article class="feature"><span class="feature-index">[ 003 ]</span><h3>Animations</h3><p>Choose breathing, flashing, rainbow or alert effects for the right kind of signal.</p></article>
+          <article class="feature"><span class="feature-index">[ 004 ]</span><h3>No root required</h3><p>Use Shizuku and ADB-level privileges to drive the LED rings without a backend or telemetry.</p></article>
+        </div>
+      </section>
 
-    <section>
-      <h2>FAQ</h2>
-      <h3>Can I customize the LEDs on a POCO X8 Pro?</h3>
-      <p>Yes. Aura controls the back RGB LED rings and supports a color and animation for each app, contact or group notification.</p>
-      <h3>Does Aura support HyperOS?</h3>
-      <p>Yes. Aura is developed and tested for the POCO X8 Pro running HyperOS 3. Enable the phone's back light effects first, then disable HyperOS System LED in Aura to avoid double lighting.</p>
-      <h3>Quels sont les termes de recherche en français&nbsp;?</h3>
-      <p>Aura permet la LED personnalisée du POCO X8 Pro, la lumière arrière POCO, l'anneau LED de notification HyperOS et la couleur LED par application POCO.</p>
-    </section>
+      <section class="section" id="how-it-works" aria-labelledby="how-title">
+        <div class="split how-layout">
+          <div class="how-copy">
+            <div>
+              <p class="eyebrow">02 / Under the hood</p>
+              <h2 id="how-title">Simple rules.<br>Clear signals.</h2>
+              <p class="section-intro">Aura stays out of the way. Set your rules once, then let the ring tell you who is calling or messaging without waking the whole phone.</p>
+            </div>
+          </div>
+          <div class="how-demo">
+            <div class="funnel-visual" role="group" aria-label="How Aura resolves a notification">
+              <div class="funnel-header"><strong>Notification resolution</strong><span>contact → group → app</span></div>
+              <ol class="funnel">
+                <li class="funnel-step"><span class="funnel-number">01</span><div><strong>Notification arrives</strong><small>WhatsApp · Camille</small></div><span class="funnel-tag">INPUT</span></li>
+                <li class="funnel-step"><span class="funnel-number">02</span><div><strong>Contact rule</strong><small>Exact sender match</small></div><span class="funnel-tag">CHECK</span></li>
+                <li class="funnel-step"><span class="funnel-number">03</span><div><strong>Group rule</strong><small>Fallback for a shared group</small></div><span class="funnel-tag">CHECK</span></li>
+                <li class="funnel-step"><span class="funnel-number">04</span><div><strong>App rule</strong><small>Default when no specific rule exists</small></div><span class="funnel-tag">FALLBACK</span></li>
+              </ol>
+              <div class="funnel-output"><span class="demo-result-icon" aria-hidden="true">✓</span><div><strong>LED command ready</strong><span>Rear ring lights for 10 seconds</span></div><span class="demo-swatch" aria-hidden="true"></span></div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-    <section>
-      <h2>Install and source code</h2>
-      <p>Read the complete setup guide, build instructions and troubleshooting steps in the <a href="https://github.com/tgvdufuture/Aura#readme">GitHub README</a>. Aura is released under the <a href="https://github.com/tgvdufuture/Aura/blob/main/LICENSE">MIT license</a>.</p>
-    </section>
+      <section class="section" aria-labelledby="preview-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">03 / In the app</p>
+            <h2 id="preview-title">Tune every detail.</h2>
+          </div>
+          <a href="https://github.com/tgvdufuture/Aura#readme">Read the setup guide ↗</a>
+        </div>
+        <div class="screenshots">
+          <figure class="shot"><img src="https://raw.githubusercontent.com/tgvdufuture/Aura/main/screenshots/main.png" alt="Aura main screen showing app LED color rules" width="1080" height="2340" loading="lazy"><figcaption>01 / App rules + live LED preview</figcaption></figure>
+          <figure class="shot"><img src="https://raw.githubusercontent.com/tgvdufuture/Aura/main/screenshots/settings.png" alt="Aura settings screen showing Shizuku and LED options" width="1080" height="2340" loading="lazy"><figcaption>02 / Shizuku + HyperOS settings</figcaption></figure>
+        </div>
+      </section>
 
-    <footer><a href="https://github.com/tgvdufuture/Aura">View Aura on GitHub</a> · POCO X8 Pro · HyperOS · RGB LED · Shizuku</footer>
+      <section class="section" id="faq" aria-labelledby="faq-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">04 / Questions</p>
+            <h2 id="faq-title">Before you light it up.</h2>
+          </div>
+        </div>
+        <div class="faq">
+          <details open><summary>Can I customize the LEDs on a POCO X8 Pro?</summary><p>Yes. Aura controls the back RGB LED rings and supports a color and animation for each app, contact or group notification.</p></details>
+          <details><summary>Does Aura support HyperOS?</summary><p>Yes. Aura is developed and tested for the POCO X8 Pro running HyperOS 3. Enable the phone's back light effects first, then disable HyperOS System LED in Aura to avoid double lighting.</p></details>
+          <details><summary>Does Aura need root?</summary><p>No. The validated setup uses Shizuku with ADB-level privileges. An experimental root fallback is also included.</p></details>
+          <details><summary>Is the POCO X8 Pro Max supported?</summary><p>The POCO X8 Pro Max, also known as Redmi Turbo 5 Max, shares the same RGB ring hardware and has been confirmed working by users. Other POCO models are not guaranteed.</p></details>
+          <details><summary>Quels sont les termes de recherche en français&nbsp;?</summary><p>Aura permet la LED personnalisée du POCO X8 Pro, la lumière arrière POCO, l'anneau LED de notification HyperOS et la couleur LED par application POCO.</p></details>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="download-title">
+        <div class="cta">
+          <div><p class="eyebrow">Ready when you are</p><h2 id="download-title">Make the back of your phone speak.</h2><p>Download Aura, enable the back light effects in HyperOS and start building your own notification language.</p></div>
+          <a class="button" href="https://github.com/tgvdufuture/Aura/releases/latest">Get Aura ↗</a>
+        </div>
+      </section>
+    </div>
   </main>
+
+  <footer class="footer">
+    <div class="shell footer-row">
+      <span>Aura / Custom LED for POCO X8 Pro</span>
+      <span><a href="https://github.com/tgvdufuture/Aura">GitHub</a> · <a href="https://github.com/tgvdufuture/Aura/blob/main/LICENSE">MIT license</a> · HyperOS · Shizuku</span>
+    </div>
+  </footer>
 </body>
 </html>
