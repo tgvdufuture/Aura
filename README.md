@@ -1,8 +1,12 @@
-# Aura — Custom notification LED for POCO X8 Pro (HyperOS)
+# Aura — Custom LED and notification light for POCO X8 Pro (HyperOS)
 
 [![Build](https://github.com/tgvdufuture/Aura/actions/workflows/build.yml/badge.svg)](https://github.com/tgvdufuture/Aura/actions/workflows/build.yml)
 
-Open-source Android app that drives the **RGB LED rings** on the back of the **POCO X8 Pro** (Xiaomi / **HyperOS 3**) to show a different **color** and **animation** per **app**, per **contact** and per **group** — **while the screen is off**. It replaces HyperOS's default notification LED, which is limited to a single global color with no sender distinction.
+Aura is an open-source Android app for **custom LEDs on the POCO X8 Pro**. It drives the **RGB LED rings** on the back of the phone (Xiaomi / **HyperOS 3**) and shows a different **color** and **animation** per **app**, per **contact** and per **group** — **while the screen is off**. It replaces HyperOS's default notification light, which is limited to a single global color with no sender distinction.
+
+If you are looking for a **custom notification LED**, **RGB notification ring**, **back LED effect** or a way to customize the **rear lights on a POCO X8 Pro**, Aura provides per-app and per-sender rules without root. The **POCO X8 Pro Max** (also known as **Redmi Turbo 5 Max**) is supported by the same LED hardware and has been confirmed working by users.
+
+En français : Aura permet de personnaliser la **LED arrière**, la **lumière de notification** et les **anneaux RGB** du POCO X8 Pro sous HyperOS, avec une couleur différente pour chaque application, contact ou groupe.
 
 > Notification LED · RGB LED · light ring · POCO X8 Pro · Xiaomi · HyperOS · Shizuku · Android · custom notification LED · RGB notification ring — **no root required**.
 
@@ -129,6 +133,28 @@ HyperOS lights the ring itself too. In **Settings**, disable **"System LED"** so
 - **`notification/FullNotificationReader`**: when Android hides notification content on the lock screen, the listener only receives a redacted version (empty title/text). Aura then recovers the full content via `dumpsys notification --noredact` (run through Shizuku or root) so contact/group rules — and their animations — keep working while the screen is off.
 - **`data/`**: local persistence of rules and settings with **Room**.
 - **`ui/`**: **Jetpack Compose** UI.
+
+## Frequently asked questions
+
+### Can I customize the LEDs on a POCO X8 Pro?
+
+Yes. Aura customizes the back RGB LED rings of the POCO X8 Pro and can assign a color and animation to each app, contact or group notification.
+
+### Does Aura need root?
+
+No. The validated setup uses Shizuku with ADB-level privileges. An experimental root fallback is also included.
+
+### Does it work on the POCO X8 Pro Max or Redmi Turbo 5 Max?
+
+The POCO X8 Pro Max, also called Redmi Turbo 5 Max, shares the same RGB ring hardware and has been confirmed working by users. Other POCO models are not guaranteed.
+
+### Which HyperOS notification light settings should I use?
+
+Enable the phone's back light effects first, then disable HyperOS's System LED in Aura so that only Aura controls the notification ring and double lighting is avoided.
+
+### Recherches en français
+
+Les termes **LED personnalisée POCO X8 Pro**, **lumière arrière POCO**, **anneau LED de notification HyperOS** et **couleur LED par application POCO** décrivent le même usage pris en charge par Aura.
 
 ## Tech stack
 

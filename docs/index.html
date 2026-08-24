@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aura: Custom LED and notification light for POCO X8 Pro</title>
+  <meta name="description" content="Aura customizes the POCO X8 Pro back RGB LED rings on HyperOS with per-app, per-contact and per-group notification colors and animations. No root required with Shizuku.">
+  <link rel="canonical" href="https://tgvdufuture.github.io/Aura/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Aura — Custom LED for POCO X8 Pro">
+  <meta property="og:description" content="Custom RGB notification lights and back LED effects for POCO X8 Pro and POCO X8 Pro Max / Redmi Turbo 5 Max.">
+  <meta property="og:url" content="https://tgvdufuture.github.io/Aura/">
+  <meta property="og:image" content="https://raw.githubusercontent.com/tgvdufuture/Aura/main/icon.png">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Aura — Custom LED for POCO X8 Pro">
+  <meta name="twitter:description" content="Per-app and per-sender RGB notification LED colors and animations for HyperOS.">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Aura",
+    "alternateName": "Aura Custom Notification LED",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "Android 16, HyperOS 3",
+    "description": "Custom RGB notification LED and back light effects for the POCO X8 Pro, with per-app, per-contact and per-group colors and animations.",
+    "url": "https://tgvdufuture.github.io/Aura/",
+    "downloadUrl": "https://github.com/tgvdufuture/Aura/releases/latest",
+    "softwareVersion": "0.4.0",
+    "license": "https://github.com/tgvdufuture/Aura/blob/main/LICENSE",
+    "codeRepository": "https://github.com/tgvdufuture/Aura",
+    "featureList": [
+      "Custom RGB LED colors per app",
+      "Notification LED colors per contact and group",
+      "Back LED animations on POCO X8 Pro",
+      "Shizuku support without root"
+    ]
+  }
+  </script>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; line-height: 1.6; }
+    body { margin: 0; background: #101016; color: #f2f2f7; }
+    main { max-width: 860px; margin: 0 auto; padding: 3rem 1.25rem 5rem; }
+    a { color: #9cc7ff; }
+    .hero { display: grid; gap: 1.5rem; grid-template-columns: 1fr 180px; align-items: center; }
+    .hero img { width: 180px; height: 180px; border-radius: 28px; }
+    h1 { line-height: 1.15; font-size: clamp(2.2rem, 6vw, 4rem); margin: 0; }
+    h2 { margin-top: 2.5rem; }
+    .lead { color: #c9c9d4; font-size: 1.2rem; }
+    .button { display: inline-block; padding: .7rem 1rem; border-radius: .6rem; background: #6ea8fe; color: #101016; font-weight: 700; text-decoration: none; }
+    .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    article { padding: 1rem; border: 1px solid #30303d; border-radius: .8rem; background: #181820; }
+    footer { margin-top: 3rem; color: #a7a7b5; }
+    @media (max-width: 640px) { .hero { grid-template-columns: 1fr; } .hero img { width: 120px; height: 120px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="hero">
+      <div>
+        <p>Aura · Open-source Android app</p>
+        <h1>Custom LED and notification light for POCO X8 Pro</h1>
+        <p class="lead">Customize the back RGB LED rings on the POCO X8 Pro running HyperOS. Choose a different color and animation for every app, contact or group notification.</p>
+        <a class="button" href="https://github.com/tgvdufuture/Aura/releases/latest">Download the latest APK</a>
+      </div>
+      <img src="https://raw.githubusercontent.com/tgvdufuture/Aura/main/icon.png" alt="Aura app icon">
+    </header>
+
+    <section>
+      <h2>Custom back LED effects for POCO</h2>
+      <p>If you are searching for a custom notification LED, RGB notification ring, rear light effect or per-app LED color on a POCO X8 Pro, Aura controls the phone's back light while the screen is off. It works locally and does not require root when used with Shizuku.</p>
+      <p>The POCO X8 Pro Max, also known as Redmi Turbo 5 Max, shares the same RGB ring hardware and has been confirmed working by users.</p>
+    </section>
+
+    <section>
+      <h2>Features</h2>
+      <div class="grid">
+        <article><h3>Per-app colors</h3><p>Assign a default RGB color to each enabled app.</p></article>
+        <article><h3>Per-sender rules</h3><p>Use different colors and animations for contacts and groups in messaging apps.</p></article>
+        <article><h3>Animations</h3><p>Choose breathing, flashing, rainbow or alert effects.</p></article>
+        <article><h3>No root required</h3><p>Use Shizuku and ADB-level privileges to drive the LED rings.</p></article>
+      </div>
+    </section>
+
+    <section>
+      <h2>FAQ</h2>
+      <h3>Can I customize the LEDs on a POCO X8 Pro?</h3>
+      <p>Yes. Aura controls the back RGB LED rings and supports a color and animation for each app, contact or group notification.</p>
+      <h3>Does Aura support HyperOS?</h3>
+      <p>Yes. Aura is developed and tested for the POCO X8 Pro running HyperOS 3. Enable the phone's back light effects first, then disable HyperOS System LED in Aura to avoid double lighting.</p>
+      <h3>Quels sont les termes de recherche en français&nbsp;?</h3>
+      <p>Aura permet la LED personnalisée du POCO X8 Pro, la lumière arrière POCO, l'anneau LED de notification HyperOS et la couleur LED par application POCO.</p>
+    </section>
+
+    <section>
+      <h2>Install and source code</h2>
+      <p>Read the complete setup guide, build instructions and troubleshooting steps in the <a href="https://github.com/tgvdufuture/Aura#readme">GitHub README</a>. Aura is released under the <a href="https://github.com/tgvdufuture/Aura/blob/main/LICENSE">MIT license</a>.</p>
+    </section>
+
+    <footer><a href="https://github.com/tgvdufuture/Aura">View Aura on GitHub</a> · POCO X8 Pro · HyperOS · RGB LED · Shizuku</footer>
+  </main>
+</body>
+</html>
