@@ -15,8 +15,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,7 +25,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -61,25 +58,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.AndroidViewModel
@@ -96,10 +86,13 @@ import com.aura.led.data.SenderKind
 import com.aura.led.data.SenderRule
 import com.aura.led.data.SettingsKeys
 import com.aura.led.led.Animations
+import com.aura.led.led.ColorMapper
 import com.aura.led.led.ShizukuLEDController
 import com.aura.led.led.SystemLedManager
 import com.aura.led.notification.AuraNotificationListener
 import com.aura.led.notification.NotificationListenerState
+import com.aura.led.root.RootManager
+import com.aura.led.root.RootState
 import com.aura.led.service.AuraForegroundService
 import com.aura.led.shizuku.ShizukuManager
 import com.aura.led.shizuku.ShizukuState
@@ -129,6 +122,14 @@ private val ANIMATION_OPTIONS = listOf(
 // long duration (so the preview stays lit once the user stops dragging).
 private const val SETTLE_DEBOUNCE_MS = 300L
 
+private val MAIN_COLOR_SWATCHES = listOf(
+    "#ef3030", "#f65d32", "#ff8818", "#ffc21d",
+    "#acd21b", "#31b343", "#0e9951", "#47c7ad",
+    "#2bb6db", "#318be7", "#555fe0", "#855de0",
+    "#cf61d0", "#ef4e98", "#a9775b", "#8b6b5d",
+    "#aaa39e", "#8997a7", "#4d5660", "#000000",
+)
+
 @Composable
 fun AuraTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -157,6 +158,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val senderRules = repository.senderRules
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val shizuku = ShizukuManager.state
+    val root = RootManager.state
 
     /** Whether the notification listener is currently bound and receiving notifications. */
     val listenerConnected: StateFlow<Boolean> = NotificationListenerState.connected
@@ -368,6 +370,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private var lastPreviewFailureToast = 0L
 
     init {
+        viewModelScope.launch(Dispatchers.IO) {
+            RootManager.refresh()
+            refreshSystemLed()
+        }
         refreshSystemLed()
         refreshHealth()
         viewModelScope.launch(Dispatchers.IO) {
@@ -488,6 +494,7 @@ fun SettingsScreen(
     viewModel: MainViewModel = viewModel(),
 ) {
     val shizuku by viewModel.shizuku.collectAsState()
+    val root by viewModel.root.collectAsState()
     val systemLed by viewModel.systemLed.collectAsState()
     val health by viewModel.health.collectAsState()
     val ledSettings by viewModel.ledSettings.collectAsState()
@@ -517,7 +524,7 @@ fun SettingsScreen(
         ) {
             item { LanguageToggle(currentLanguage, onLanguageChange) }
             item { ThemeToggle(themeMode, onThemeChange) }
-            item { ShizukuCard(shizuku, onRequest = viewModel::requestShizuku, onTest = viewModel::testLed) }
+            item { ShizukuCard(shizuku, root, onRequest = viewModel::requestShizuku, onTest = viewModel::testLed) }
             item {
                 SystemLedCard(
                     state = systemLed,
@@ -543,8 +550,14 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun ShizukuCard(state: ShizukuState, onRequest: () -> Unit, onTest: () -> Unit) {
+private fun ShizukuCard(
+    state: ShizukuState,
+    root: RootState,
+    onRequest: () -> Unit,
+    onTest: () -> Unit,
+) {
     val (statusColor, statusTextRes) = when {
+        root.available && !state.hasPermission -> Color(0xFF2E7D32) to R.string.root_connected
         !state.alive -> Color(0xFFD32F2F) to R.string.shizuku_reactivate
         !state.hasPermission -> Color(0xFFF57C00) to R.string.shizuku_permission_required
         else -> Color(0xFF2E7D32) to R.string.shizuku_connected
@@ -560,7 +573,7 @@ private fun ShizukuCard(state: ShizukuState, onRequest: () -> Unit, onTest: () -
                 Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(statusColor))
                 Text(stringResource(statusTextRes), style = MaterialTheme.typography.bodyMedium)
             }
-            if (!state.alive) {
+            if (!state.alive && !root.available) {
                 Text(
                     stringResource(R.string.shizuku_help),
                     style = MaterialTheme.typography.bodySmall,
@@ -569,7 +582,7 @@ private fun ShizukuCard(state: ShizukuState, onRequest: () -> Unit, onTest: () -
             if (state.alive && !state.hasPermission) {
                 Button(onClick = onRequest) { Text(stringResource(R.string.shizuku_request_permission)) }
             }
-            if (state.hasPermission) {
+            if (state.hasPermission || root.available) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = onTest) { Text(stringResource(R.string.shizuku_test_led)) }
                 }
@@ -825,13 +838,24 @@ private fun ColorPickerDialog(
     onDismiss: () -> Unit,
     onPreview: (String) -> Unit,
 ) {
-    val initialHsv = remember(initialColor) { hexToHsv(initialColor) }
+    val initialHsv = remember(initialColor) { hexToHsvOrWhite(initialColor) }
     var hue by remember { mutableFloatStateOf(initialHsv[0]) }
     var saturation by remember { mutableFloatStateOf(initialHsv[1]) }
     var value by remember { mutableFloatStateOf(initialHsv[2]) }
+    var hexText by remember(initialColor) { mutableStateOf(hsvToHex(initialHsv)) }
+    var expandedBase by remember { mutableStateOf<String?>(null) }
 
-    val currentColor = Color.hsv(hue, saturation, value)
+    val currentColor = safeHsvColor(hue, saturation, value)
     val currentHex = remember(hue, saturation, value) { hsvToHex(floatArrayOf(hue, saturation, value)) }
+    val isHexValid = ColorMapper.hexToInt(hexText.trim()) != null
+
+    fun selectHex(hex: String) {
+        val selectedHsv = hexToHsvOrWhite(hex)
+        hue = selectedHsv[0]
+        saturation = selectedHsv[1]
+        value = selectedHsv[2]
+        hexText = hex
+    }
 
     // Live LED preview: fire on every color change, in real time, with no debounce.
     LaunchedEffect(hue, saturation, value) {
@@ -843,23 +867,19 @@ private fun ColorPickerDialog(
         title = { Text(stringResource(R.string.custom_color)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                SaturationValueBox(hue, saturation, value) { s, v ->
-                    saturation = s
-                    value = v
-                }
-                HueBar(hue) { hue = it }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Box(
                         Modifier
-                            .size(48.dp)
-                            .clip(RoundedCornerShape(8.dp))
+                            .size(56.dp)
+                            .clip(RoundedCornerShape(10.dp))
                             .background(currentColor)
-                            .border(1.dp, Color.Gray, RoundedCornerShape(8.dp)),
+                            .border(1.dp, Color.Gray, RoundedCornerShape(10.dp)),
                     )
                     Column {
+                        Text(stringResource(R.string.selected_color), style = MaterialTheme.typography.bodySmall)
                         Text(currentHex, style = MaterialTheme.typography.titleMedium)
                         Text(
                             stringResource(
@@ -872,10 +892,41 @@ private fun ColorPickerDialog(
                         )
                     }
                 }
+                Text(stringResource(R.string.main_colors), style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.color_variants_hint), style = MaterialTheme.typography.bodySmall)
+                ColorPalette(
+                    selected = currentHex,
+                    expandedBase = expandedBase,
+                    onMainColorClick = { base ->
+                        expandedBase = base
+                        selectHex(base)
+                    },
+                    onVariantClick = ::selectHex,
+                )
+                OutlinedTextField(
+                    value = hexText,
+                    onValueChange = { typed ->
+                        hexText = typed
+                        val normalized = typed.trim().lowercase()
+                        if (ColorMapper.hexToInt(normalized) != null) selectHex(normalized)
+                    },
+                    label = { Text(stringResource(R.string.hex_color)) },
+                    supportingText = {
+                        if (hexText.isNotEmpty() && !isHexValid) {
+                            Text(stringResource(R.string.hex_color_error))
+                        }
+                    },
+                    isError = hexText.isNotEmpty() && !isHexValid,
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(currentHex) }) { Text(stringResource(R.string.ok)) }
+            TextButton(
+                onClick = { onConfirm(currentHex) },
+                enabled = isHexValid,
+            ) { Text(stringResource(R.string.ok)) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
@@ -883,117 +934,138 @@ private fun ColorPickerDialog(
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SaturationValueBox(
-    hue: Float,
-    saturation: Float,
-    value: Float,
-    onChange: (saturation: Float, value: Float) -> Unit,
+private fun ColorPalette(
+    selected: String,
+    expandedBase: String?,
+    onMainColorClick: (String) -> Unit,
+    onVariantClick: (String) -> Unit,
 ) {
-    val sizeState = remember { mutableStateOf(IntSize.Zero) }
-    val currentOnChange = rememberUpdatedState(onChange)
-    val density = LocalDensity.current
-    val indicatorColor = Color.hsv(hue, saturation, value)
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(220.dp)
-            .onSizeChanged { sizeState.value = it }
-            .clip(RoundedCornerShape(10.dp))
-            .background(Brush.horizontalGradient(listOf(Color.White, Color.hsv(hue, 1f, 1f))))
-            .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black)))
-            .pointerInput(Unit) {
-                detectTapGestures { offset ->
-                    val sz = sizeState.value
-                    if (sz.width > 0 && sz.height > 0) {
-                        currentOnChange.value(
-                            (offset.x / sz.width).coerceIn(0f, 1f),
-                            1f - (offset.y / sz.height).coerceIn(0f, 1f),
-                        )
-                    }
-                }
-            }
-            .pointerInput(Unit) {
-                detectDragGestures { change, _ ->
-                    val sz = sizeState.value
-                    if (sz.width > 0 && sz.height > 0) {
-                        currentOnChange.value(
-                            (change.position.x / sz.width).coerceIn(0f, 1f),
-                            1f - (change.position.y / sz.height).coerceIn(0f, 1f),
-                        )
-                    }
-                }
-            },
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        maxItemsInEachRow = 6,
     ) {
-        val radiusPx = with(density) { 12.dp.toPx() }
-        Box(
-            modifier = Modifier
-                .offset {
-                    IntOffset(
-                        (saturation * sizeState.value.width - radiusPx).toInt(),
-                        ((1f - value) * sizeState.value.height - radiusPx).toInt(),
-                    )
-                }
-                .size(24.dp)
-                .clip(CircleShape)
-                .background(indicatorColor)
-                .border(2.dp, Color.White, CircleShape),
-        )
+        MAIN_COLOR_SWATCHES.forEach { hex ->
+            ColorSwatch(
+                hex = hex,
+                selected = hex.equals(selected, ignoreCase = true),
+                highlighted = hex.equals(expandedBase, ignoreCase = true),
+                onClick = { onMainColorClick(hex) },
+            )
+        }
+    }
+    if (expandedBase != null) {
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(stringResource(R.string.color_variants), style = MaterialTheme.typography.bodyMedium)
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            maxItemsInEachRow = 6,
+        ) {
+            colorVariantsFor(expandedBase).forEach { hex ->
+                ColorSwatch(
+                    hex = hex,
+                    selected = hex.equals(selected, ignoreCase = true),
+                    onClick = { onVariantClick(hex) },
+                )
+            }
+        }
     }
 }
 
 @Composable
-private fun HueBar(hue: Float, onChange: (Float) -> Unit) {
-    val widthState = remember { mutableStateOf(0) }
-    val currentOnChange = rememberUpdatedState(onChange)
-    val density = LocalDensity.current
-    val rainbow = listOf(
-        Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red,
-    )
-
+private fun ColorSwatch(
+    hex: String,
+    selected: Boolean,
+    highlighted: Boolean = false,
+    onClick: () -> Unit,
+) {
     Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(28.dp)
-            .onSizeChanged { widthState.value = it.width }
-            .clip(RoundedCornerShape(14.dp))
-            .background(Brush.horizontalGradient(rainbow))
-            .pointerInput(Unit) {
-                detectTapGestures { offset ->
-                    val w = widthState.value
-                    if (w > 0) currentOnChange.value((offset.x / w).coerceIn(0f, 1f) * 360f)
-                }
-            }
-            .pointerInput(Unit) {
-                detectDragGestures { change, _ ->
-                    val w = widthState.value
-                    if (w > 0) currentOnChange.value((change.position.x / w).coerceIn(0f, 1f) * 360f)
-                }
-            },
+            .size(40.dp)
+            .clip(RoundedCornerShape(7.dp))
+            .background(Color(android.graphics.Color.parseColor(hex)))
+            .border(
+                width = when {
+                    selected -> 3.dp
+                    highlighted -> 2.dp
+                    else -> 1.dp
+                },
+                color = when {
+                    selected -> MaterialTheme.colorScheme.onSurface
+                    highlighted -> MaterialTheme.colorScheme.primary
+                    else -> MaterialTheme.colorScheme.outline
+                },
+                shape = RoundedCornerShape(7.dp),
+            )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
     ) {
-        val radiusPx = with(density) { 14.dp.toPx() }
-        Box(
-            modifier = Modifier
-                .offset { IntOffset((hue / 360f * widthState.value - radiusPx).toInt(), 0) }
-                .size(28.dp)
-                .clip(CircleShape)
-                .background(Color.White)
-                .border(2.dp, Color.Black, CircleShape),
-        )
+        if (selected) {
+            Text(
+                "✓",
+                color = swatchCheckColor(hex),
+                style = MaterialTheme.typography.titleMedium,
+            )
+        }
     }
 }
 
-private fun hexToHsv(hex: String): FloatArray {
+private fun swatchCheckColor(hex: String): Color {
     val color = android.graphics.Color.parseColor(hex)
+    val luminance = (
+        0.299 * android.graphics.Color.red(color) +
+            0.587 * android.graphics.Color.green(color) +
+            0.114 * android.graphics.Color.blue(color)
+        ) / 255.0
+    return if (luminance > 0.62) Color.Black else Color.White
+}
+
+private fun colorVariantsFor(baseHex: String): List<String> {
+    val hsv = hexToHsvOrWhite(baseHex)
+    if (hsv[1] < 0.05f) {
+        return listOf(1f, 0.9f, 0.75f, 0.6f, 0.45f, 0.3f, 0.15f, 0f)
+            .map { value -> hsvToHex(floatArrayOf(0f, 0f, value)) }
+    }
+    return listOf(
+        0.25f to 1f,
+        0.5f to 1f,
+        0.75f to 1f,
+        1f to 1f,
+        0.85f to 0.8f,
+        1f to 0.55f,
+        1f to 0.35f,
+    ).map { (saturation, value) ->
+        hsvToHex(floatArrayOf(hsv[0], saturation, value))
+    }
+}
+
+private fun hexToHsvOrWhite(hex: String): FloatArray {
+    val color = runCatching { android.graphics.Color.parseColor(hex) }
+        .getOrDefault(android.graphics.Color.WHITE)
     val hsv = FloatArray(3)
     android.graphics.Color.colorToHSV(color, hsv)
-    return hsv
+    return safeHsv(hsv)
 }
 
 private fun hsvToHex(hsv: FloatArray): String {
-    val rgb = android.graphics.Color.HSVToColor(hsv) and 0xFFFFFF
+    val rgb = android.graphics.Color.HSVToColor(safeHsv(hsv)) and 0xFFFFFF
     return "#" + rgb.toString(16).padStart(6, '0')
+}
+
+private fun safeHsv(hsv: FloatArray): FloatArray = floatArrayOf(
+    hsv.getOrNull(0)?.takeIf { it.isFinite() }?.coerceIn(0f, 359.999f) ?: 0f,
+    hsv.getOrNull(1)?.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 0f,
+    hsv.getOrNull(2)?.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 1f,
+)
+
+private fun safeHsvColor(hue: Float, saturation: Float, value: Float): Color {
+    val hsv = safeHsv(floatArrayOf(hue, saturation, value))
+    return Color.hsv(hsv[0], hsv[1], hsv[2])
 }
 
 @OptIn(ExperimentalLayoutApi::class)

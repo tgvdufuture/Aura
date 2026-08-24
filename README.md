@@ -7,7 +7,7 @@ Open-source Android app that drives the **RGB LED rings** on the back of the **P
 > Notification LED · RGB LED · light ring · POCO X8 Pro · Xiaomi · HyperOS · Shizuku · Android · custom notification LED · RGB notification ring — **no root required**.
 
 - 100% local: no network permission, no backend, no telemetry.
-- No root: hardware control via **Shizuku** (ADB privileges).
+- Hardware control via **Shizuku** (ADB privileges) or, for rooted devices, directly through `su`.
 - Resolution priority: **contact > group > app**.
 
 ## Features
@@ -40,7 +40,7 @@ Get the latest signed APK from the [releases page](https://github.com/tgvdufutur
 
 ### Hardware / system
 - **POCO X8 Pro** running **HyperOS 3** (Android 16). This is the only device it has been developed and tested on. The **POCO X8 Pro Max** (a.k.a. Redmi Turbo 5 Max) shares the same RGB ring hardware and HyperOS version, and has been **confirmed working** by users.
-- **Shizuku** installed and enabled (see below).
+- **Shizuku** installed and enabled (see below), unless the device has working root access. Root fallback is experimental.
 
 ### Build environment
 - JDK **17**
@@ -80,9 +80,15 @@ Aura needs a few one-time permissions to take control of the ring. Do these in o
 1. Download the latest `app-release.apk` from the [releases page](https://github.com/tgvdufuture/Aura/releases/latest).
 2. Open the APK and allow the install when your browser / file manager asks ("Install unknown apps").
 
-### 2. Set up Shizuku
+### 2. Set up Shizuku or root
 
-Aura drives the LED through **Shizuku** (no root — it only needs ADB-level privileges).
+Aura drives the LED through **Shizuku** or a root shell. Root users do not need Shizuku; Aura detects root automatically and shows it in Settings.
+
+> **Root support status — not tested:** the root fallback (`su`) is implemented but has not yet been tested on a physically rooted phone. The development phone used for this release has no `su`, so Shizuku is the only validated privilege path. If you test root, grant Aura permanent access in Magisk/KernelSU/APatch and use **Test the LED** first.
+
+**Root:** grant Aura permanent root access in Magisk/KernelSU/APatch, then continue with step 3.
+
+**Shizuku:**
 
 1. Install **Shizuku** from the [Play Store](https://play.google.com/store/apps/details?id=moe.shizuku.privileged.api) or [shizuku.rikka.app](https://shizuku.rikka.app/).
 2. Start it, one of two ways:
@@ -95,7 +101,7 @@ Aura drives the LED through **Shizuku** (no root — it only needs ADB-level pri
 Open **Aura**, pick your language, then open **Settings**:
 
 1. **Notification access** — in **Settings → Robustness**, the **notification listener** row shows its status; tap it to open the system screen and enable Aura.
-2. **Shizuku permission** — tap **"Request authorization"**, then **"Test the LED (red)"** to confirm the ring lights up.
+2. **Privilege access** — with Shizuku, tap **"Request authorization"**; with root, grant Aura access in your root manager. Then tap **"Test the LED (red)"** to confirm the ring lights up.
 
 ### 4. Let it survive HyperOS (important)
 
@@ -119,8 +125,8 @@ HyperOS lights the ring itself too. In **Settings**, disable **"System LED"** so
 
 - **`notification/AuraNotificationListener`**: detects notifications (`NotificationListenerService`) and only emits a LED command while the device is not actively used (screen off or locked).
 - **`engine/RuleEngine`**: resolves the rule according to the contact → group → app priority.
-- **`led/ShizukuLEDController`**: drives the rings via the `miui.lights.ILightsManager` system service (`setCustomLight`), called through Shizuku (allowed shell UID). The color is arbitrary (RGB) and the LED turns off automatically after the timeout.
-- **`notification/FullNotificationReader`**: when Android hides notification content on the lock screen, the listener only receives a redacted version (empty title/text). Aura then recovers the full content via `dumpsys notification --noredact` (run through Shizuku) so contact/group rules — and their animations — keep working while the screen is off.
+- **`led/ShizukuLEDController`**: drives the rings via the `miui.lights.ILightsManager` system service (`setCustomLight`), using Shizuku when authorized or `su` on rooted devices. The color is arbitrary (RGB) and the LED turns off automatically after the timeout.
+- **`notification/FullNotificationReader`**: when Android hides notification content on the lock screen, the listener only receives a redacted version (empty title/text). Aura then recovers the full content via `dumpsys notification --noredact` (run through Shizuku or root) so contact/group rules — and their animations — keep working while the screen is off.
 - **`data/`**: local persistence of rules and settings with **Room**.
 - **`ui/`**: **Jetpack Compose** UI.
 

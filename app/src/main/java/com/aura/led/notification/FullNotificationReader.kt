@@ -5,6 +5,7 @@ import android.os.ParcelFileDescriptor
 import android.util.Log
 import moe.shizuku.server.IShizukuService
 import rikka.shizuku.Shizuku
+import com.aura.led.root.RootManager
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 
@@ -17,7 +18,8 @@ import java.util.concurrent.TimeUnit
  * notification's *public* version with EXTRA_TITLE/EXTRA_TEXT stripped, so
  * contact/group rules can't be resolved and only the static app color is emitted.
  * Since the LED itself is already driven through Shizuku (shell UID), we read the
- * real content the same way: `dumpsys notification --noredact`.
+     * real content the same way: `dumpsys notification --noredact`. Root is used as a fallback
+     * when Shizuku is not available.
  */
 object FullNotificationReader {
 
@@ -28,8 +30,9 @@ object FullNotificationReader {
 
     /** Reads the most recent notification content for [pkg], or null if unavailable. */
     fun readLatest(pkg: String): Content? {
-        if (!Shizuku.pingBinder()) return null
-        if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) return null
+        if (!hasShizukuAccess()) {
+            return readViaRoot(pkg)
+        }
         return runCatching {
             val service = IShizukuService.Stub.asInterface(Shizuku.getBinder())
             val proc = service.newProcess(
@@ -57,6 +60,22 @@ object FullNotificationReader {
             }
         }.onFailure { Log.w(TAG, "readLatest failed", it) }.getOrNull()
     }
+
+    private fun readViaRoot(pkg: String): Content? {
+        if (!RootManager.isAvailable()) return null
+        return RootManager.run("dumpsys notification --noredact", DUMPSYS_TIMEOUT_MS)
+            .getOrNull()
+            ?.takeIf { it.exitCode == 0 }
+            ?.let { result ->
+                parse(result.stdout, pkg).also {
+                    Log.d(TAG, "readLatest via root pkg=$pkg title='${it?.title}' text='${it?.text?.take(80)}'")
+                }
+            }
+    }
+
+    private fun hasShizukuAccess(): Boolean = runCatching {
+        Shizuku.pingBinder() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
+    }.getOrDefault(false)
 
     internal fun parse(dump: String, pkg: String): Content? {
         var currentPkg: String? = null

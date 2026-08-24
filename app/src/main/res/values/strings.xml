@@ -30,12 +30,13 @@
     <string name="shizuku_help">Open the Shizuku app → “Start via computer connection” → “Show command”, then run it from the PC.</string>
     <string name="shizuku_request_permission">Request authorization</string>
     <string name="shizuku_test_led">Test the LED (red)</string>
+    <string name="root_connected">Root access detected — Shizuku is not required</string>
     <string name="led_preview">Preview LED</string>
-    <string name="led_preview_failed">Couldn\'t light the LED — is Shizuku active and authorized?</string>
+    <string name="led_preview_failed">Couldn\'t light the LED — is Shizuku active or is root access available?</string>
 
     <!-- System LED -->
     <string name="system_led">System LED</string>
-    <string name="system_led_shizuku_required">Shizuku is required to disable the HyperOS notification LED.</string>
+    <string name="system_led_shizuku_required">Shizuku or root access is required to disable the HyperOS notification LED.</string>
     <string name="system_led_disable">Disable the HyperOS LED</string>
     <string name="system_led_disabled">System LED disabled ✓</string>
     <string name="system_led_active">System LED active (double lighting possible)</string>
@@ -76,6 +77,12 @@
 
     <!-- Color picker -->
     <string name="custom_color">Custom color</string>
+    <string name="main_colors">Basic colors</string>
+    <string name="color_variants">Variants</string>
+    <string name="selected_color">Selected color</string>
+    <string name="color_variants_hint">Tap a color to see its variants</string>
+    <string name="hex_color">HEX color (#RRGGBB)</string>
+    <string name="hex_color_error">Enter a valid color such as #12AB34</string>
     <string name="ok">OK</string>
     <string name="cancel">Cancel</string>
     <string name="hsv_label">H %1$d° · S %2$d%% · V %3$d%%</string>

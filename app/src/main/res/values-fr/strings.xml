@@ -26,11 +26,12 @@
     <string name="shizuku_help">Ouvre l\'app Shizuku → « Démarrer par connexion à un ordinateur » → « Voir la commande », puis exécute-la depuis le PC.</string>
     <string name="shizuku_request_permission">Demander l\'autorisation</string>
     <string name="shizuku_test_led">Tester la LED (rouge)</string>
+    <string name="root_connected">Accès root détecté — Shizuku n’est pas requis</string>
     <string name="led_preview">Aperçu LED</string>
-    <string name="led_preview_failed">Impossible d\'allumer la LED — Shizuku actif et autorisé ?</string>
+    <string name="led_preview_failed">Impossible d\'allumer la LED — Shizuku actif ou accès root disponible ?</string>
 
     <string name="system_led">LED système</string>
-    <string name="system_led_shizuku_required">Shizuku est requis pour désactiver la LED de notification d\'HyperOS.</string>
+    <string name="system_led_shizuku_required">Shizuku ou l\'accès root est requis pour désactiver la LED de notification d\'HyperOS.</string>
     <string name="system_led_disable">Désactiver la LED HyperOS</string>
     <string name="system_led_disabled">LED système désactivée ✓</string>
     <string name="system_led_active">LED système active (double allumage possible)</string>
@@ -67,6 +68,12 @@
     <string name="animation_alert">Alerte</string>
 
     <string name="custom_color">Couleur personnalisée</string>
+    <string name="main_colors">Couleurs principales</string>
+    <string name="color_variants">Variantes</string>
+    <string name="selected_color">Couleur sélectionnée</string>
+    <string name="color_variants_hint">Touchez une couleur pour voir ses variantes</string>
+    <string name="hex_color">Couleur HEX (#RRGGBB)</string>
+    <string name="hex_color_error">Entrez une couleur valide, par exemple #12AB34</string>
     <string name="ok">OK</string>
     <string name="cancel">Annuler</string>
     <string name="hsv_label">T %1$d° · S %2$d%% · L %3$d%%</string>

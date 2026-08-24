@@ -8,6 +8,10 @@ import android.util.Log
 import com.aura.led.data.AppDatabase
 import com.aura.led.data.RuleRepository
 import com.aura.led.notification.AuraNotificationListener
+import com.aura.led.root.RootManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class AuraApp : Application() {
     val repository: RuleRepository by lazy {
@@ -21,6 +25,7 @@ class AuraApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        CoroutineScope(Dispatchers.IO).launch { RootManager.refresh() }
         // Best-effort rebind safety net. The listener auto-binds through the system
         // whenever access is granted, but HyperOS can leave it unbound after a process
         // kill or reboot; requesting a rebind on startup reconnects it without opening

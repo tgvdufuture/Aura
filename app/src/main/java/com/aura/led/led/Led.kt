@@ -1,6 +1,5 @@
 package com.aura.led.led
 
-import android.content.pm.PackageManager
 import android.os.IBinder
 import android.os.Parcel
 import android.util.Log
@@ -14,6 +13,7 @@ import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuBinderWrapper
 import rikka.shizuku.SystemServiceHelper
+import com.aura.led.root.RootManager
 
 /** Frozen after Phase 0. */
 interface LEDController {
@@ -46,7 +46,7 @@ object ColorMapper {
 
 /**
  * Drives the back LED strip through the HyperOS `miui.lights.ILightsManager` service
- * (`setCustomLight`, transaction 4), called through Shizuku (shell UID is whitelisted).
+ * (`setCustomLight`, transaction 4), called through Shizuku or a root shell.
  *
  * The Parcel is written manually to avoid linking against the hidden `miui.lights`
  * platform class (hidden-API enforcement would block the generated AIDL stub).
@@ -201,11 +201,8 @@ class ShizukuLEDController : LEDController {
      * which silently drops pure color changes. Clearing resets that state.
      */
     private fun setCustomLight(color: Int, mode: Int, onMs: Int, offMs: Int): Result<Boolean> {
-        if (!Shizuku.pingBinder()) {
-            return Result.failure(IllegalStateException("Shizuku unavailable"))
-        }
-        if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
-            return Result.failure(SecurityException("Shizuku permission denied"))
+        if (!hasShizukuAccess() && !RootManager.isAvailable()) {
+            return Result.failure(IllegalStateException("Shizuku and root unavailable"))
         }
         if (color != 0) {
             val cleared = transactLight(0, MODE_STEADY, ledTimeoutMs.toInt(), 0)
@@ -220,11 +217,8 @@ class ShizukuLEDController : LEDController {
      * onMs keeps the clear's own auto-off timer from preempting the color.
      */
     private fun setWithClear(color: Int, mode: Int, onMs: Int): Result<Boolean> {
-        if (!Shizuku.pingBinder()) {
-            return Result.failure(IllegalStateException("Shizuku unavailable"))
-        }
-        if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
-            return Result.failure(SecurityException("Shizuku permission denied"))
+        if (!hasShizukuAccess() && !RootManager.isAvailable()) {
+            return Result.failure(IllegalStateException("Shizuku and root unavailable"))
         }
         val cleared = transactLight(0, MODE_STEADY, onMs, 0)
         if (cleared.isFailure) return cleared
@@ -232,6 +226,7 @@ class ShizukuLEDController : LEDController {
     }
 
     private fun transactLight(color: Int, mode: Int, onMs: Int, offMs: Int): Result<Boolean> {
+        if (!hasShizukuAccess()) return transactLightAsRoot(color, mode, onMs, offMs)
         val service = serviceBinder()
             ?: return Result.failure(IllegalStateException("miui.lights service unavailable"))
         return runCatching {
@@ -257,6 +252,23 @@ class ShizukuLEDController : LEDController {
                 reply.recycle()
             }
         }.onFailure { Log.e("AuraLed", "setCustomLight failed", it) }
+    }
+
+    private fun hasShizukuAccess(): Boolean = runCatching {
+        Shizuku.pingBinder() &&
+            Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED
+    }.getOrDefault(false)
+
+    private fun transactLightAsRoot(color: Int, mode: Int, onMs: Int, offMs: Int): Result<Boolean> {
+        val command = "service call $SERVICE $TRANSACTION_setCustomLight " +
+            "i32 $color i32 $mode i32 $onMs i32 $offMs i32 0 " +
+            "s16 $PKG i32 $STYLE_CAMERA i32 0"
+        return RootManager.run(command).map { result ->
+            if (result.exitCode != 0) {
+                throw IllegalStateException("service call exited with ${result.exitCode}: ${result.stdout}")
+            }
+            true
+        }.onFailure { Log.e("AuraLed", "root setCustomLight failed", it) }
     }
 
     /**
