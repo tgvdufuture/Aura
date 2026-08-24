@@ -34,7 +34,7 @@ Open-source Android app that drives the **RGB LED rings** on the back of the **P
 
 Get the latest signed APK from the [releases page](https://github.com/tgvdufuture/Aura/releases/latest):
 
-- **[v0.3.0](https://github.com/tgvdufuture/Aura/releases/tag/v0.3.0)** — `app-release.apk`
+- **[v0.4.0](https://github.com/tgvdufuture/Aura/releases/tag/v0.4.0)** — `app-release.apk`
 
 ## Prerequisites
 
