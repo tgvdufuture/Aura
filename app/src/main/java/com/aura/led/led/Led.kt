@@ -75,6 +75,16 @@ class ShizukuLEDController : LEDController {
         private const val PREVIEW_SETTLE_ON_MS = 60_000
         // One-shot preview for the default swatches: lights ~1.5s then auto-off.
         private const val PREVIEW_FLASH_ON_MS = 1_500
+
+        /**
+         * Settle time required between the clear transaction and the color
+         * transaction. Verified by experiment on HyperOS (2026-08-27, model
+         * 2511FPC34G): a color sent back-to-back right after the clear is
+         * silently dropped by HyperLightsService even though the binder reply
+         * reports success (the LED flashes briefly then stays dark). Spacing
+         * both transactions by >=~0.4s makes the color stick reliably.
+         */
+        private const val CLEAR_SETTLE_MS = 350L
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -86,7 +96,7 @@ class ShizukuLEDController : LEDController {
         val color = ColorMapper.hexToInt(colorHex)
             ?: return Result.failure(IllegalArgumentException("Bad color: $colorHex"))
         cancelAnimation()
-        return setCustomLight(color, MODE_STEADY, ledTimeoutMs.toInt(), 0)
+        return setWithSpacedClear(color, MODE_STEADY, ledTimeoutMs.toInt(), 0)
     }
 
     /**
@@ -136,11 +146,11 @@ class ShizukuLEDController : LEDController {
         return when (animationId) {
             Animations.BREATHING -> {
                 cancelAnimation()
-                setCustomLight(color, MODE_BREATH, 2000, 2000)
+                setWithSpacedClear(color, MODE_BREATH, 2000, 2000)
             }
             Animations.CHARGING -> {
                 cancelAnimation()
-                setCustomLight(color, MODE_FLASH, 1000, 1000)
+                setWithSpacedClear(color, MODE_FLASH, 1000, 1000)
             }
             Animations.RAINBOW -> startEmulated(rainbowColors())
             Animations.POLICE -> startEmulated(listOf(0xFF0000, 0x0000FF))
@@ -193,6 +203,23 @@ class ShizukuLEDController : LEDController {
 
     private fun rainbowColors(): List<Int> =
         (0 until 360 step 30).map { h -> android.graphics.Color.HSVToColor(floatArrayOf(h.toFloat(), 1f, 1f)) }
+
+    /**
+     * Sets a light after clearing the strip, leaving a settle gap between both
+     * transactions ([CLEAR_SETTLE_MS]). Used for one-shot notification emissions:
+     * back-to-back clear+color are swallowed by HyperLightsService, so without the
+     * gap notifications light the LED for an instant and go dark immediately.
+     */
+    private fun setWithSpacedClear(color: Int, mode: Int, onMs: Int, offMs: Int): Result<Boolean> {
+        if (!hasShizukuAccess() && !RootManager.isAvailable()) {
+            return Result.failure(IllegalStateException("Shizuku and root unavailable"))
+        }
+        val cleared = transactLight(0, MODE_STEADY, ledTimeoutMs.toInt(), 0)
+        if (cleared.isFailure) return cleared
+        // Block briefly; callers run on background dispatcher threads only.
+        runCatching { Thread.sleep(CLEAR_SETTLE_MS) }
+        return transactLight(color, mode, onMs, offMs)
+    }
 
     /**
      * Sets a light and reports success/failure. Before applying a non-zero color we

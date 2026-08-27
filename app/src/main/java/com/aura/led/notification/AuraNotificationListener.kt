@@ -58,6 +58,14 @@ class AuraNotificationListener : NotificationListenerService() {
      */
     private val active = mutableListOf<ActiveNotification>()
 
+    /**
+     * Last command sent to the LED and when. Apps like WhatsApp post/update the same
+     * notification several times within a second, each of them triggering a full
+     * clear→settle→color cycle that competes with itself; consecutive *identical*
+     * emissions inside [DUPLICATE_EMISSION_WINDOW_MS] are skipped instead.
+     */
+    private var lastEmission: Pair<LedCommand, Long>? = null
+
     override fun onCreate() {
         super.onCreate()
         val db = AppDatabase.get(this)
@@ -136,9 +144,18 @@ class AuraNotificationListener : NotificationListenerService() {
                 return@launch
             }
 
+            // Still track the key even when the emission itself is deduplicated, so
+            // removal-fallback bookkeeping matches the notifications actually shown.
+            recordActive(ActiveNotification(sbn.key, command))
+
+            if (isDuplicateEmission(command)) {
+                Log.d(TAG, "identical command already emitted <${DUPLICATE_EMISSION_WINDOW_MS}ms ago -> skip")
+                return@launch
+            }
+
             Log.d(TAG, "emitting ${command.animationId ?: "static"} ${command.colorHex} for $pkg")
             emit(command)
-            recordActive(ActiveNotification(sbn.key, command))
+            noteEmission(command)
         }
     }
 
@@ -164,10 +181,12 @@ class AuraNotificationListener : NotificationListenerService() {
             val next = active.firstOrNull()
             if (next == null) {
                 Log.d(TAG, "current notification removed, nothing else active -> stopping LED")
+                lastEmission = null
                 led.stop()
             } else {
                 Log.d(TAG, "current notification removed -> falling back to previous")
                 emit(next.command)
+                noteEmission(next.command)
             }
         }
     }
@@ -176,6 +195,16 @@ class AuraNotificationListener : NotificationListenerService() {
         active.removeAll { it.key == entry.key }
         active.add(0, entry)
         while (active.size > MAX_TRACKED) active.removeAt(active.lastIndex)
+    }
+
+    private fun isDuplicateEmission(command: LedCommand): Boolean {
+        val (last, emittedAtMs) = lastEmission ?: return false
+        val ageMs = System.currentTimeMillis() - emittedAtMs
+        return ageMs < DUPLICATE_EMISSION_WINDOW_MS && last == command
+    }
+
+    private fun noteEmission(command: LedCommand) {
+        lastEmission = command to System.currentTimeMillis()
     }
 
     private fun emit(command: LedCommand) {
@@ -193,6 +222,9 @@ class AuraNotificationListener : NotificationListenerService() {
 
         /** Delay before re-requesting a bind after a disconnect, to let the system settle. */
         const val REBIND_DELAY_MS = 2_000L
+
+        /** Window inside which a consecutive, strictly identical command is not re-sent. */
+        const val DUPLICATE_EMISSION_WINDOW_MS = 2_000L
     }
 
     private fun isScreenOn(): Boolean =
