@@ -58,6 +58,17 @@
     <string name="autostart_open">Open Autostart settings</string>
     <string name="led_duration">LED light duration: %1$d s</string>
 
+    <!-- Persistent reminder -->
+    <string name="reminder_title">Persistent reminder</string>
+    <string name="reminder_description">Keeps flashing the LED while a notification stays unread, so you don\'t miss it when away from the phone. Off by default.</string>
+    <string name="reminder_enable">Repeat until dismissed</string>
+    <string name="reminder_interval">Reminder every: %1$d s</string>
+    <string name="reminder_quiet_hours">Quiet hours</string>
+    <string name="reminder_quiet_start">Start</string>
+    <string name="reminder_quiet_end">End</string>
+    <string name="reminder_quiet_hint">No reminder flashes during this window. Do Not Disturb always suppresses reminders too.</string>
+    <string name="reminder_quiet_disabled_hint">Same start and end: quiet hours are disabled.</string>
+
     <!-- App rules -->
     <string name="default_color">Default color</string>
     <string name="identify_sender">Identify sender</string>

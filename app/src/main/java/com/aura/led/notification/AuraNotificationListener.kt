@@ -2,6 +2,7 @@ package com.aura.led.notification
 
 import android.app.KeyguardManager
 import android.app.Notification
+import android.app.NotificationManager
 import android.content.ComponentName
 import android.os.Handler
 import android.os.Looper
@@ -10,6 +11,9 @@ import android.util.Log
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.aura.led.data.AppDatabase
+import com.aura.led.data.QuietHours
+import com.aura.led.data.ReminderConfig
+import com.aura.led.data.ReminderInterval
 import com.aura.led.data.RuleRepository
 import com.aura.led.data.SettingsKeys
 import com.aura.led.engine.RuleEngine
@@ -19,8 +23,11 @@ import com.aura.led.led.ShizukuLEDController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.util.Calendar
 
 /**
  * Detects notifications and emits LED commands whenever the user is not actively
@@ -66,6 +73,134 @@ class AuraNotificationListener : NotificationListenerService() {
      */
     private var lastEmission: Pair<LedCommand, Long>? = null
 
+    // ---- Persistent reminder loop (PRD docs/PRD-persistent-reminder.md, Phase 1) ----
+
+    /** In-memory copy of the reminder settings; reloaded from Room at most once per minute. */
+    @Volatile
+    private var reminderConfig = ReminderConfig()
+
+    @Volatile
+    private var lastConfigLoadMs = 0L
+
+    /** Runs the tick loop while tracked notifications remain; null when idle. */
+    private var reminderJob: Job? = null
+
+    /** Round-robin position over the most-recent-first [active] list. */
+    private var reminderRotationIndex = 0
+
+    private suspend fun loadReminderConfig(): ReminderConfig {
+        val enabled = repository.getBoolSetting(SettingsKeys.REMINDER_ENABLED, false)
+        val intervalMs = repository.getSetting(
+            SettingsKeys.REMINDER_INTERVAL_MS,
+            ReminderConfig.DEFAULT_INTERVAL_MS.toString(),
+        ).toLongOrNull() ?: ReminderConfig.DEFAULT_INTERVAL_MS
+        val start = repository.getSetting(SettingsKeys.REMINDER_QUIET_START, ReminderConfig.DEFAULT_QUIET_START)
+        val end = repository.getSetting(SettingsKeys.REMINDER_QUIET_END, ReminderConfig.DEFAULT_QUIET_END)
+        return ReminderConfig(
+            enabled = enabled,
+            intervalMs = ReminderInterval.clamp(intervalMs),
+            quietStart = start,
+            quietEnd = end,
+        )
+    }
+
+    /** Starts the tick loop after a successful emission, unless it is already running. */
+    private fun maybeStartReminderLoop() {
+        // A UI toggle must take effect even when the listener has been running for hours:
+        // pendingConfig carries the latest UI state, Room only inside the loop.
+        pendingConfig?.let { reminderConfig = it }
+        if (!reminderConfig.enabled) return
+        if (reminderJob?.isActive == true) return
+        reminderRotationIndex = 0
+        reminderJob = scope.launch { reminderLoop() }
+        Log.d(TAG, "reminder loop started")
+    }
+
+    private fun maybeStopReminderLoop() {
+        if (reminderJob?.isActive != true) return
+        if (active.isEmpty()) {
+            reminderJob?.cancel()
+            reminderJob = null
+            Log.d(TAG, "reminder loop stopped: no tracked notification left")
+        }
+    }
+
+    /**
+     * Tick sequence: gates -> resync against the real status bar -> select -> emit -> delay.
+     * Runs on the serialized scope, so reminder emissions never interleave with the
+     * initial-arrival or removal-fallback emissions.
+     */
+    private suspend fun reminderLoop() {
+        while (true) {
+            val config = currentReminderConfig()
+            if (!config.enabled) return
+            // Pause while the screen is on (PRD: no flash during use) or night suppression applies.
+            if (isScreenOn() || isSuppressedAtNight()) {
+                Log.d(TAG, "reminder tick skipped (screen on=${isScreenOn()} night=${isSuppressedAtNight()})")
+            } else {
+                if (!pruneTrackedAgainstStatusBar()) return
+                val entry = nextReminderEntry()
+                if (entry == null) return
+                Log.d(TAG, "reminder flash for key=${entry.key}")
+                emit(entry.command)
+            }
+            delay(config.intervalMs.coerceAtLeast(MIN_REMINDER_INTERVAL_MS))
+        }
+    }
+
+    /** Re-reads reminder settings so UI changes apply without a restart. */
+    private suspend fun currentReminderConfig(): ReminderConfig {
+        pendingConfig?.let { reminderConfig = it }
+        val now = System.currentTimeMillis()
+        if (now - lastConfigLoadMs > CONFIG_RELOAD_INTERVAL_MS) {
+            lastConfigLoadMs = now
+            if (pendingConfig == null) reminderConfig = loadReminderConfig()
+        }
+        return reminderConfig
+    }
+
+    /**
+     * Drops tracked entries whose key no longer exists in the status bar. Returns false
+     * when nothing is left (loop must stop). The LED-off itself stays in
+     * [handleNotificationRemoved]; this only guards against keys missed while rebinding.
+     */
+    private fun pruneTrackedAgainstStatusBar(): Boolean {
+        val postedKeys = runCatching { activeNotifications.map { it.key }.toSet() }
+            .onFailure { Log.w(TAG, "activeNotifications unavailable -> skip reminder prune", it) }
+            .getOrNull() ?: return true
+        active.removeAll { it.key !in postedKeys }
+        return active.isNotEmpty()
+    }
+
+    /** Round-robin selection over the most-recent-first tracked list. */
+    private fun nextReminderEntry(): ActiveNotification? {
+        if (active.isEmpty()) return null
+        val entry = active[reminderRotationIndex % active.size]
+        reminderRotationIndex = (reminderRotationIndex + 1).mod(active.size.coerceAtLeast(1))
+        return entry
+    }
+
+    /** True when DND is active or the local time is inside the configured quiet hours. */
+    private fun isSuppressedAtNight(): Boolean {
+        val nm = getSystemService(NotificationManager::class.java)
+        val filter = nm?.currentInterruptionFilter ?: NotificationManager.INTERRUPTION_FILTER_ALL
+        if (filter != NotificationManager.INTERRUPTION_FILTER_ALL &&
+            filter != NotificationManager.INTERRUPTION_FILTER_UNKNOWN
+        ) {
+            Log.d(TAG, "reminder suppressed: DND filter=$filter")
+            return true
+        }
+        val config = reminderConfig
+        val start = QuietHours.parseHHmm(config.quietStart) ?: QuietHours.parseHHmm(ReminderConfig.DEFAULT_QUIET_START) ?: return false
+        val end = QuietHours.parseHHmm(config.quietEnd) ?: QuietHours.parseHHmm(ReminderConfig.DEFAULT_QUIET_END) ?: return false
+        if (start == end) return false
+        val cal = Calendar.getInstance()
+        val nowMinutes = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
+        val inRange = QuietHours.isInRange(nowMinutes, start, end)
+        if (inRange) Log.d(TAG, "reminder suppressed: quiet hours $start-$end (now=$nowMinutes)")
+        return inRange
+    }
+
     override fun onCreate() {
         super.onCreate()
         val db = AppDatabase.get(this)
@@ -75,6 +210,9 @@ class AuraNotificationListener : NotificationListenerService() {
         scope.launch {
             val ms = repository.getSetting(SettingsKeys.LED_TIMEOUT_MS, "10000").toLongOrNull() ?: 10_000L
             ShizukuLEDController.ledTimeoutMs = ms.coerceIn(1_000L, 30_000L)
+            // A UI-driven config update may arrive before onCreate finishes loading;
+            // the pending value mirrors the latest UI state, which Room also holds.
+            reminderConfig = pendingConfig ?: loadReminderConfig()
         }
     }
 
@@ -156,6 +294,7 @@ class AuraNotificationListener : NotificationListenerService() {
             Log.d(TAG, "emitting ${command.animationId ?: "static"} ${command.colorHex} for $pkg")
             emit(command)
             noteEmission(command)
+            maybeStartReminderLoop()
         }
     }
 
@@ -183,6 +322,7 @@ class AuraNotificationListener : NotificationListenerService() {
                 Log.d(TAG, "current notification removed, nothing else active -> stopping LED")
                 lastEmission = null
                 led.stop()
+                maybeStopReminderLoop()
             } else {
                 Log.d(TAG, "current notification removed -> falling back to previous")
                 emit(next.command)
@@ -216,7 +356,20 @@ class AuraNotificationListener : NotificationListenerService() {
         Log.d(TAG, "led result=$result")
     }
 
-    private companion object {
+    companion object {
+        /**
+         * Latest UI-provided reminder config. The system can recreate the listener
+         * at any time; onCreate applies this pending value before falling back to Room.
+         */
+        @Volatile
+        var pendingConfig: ReminderConfig? = null
+            private set
+
+        /** Updates the reminder settings at runtime (UI and listener share the process). */
+        fun updateReminderConfig(config: ReminderConfig) {
+            pendingConfig = config
+        }
+
         const val TAG = "AuraNLS"
         const val MAX_TRACKED = 50
 
@@ -225,6 +378,12 @@ class AuraNotificationListener : NotificationListenerService() {
 
         /** Window inside which a consecutive, strictly identical command is not re-sent. */
         const val DUPLICATE_EMISSION_WINDOW_MS = 2_000L
+
+        /** Safety floor for the reminder pause, matching the UI clamp (PRD D-03). */
+        const val MIN_REMINDER_INTERVAL_MS = 5_000L
+
+        /** How often the tick loop re-reads reminder settings from Room. */
+        const val CONFIG_RELOAD_INTERVAL_MS = 60_000L
     }
 
     private fun isScreenOn(): Boolean =

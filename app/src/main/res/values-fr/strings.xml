@@ -52,6 +52,17 @@
     <string name="autostart_open">Ouvrir les réglages de démarrage auto</string>
     <string name="led_duration">Durée d\'allumage LED : %1$d s</string>
 
+    <!-- Rappel persistant -->
+    <string name="reminder_title">Rappel persistant</string>
+    <string name="reminder_description">Continue de faire clignoter la LED tant qu\'une notification reste non lue, pour ne pas la manquer en s\'éloignant du téléphone. Désactivé par défaut.</string>
+    <string name="reminder_enable">Répéter jusqu\'au renvoi</string>
+    <string name="reminder_interval">Rappel toutes les : %1$d s</string>
+    <string name="reminder_quiet_hours">Heures silencieuses</string>
+    <string name="reminder_quiet_start">Début</string>
+    <string name="reminder_quiet_end">Fin</string>
+    <string name="reminder_quiet_hint">Aucun rappel pendant cette plage. Le mode Ne pas déranger coupe aussi les rappels.</string>
+    <string name="reminder_quiet_disabled_hint">Début et fin identiques : heures silencieuses désactivées.</string>
+
     <string name="default_color">Couleur par défaut</string>
     <string name="identify_sender">Identifier l\'expéditeur</string>
     <string name="sender_rules">Règles expéditeur</string>

@@ -42,11 +42,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimeInput
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -82,6 +84,9 @@ import com.aura.led.LanguageManager
 import com.aura.led.R
 import com.aura.led.ThemeManager
 import com.aura.led.data.AppRule
+import com.aura.led.data.QuietHours
+import com.aura.led.data.ReminderConfig
+import com.aura.led.data.ReminderInterval
 import com.aura.led.data.SenderKind
 import com.aura.led.data.SenderRule
 import com.aura.led.data.SettingsKeys
@@ -266,6 +271,61 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { repository.setSetting(SettingsKeys.LED_TIMEOUT_MS, clamped.toString()) }
     }
 
+    // ---- Persistent reminder (PRD docs/PRD-persistent-reminder.md, Phase 1) ----
+
+    data class ReminderState(
+        val enabled: Boolean = false,
+        val intervalMs: Long = ReminderConfig.DEFAULT_INTERVAL_MS,
+        val quietStart: String = ReminderConfig.DEFAULT_QUIET_START,
+        val quietEnd: String = ReminderConfig.DEFAULT_QUIET_END,
+    )
+
+    private val _reminder = MutableStateFlow(ReminderState())
+    val reminder: StateFlow<ReminderState> = _reminder
+
+    /** Pushes the current settings to the in-process listener so changes apply immediately. */
+    private fun pushReminderToListener(state: ReminderState) {
+        AuraNotificationListener.updateReminderConfig(
+            ReminderConfig(
+                enabled = state.enabled,
+                intervalMs = state.intervalMs,
+                quietStart = state.quietStart,
+                quietEnd = state.quietEnd,
+            )
+        )
+    }
+
+    fun setReminderEnabled(enabled: Boolean) {
+        _reminder.value = _reminder.value.copy(enabled = enabled)
+        pushReminderToListener(_reminder.value)
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.setBoolSetting(SettingsKeys.REMINDER_ENABLED, enabled)
+        }
+    }
+
+    fun setReminderInterval(ms: Long) {
+        val clamped = ReminderInterval.clamp(ms)
+        _reminder.value = _reminder.value.copy(intervalMs = clamped)
+        pushReminderToListener(_reminder.value)
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.setSetting(SettingsKeys.REMINDER_INTERVAL_MS, clamped.toString())
+        }
+    }
+
+    /** Accepts "HH:mm" values only; invalid input keeps the previous stored value. */
+    fun setQuietHours(start: String, end: String) {
+        val parsedStart = QuietHours.parseHHmm(start) ?: return
+        val parsedEnd = QuietHours.parseHHmm(end) ?: return
+        val normalizedStart = "%02d:%02d".format(parsedStart / 60, parsedStart % 60)
+        val normalizedEnd = "%02d:%02d".format(parsedEnd / 60, parsedEnd % 60)
+        _reminder.value = _reminder.value.copy(quietStart = normalizedStart, quietEnd = normalizedEnd)
+        pushReminderToListener(_reminder.value)
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.setSetting(SettingsKeys.REMINDER_QUIET_START, normalizedStart)
+            repository.setSetting(SettingsKeys.REMINDER_QUIET_END, normalizedEnd)
+        }
+    }
+
     data class AppInfo(val packageName: String, val label: String)
 
     val installedApps: List<AppInfo> = run {
@@ -381,6 +441,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val clamped = (ms / 1000).coerceIn(1, 30) * 1000L
             ShizukuLEDController.ledTimeoutMs = clamped
             _ledSettings.value = LedSettingsState(timeoutMs = clamped)
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val enabled = repository.getBoolSetting(SettingsKeys.REMINDER_ENABLED, false)
+            val intervalMs = repository.getSetting(
+                SettingsKeys.REMINDER_INTERVAL_MS,
+                ReminderConfig.DEFAULT_INTERVAL_MS.toString(),
+            ).toLongOrNull() ?: ReminderConfig.DEFAULT_INTERVAL_MS
+            val quietStart = repository.getSetting(SettingsKeys.REMINDER_QUIET_START, ReminderConfig.DEFAULT_QUIET_START)
+            val quietEnd = repository.getSetting(SettingsKeys.REMINDER_QUIET_END, ReminderConfig.DEFAULT_QUIET_END)
+            _reminder.value = ReminderState(
+                enabled = enabled,
+                intervalMs = ReminderInterval.clamp(intervalMs),
+                quietStart = quietStart,
+                quietEnd = quietEnd,
+            )
         }
         // Single serialized worker for previews. collectLatest cancels the pending settle
         // whenever a new color arrives, and re-applies the settled color with a long
@@ -499,6 +574,7 @@ fun SettingsScreen(
     val health by viewModel.health.collectAsState()
     val ledSettings by viewModel.ledSettings.collectAsState()
     val listenerConnected by viewModel.listenerConnected.collectAsState()
+    val reminder by viewModel.reminder.collectAsState()
 
     Scaffold(
         topBar = {
@@ -532,22 +608,120 @@ fun SettingsScreen(
                     onRefresh = viewModel::refreshSystemLed,
                 )
             }
-            item {
-                HealthCard(
-                    state = health,
-                    listenerConnected = listenerConnected,
-                    timeoutMs = ledSettings.timeoutMs,
-                    onToggleService = viewModel::setServiceRunning,
-                    onRequestBattery = viewModel::requestBatteryExemption,
-                    onTimeoutChange = viewModel::setLedTimeout,
-                    onRefresh = viewModel::refreshHealth,
-                    onReconnectListener = viewModel::reconnectListener,
-                    onOpenAutostart = viewModel::openAutostartSettings,
+            item { HealthCard(
+                state = health,
+                listenerConnected = listenerConnected,
+                timeoutMs = ledSettings.timeoutMs,
+                onToggleService = viewModel::setServiceRunning,
+                onRequestBattery = viewModel::requestBatteryExemption,
+                onTimeoutChange = viewModel::setLedTimeout,
+                onRefresh = viewModel::refreshHealth,
+                onReconnectListener = viewModel::reconnectListener,
+                onOpenAutostart = viewModel::openAutostartSettings,
+            ) }
+            item { ReminderCard(
+                state = reminder,
+                onToggle = viewModel::setReminderEnabled,
+                onIntervalChange = viewModel::setReminderInterval,
+                onQuietHoursChange = viewModel::setQuietHours,
+            ) }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReminderCard(
+    state: MainViewModel.ReminderState,
+    onToggle: (Boolean) -> Unit,
+    onIntervalChange: (Long) -> Unit,
+    onQuietHoursChange: (String, String) -> Unit,
+) {
+    var editingField by remember { mutableStateOf<QuietField?>(null) }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.reminder_title), style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.reminder_description),
+                style = MaterialTheme.typography.bodySmall,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.reminder_enable), modifier = Modifier.weight(1f))
+                Switch(checked = state.enabled, onCheckedChange = onToggle)
+            }
+            if (state.enabled) {
+                Text(
+                    stringResource(R.string.reminder_interval, (state.intervalMs / 1000).toInt()),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Slider(
+                    value = state.intervalMs.toFloat(),
+                    onValueChange = { onIntervalChange(it.toLong()) },
+                    valueRange = 5_000f..120_000f,
+                    steps = 22,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(stringResource(R.string.reminder_quiet_hours), style = MaterialTheme.typography.titleSmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedButton(onClick = { editingField = QuietField.START }, modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.reminder_quiet_start) + " · " + state.quietStart)
+                    }
+                    Text("–")
+                    OutlinedButton(onClick = { editingField = QuietField.END }, modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.reminder_quiet_end) + " · " + state.quietEnd)
+                    }
+                }
+                Text(
+                    if (state.quietStart == state.quietEnd) {
+                        stringResource(R.string.reminder_quiet_disabled_hint)
+                    } else {
+                        stringResource(R.string.reminder_quiet_hint)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
                 )
             }
         }
     }
+
+    editingField?.let { field ->
+        val currentValue = if (field == QuietField.START) state.quietStart else state.quietEnd
+        val initialMinute = QuietHours.parseHHmm(currentValue)
+            ?: if (field == QuietField.START) 23 * 60 else 7 * 60
+        val pickerState = rememberTimePickerState(
+            initialHour = initialMinute / 60,
+            initialMinute = initialMinute % 60,
+            is24Hour = true,
+        )
+        AlertDialog(
+            onDismissRequest = { editingField = null },
+            confirmButton = {
+                TextButton(onClick = {
+                    val picked = "%02d:%02d".format(pickerState.hour, pickerState.minute)
+                    if (field == QuietField.START) {
+                        onQuietHoursChange(picked, state.quietEnd)
+                    } else {
+                        onQuietHoursChange(state.quietStart, picked)
+                    }
+                    editingField = null
+                }) { Text(stringResource(R.string.ok)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingField = null }) { Text(stringResource(R.string.cancel)) }
+            },
+            title = {
+                Text(
+                    stringResource(
+                        if (field == QuietField.START) R.string.reminder_quiet_start else R.string.reminder_quiet_end
+                    )
+                )
+            },
+            text = { TimeInput(state = pickerState) },
+        )
+    }
 }
+
+private enum class QuietField { START, END }
 
 @Composable
 private fun ShizukuCard(
