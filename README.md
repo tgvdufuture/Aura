@@ -38,7 +38,7 @@ En français : Aura permet de personnaliser la **LED arrière**, la **lumière d
 
 Get the latest signed APK from the [releases page](https://github.com/tgvdufuture/Aura/releases/latest):
 
-- **[v0.4.2](https://github.com/tgvdufuture/Aura/releases/tag/v0.4.2)** — `app-release.apk`
+- **[v0.5.0](https://github.com/tgvdufuture/Aura/releases/tag/v0.5.0)** — `app-release.apk`
 
 ## Prerequisites
 
