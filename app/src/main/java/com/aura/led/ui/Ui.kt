@@ -416,11 +416,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val now = System.currentTimeMillis()
                 if (now - lastPreviewFailureToast > 2_000L) {
                     lastPreviewFailureToast = now
-                    Toast.makeText(
-                        getApplication(),
-                        getApplication<Application>().getString(R.string.led_preview_failed),
-                        Toast.LENGTH_SHORT,
-                    ).show()
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        Toast.makeText(
+                            getApplication(),
+                            getApplication<Application>().getString(R.string.led_preview_failed),
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }
                 }
             }
         }
@@ -1336,6 +1338,10 @@ fun LanguagePickerScreen(onSelect: (String) -> Unit) {
         Button(onClick = { onSelect(LanguageManager.LANG_FR) }, modifier = Modifier.fillMaxWidth()) {
             Text("Français")
         }
+        Spacer(modifier = Modifier.height(12.dp))
+        Button(onClick = { onSelect(LanguageManager.LANG_RU) }, modifier = Modifier.fillMaxWidth()) {
+            Text("Русский")
+        }
     }
 }
 
@@ -1357,6 +1363,11 @@ private fun LanguageToggle(currentLanguage: String, onLanguageChange: (String) -
                 selected = currentLanguage == LanguageManager.LANG_FR,
                 onClick = { onLanguageChange(LanguageManager.LANG_FR) },
                 label = { Text("FR") },
+            )
+            FilterChip(
+                selected = currentLanguage == LanguageManager.LANG_RU,
+                onClick = { onLanguageChange(LanguageManager.LANG_RU) },
+                label = { Text("RU") },
             )
         }
     }

@@ -1,0 +1,100 @@
+<resources>
+    <string name="app_name">Aura</string>
+    <string name="notification_listener_label">Aura — светодиод уведомлений</string>
+    <string name="service_channel_name">Aura — работающая служба</string>
+    <string name="service_notification_title">Aura активна</string>
+    <string name="service_notification_text">Уведомления управляют подсветкой в фоновом режиме</string>
+
+    <!-- Language picker -->
+    <string name="language_title">Выберите язык</string>
+    <string name="language_label">Язык</string>
+
+    <!-- Theme -->
+    <string name="theme">Тема</string>
+    <string name="theme_auto">Авто</string>
+    <string name="theme_light">Светлая</string>
+    <string name="theme_dark">Тёмная</string>
+
+    <!-- Main screen -->
+    <string name="settings">Настройки</string>
+    <string name="back">Назад</string>
+    <string name="section_applications">Приложения</string>
+    <string name="search_hint">Поиск приложения</string>
+    <string name="no_apps_found">Приложения не найдены</string>
+
+    <!-- Shizuku -->
+    <string name="shizuku">Shizuku</string>
+    <string name="shizuku_reactivate">Нужно заново включить Shizuku (после перезагрузки?)</string>
+    <string name="shizuku_permission_required">Shizuku активен — требуется авторизация Aura</string>
+    <string name="shizuku_connected">Shizuku подключён</string>
+    <string name="shizuku_help">Откройте приложение Shizuku → «Запуск через подключение к компьютеру» → «Показать команду», затем выполните её на ПК.</string>
+    <string name="shizuku_request_permission">Запросить авторизацию</string>
+    <string name="shizuku_test_led">Проверить подсветку (красный)</string>
+    <string name="root_connected">Обнаружен root-доступ — Shizuku не требуется</string>
+    <string name="led_preview">Предпросмотр подсветки</string>
+    <string name="led_preview_failed">Не удалось включить подсветку — Shizuku активен или есть root-доступ?</string>
+
+    <!-- System LED -->
+    <string name="system_led">Системная подсветка</string>
+    <string name="system_led_shizuku_required">Для отключения светодиода уведомлений HyperOS требуется Shizuku или root-доступ.</string>
+    <string name="system_led_disable">Отключить подсветку HyperOS</string>
+    <string name="system_led_disabled">Системная подсветка отключена ✓</string>
+    <string name="system_led_active">Системная подсветка активна (возможно двойное свечение)</string>
+
+    <!-- Robustness -->
+    <string name="robustness">Стабильность работы</string>
+    <string name="service_background">Фоновая служба</string>
+    <string name="service_running">Служба активна ✓ (постоянное уведомление)</string>
+    <string name="service_stopped">Служба остановлена — уведомления больше не будут управлять подсветкой в фоновом режиме</string>
+    <string name="battery_optimization_warning">Оптимизация батареи HyperOS может завершить работу Aura в фоне.</string>
+    <string name="battery_exclude">Исключить из оптимизации батареи</string>
+    <string name="battery_excluded">Оптимизация батареи: исключено ✓</string>
+    <string name="listener_status">Доступ к уведомлениям</string>
+    <string name="listener_connected">Подключено — уведомления управляют подсветкой ✓</string>
+    <string name="listener_disconnected">Отключено — подсветки не будет до повторного подключения</string>
+    <string name="listener_reconnect">Открыть настройки уведомлений</string>
+    <string name="autostart_title">Автозапуск (HyperOS)</string>
+    <string name="autostart_warning">HyperOS не даёт Aura перезапускаться в фоне. Включите автозапуск, чтобы подсветка продолжала работать после перезагрузки.</string>
+    <string name="autostart_open">Открыть настройки автозапуска</string>
+    <string name="led_duration">Длительность подсветки: %1$d с</string>
+
+    <!-- Persistent reminder -->
+    <string name="reminder_title">Постоянное напоминание</string>
+    <string name="reminder_description">Продолжает мигать подсветкой, пока уведомление остаётся непрочитанным, чтобы вы не пропустили его, когда телефон не рядом. По умолчанию выключено.</string>
+    <string name="reminder_enable">Повторять, пока не будет закрыто</string>
+    <string name="reminder_interval">Напоминать каждые: %1$d с</string>
+    <string name="reminder_quiet_hours">Тихие часы</string>
+    <string name="reminder_quiet_start">Начало</string>
+    <string name="reminder_quiet_end">Конец</string>
+    <string name="reminder_quiet_hint">В этот период напоминания не мигают. Режим «Не беспокоить» также всегда отключает напоминания.</string>
+    <string name="reminder_quiet_disabled_hint">Одинаковое время начала и конца: тихие часы отключены.</string>
+
+    <!-- App rules -->
+    <string name="default_color">Цвет по умолчанию</string>
+    <string name="identify_sender">Определять отправителя</string>
+    <string name="sender_rules">Правила для отправителей</string>
+    <string name="no_rules">Правил нет.</string>
+    <string name="group">Группа</string>
+    <string name="contact">Контакт</string>
+    <string name="add_rule">Добавить правило</string>
+    <string name="sender_name_hint">Имя контакта / группы</string>
+
+    <!-- Animations -->
+    <string name="animation_static">Статичная</string>
+    <string name="animation_breathing">Дыхание</string>
+    <string name="animation_charging">Мигание</string>
+    <string name="animation_rainbow">Радуга</string>
+    <string name="animation_alert">Тревога</string>
+
+    <!-- Color picker -->
+    <string name="custom_color">Свой цвет</string>
+    <string name="main_colors">Основные цвета</string>
+    <string name="color_variants">Оттенки</string>
+    <string name="selected_color">Выбранный цвет</string>
+    <string name="color_variants_hint">Нажмите на цвет, чтобы увидеть его оттенки</string>
+    <string name="hex_color">HEX-цвет (#RRGGBB)</string>
+    <string name="hex_color_error">Введите корректный цвет, например #12AB34</string>
+    <string name="ok">ОК</string>
+    <string name="cancel">Отмена</string>
+    <string name="hsv_label">H %1$d° · S %2$d%% · V %3$d%%</string>
+</resources>

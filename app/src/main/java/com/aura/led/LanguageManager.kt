@@ -16,6 +16,8 @@ object LanguageManager {
     const val LANG_EN = "en"
     const val LANG_FR = "fr"
 
+    const val LANG_RU = "ru"
+
     private const val PREFS = "aura_prefs"
     private const val KEY_LANGUAGE = "language"
 
@@ -31,7 +33,11 @@ object LanguageManager {
 
     /** Wraps [context] so its resources resolve in the given language. */
     fun applyLanguage(context: Context, language: String): Context {
-        val locale = if (language == LANG_FR) Locale.FRENCH else Locale.ENGLISH
+        val locale = when (language) {
+            LANG_FR -> Locale.FRENCH
+            LANG_RU -> Locale("ru")
+            else -> Locale.ENGLISH
+        }
         Locale.setDefault(locale)
         val config = Configuration(context.resources.configuration)
         config.setLocales(LocaleList(locale))
