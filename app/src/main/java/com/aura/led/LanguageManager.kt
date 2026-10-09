@@ -6,7 +6,7 @@ import android.os.LocaleList
 import java.util.Locale
 
 /**
- * Stores and applies the in-app language (English / French).
+ * Stores and applies the in-app language (English / French / Russian).
  *
  * The choice is persisted in SharedPreferences so it survives restarts; the locale
  * is applied in [AuraApp] and [MainActivity] `attachBaseContext` so resources
@@ -15,7 +15,6 @@ import java.util.Locale
 object LanguageManager {
     const val LANG_EN = "en"
     const val LANG_FR = "fr"
-
     const val LANG_RU = "ru"
 
     private const val PREFS = "aura_prefs"

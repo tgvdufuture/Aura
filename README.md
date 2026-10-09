@@ -25,7 +25,7 @@ En français : Aura permet de personnaliser la **LED arrière**, la **lumière d
 - **Light / dark / auto theme**: manual toggle in Settings (follows the system by default).
 - **System LED disabled** on HyperOS to avoid double lighting (single driver).
 - **Configurable light duration** (1–30 s, default 10 s).
-- **English / French UI**: language picker on first launch (choice persisted, switchable from Settings).
+- **English / French / Russian UI**: language picker on first launch (choice persisted, switchable from Settings).
 - Works even when **notification content is hidden on the lock screen** (content recovered via Shizuku — see *How it works*).
 
 ## Screenshots
@@ -38,7 +38,7 @@ En français : Aura permet de personnaliser la **LED arrière**, la **lumière d
 
 Get the latest signed APK from the [releases page](https://github.com/tgvdufuture/Aura/releases/latest):
 
-- **[v0.5.0](https://github.com/tgvdufuture/Aura/releases/tag/v0.5.0)** — `app-release.apk`
+- **[v0.5.1](https://github.com/tgvdufuture/Aura/releases/tag/v0.5.1)** — `app-release.apk`
 
 ## Prerequisites
 
