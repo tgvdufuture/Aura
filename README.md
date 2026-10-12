@@ -1,6 +1,6 @@
 # Aura — Custom LED and notification light for POCO X8 Pro (HyperOS)
 
-[![Build](https://github.com/tgvdufuture/Aura/actions/workflows/build.yml/badge.svg)](https://github.com/tgvdufuture/Aura/actions/workflows/build.yml)
+<a href="https://github.com/tgvdufuture/Aura/actions/workflows/build.yml"><img align="middle" alt="Build" src="https://github.com/tgvdufuture/Aura/actions/workflows/build.yml/badge.svg"></a> <a href="https://ko-fi.com/tgvdufuture"><img align="middle" alt="Support me on Ko-fi" src="https://ko-fi.com/img/githubbutton_sm.svg"></a>
 
 Aura is an open-source Android app for **custom LEDs on the POCO X8 Pro**. It drives the **RGB LED rings** on the back of the phone (Xiaomi / **HyperOS 3**) and shows a different **color** and **animation** per **app**, per **contact** and per **group** — **while the screen is off**. It replaces HyperOS's default notification light, which is limited to a single global color with no sender distinction.
 
@@ -162,6 +162,10 @@ Les termes **LED personnalisée POCO X8 Pro**, **lumière arrière POCO**, **ann
 - Room (local persistence)
 - Kotlin Coroutines / Flow
 - [Shizuku](https://github.com/RikkaApps/Shizuku) (API 13.1.5)
+
+## Support
+
+Aura is developed on my own time and given away for free, with no ads and no telemetry. If it's useful to you, you can buy me a coffee: **[ko-fi.com/tgvdufuture](https://ko-fi.com/tgvdufuture)** ☕
 
 ## License
 
