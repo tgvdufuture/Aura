@@ -117,6 +117,7 @@ import com.aura.led.notification.NotificationListenerState
 import com.aura.led.root.RootManager
 import com.aura.led.root.RootState
 import com.aura.led.service.AuraForegroundService
+import com.aura.led.service.AutostartWatch
 import com.aura.led.shizuku.ShizukuManager
 import com.aura.led.shizuku.ShizukuState
 import com.aura.led.update.ApkDownloader
@@ -268,7 +269,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         Analytics.track(AnalyticsEvents.SYSTEM_LED_TOGGLED, mapOf(AnalyticsEvents.P_DISABLED to disabled))
     }
 
-    data class HealthState(val batteryExempt: Boolean = false, val serviceRunning: Boolean = false)
+    data class HealthState(
+        val batteryExempt: Boolean = false,
+        val serviceRunning: Boolean = false,
+        /** What HyperOS's autostart switch has been observed to do (see `AutostartWatch`). */
+        val autostart: AutostartWatch.State = AutostartWatch.State.UNKNOWN,
+    )
 
     private val _health = MutableStateFlow(HealthState())
     val health: StateFlow<HealthState> = _health
@@ -288,12 +294,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val ctx = getApplication<Application>()
         val pm = ctx.getSystemService(PowerManager::class.java)
         val batteryExempt = pm.isIgnoringBatteryOptimizations(ctx.packageName)
+        val autostart = AutostartWatch.observe(ctx)
         _health.value = HealthState(
             batteryExempt = batteryExempt,
             serviceRunning = AuraForegroundService.running,
+            autostart = autostart,
         )
         if (batteryExempt) {
             Analytics.trackSetupOnce(ctx, AnalyticsEvents.SETUP_BATTERY_EXEMPTION_GRANTED)
+        }
+        // Deduced from a delivered boot broadcast, once per install, like the exemption above.
+        if (autostart == AutostartWatch.State.ENABLED) {
+            Analytics.trackSetupOnce(ctx, AnalyticsEvents.SETUP_AUTOSTART_GRANTED)
         }
     }
 
@@ -979,6 +991,7 @@ fun MainScreen(
             batteryExempt = health.batteryExempt,
             analyticsGranted = analytics.granted,
             supportAnswer = analytics.supportAnswer,
+            autostartBlocked = health.autostart == AutostartWatch.State.BLOCKED,
         ),
     )
 
@@ -1888,10 +1901,26 @@ private fun HealthCard(
             if (Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true)) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(stringResource(R.string.autostart_title), style = MaterialTheme.typography.titleSmall)
+                // What Aura has actually seen the switch do, rather than the value of the switch:
+                // the value is unreadable, the effect is not (see AutostartWatch).
                 Text(
-                    stringResource(R.string.autostart_warning),
+                    stringResource(
+                        when (state.autostart) {
+                            AutostartWatch.State.ENABLED -> R.string.autostart_state_enabled
+                            AutostartWatch.State.BLOCKED -> R.string.autostart_state_blocked
+                            AutostartWatch.State.UNKNOWN -> R.string.autostart_state_unknown
+                        }
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                // This warning promises the LED stops working after a reboot; only say it while
+                // that has not been disproved.
+                if (state.autostart != AutostartWatch.State.ENABLED) {
+                    Text(
+                        stringResource(R.string.autostart_warning),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
                 Button(onClick = onOpenAutostart) { Text(stringResource(R.string.autostart_open)) }
             }
 

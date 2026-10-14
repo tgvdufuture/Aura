@@ -27,6 +27,8 @@ object AnalyticsPrefs {
     private const val KEY_PENDING_NOTES = "pendingUpdateNotes"
     private const val KEY_SUPPORT_ANSWER = "supportAnswer"
     private const val KEY_LAST_SEEN_VERSION_CODE = "lastSeenVersionCode"
+    private const val KEY_LAST_SEEN_BOOT_MS = "lastSeenBootMs"
+    private const val KEY_PROMPT_DELIVERY_BOOT_MS = "promptDeliveryBootMs"
     private const val KEY_SETUP_FLAG = "setupFlag"
 
     private fun prefs(context: Context) =
@@ -130,6 +132,30 @@ object AnalyticsPrefs {
 
     fun setLastSeenVersionCode(context: Context, code: Int) {
         prefs(context).edit().putInt(KEY_LAST_SEEN_VERSION_CODE, code).apply()
+    }
+
+    // ---- Autostart bookkeeping (see AutostartWatch) ----
+    //
+    // Two boot instants, not a boolean, and they are not interchangeable: only the boot whose
+    // broadcast reached Aura without the user opening it proves Aura started itself.
+
+    /** The boot instant Aura recorded the last time it looked, `0` while it never looked. */
+    fun autostartLastSeenBootMs(context: Context): Long =
+        prefs(context).getLong(KEY_LAST_SEEN_BOOT_MS, 0L)
+
+    fun setAutostartLastSeenBootMs(context: Context, value: Long) {
+        prefs(context).edit().putLong(KEY_LAST_SEEN_BOOT_MS, value).apply()
+    }
+
+    /**
+     * The boot whose `BOOT_COMPLETED` reached Aura without the user opening the app, `0` while none
+     * ever did. A delivery that came from the user's own launch is deliberately not recorded here.
+     */
+    fun autostartPromptDeliveryBootMs(context: Context): Long =
+        prefs(context).getLong(KEY_PROMPT_DELIVERY_BOOT_MS, 0L)
+
+    fun setAutostartPromptDeliveryBootMs(context: Context, value: Long) {
+        prefs(context).edit().putLong(KEY_PROMPT_DELIVERY_BOOT_MS, value).apply()
     }
 
     // ---- Support / monetization intent ----

@@ -22,6 +22,11 @@ data class AttentionInputs(
     val privilege: Boolean,
     /** HyperOS may kill Aura in the background without the exemption, but the app still works. */
     val batteryExempt: Boolean,
+    /**
+     * A reboot happened that Aura's boot receiver did not attend (see `AutostartWatch`): the LED
+     * comes back only when the user opens the app, which is worth a look but not a broken app.
+     */
+    val autostartBlocked: Boolean,
     /** Whether statistics are on: the support card, and so its question, only exists when they are. */
     val analyticsGranted: Boolean,
     /** The one-time support question, `null` while unanswered: a question, not a defect. */
@@ -42,10 +47,14 @@ data class SettingsAttention(val important: Int = 0, val info: Int = 0) {
 fun settingsAttention(inputs: AttentionInputs) = SettingsAttention(
     important = missing(inputs.notificationAccess, inputs.privilege),
     info = missing(inputs.batteryExempt) +
+        // Deduced, so it is a suspicion rather than a verdict: a force-stopped app is not sent the
+        // boot broadcast either. Worth a grey dot, never a red one. Parenthesised on purpose: an
+        // `else` swallows everything to its right, so two unparenthesised counters would count one.
+        (if (inputs.autostartBlocked) 1 else 0) +
         // Only a question the app will actually ask: the support card is hidden while statistics are
         // off, because an answer that cannot be recorded is not worth asking for. Counting it there
         // would leave a dot pointing at a card that does not exist, for good.
-         if (inputs.analyticsGranted && inputs.supportAnswer == null) 1 else 0,
+        (if (inputs.analyticsGranted && inputs.supportAnswer == null) 1 else 0),
 )
 
 private fun missing(vararg ok: Boolean) = ok.count { !it }

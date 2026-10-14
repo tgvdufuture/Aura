@@ -50,8 +50,11 @@
     <string name="listener_disconnected">Déconnecté — aucune LED tant qu\'il n\'est pas reconnecté</string>
     <string name="listener_reconnect">Ouvrir les réglages d\'accès aux notifications</string>
     <string name="autostart_title">Démarrage auto (HyperOS)</string>
-    <string name="autostart_warning">HyperOS empêche Aura de redémarrer en arrière-plan. Autorisez le démarrage auto pour que la LED continue après un redémarrage.</string>
+    <string name="autostart_warning">HyperOS peut empêcher Aura de redémarrer en arrière-plan. Autorisez le démarrage auto pour que la LED continue après un redémarrage.</string>
     <string name="autostart_open">Ouvrir les réglages de démarrage auto</string>
+    <string name="autostart_state_enabled">Vérifié : Aura est revenue après le dernier redémarrage du téléphone, sans que vous l’ouvriez.</string>
+    <string name="autostart_state_blocked">Aura n’est pas revenue après le dernier redémarrage du téléphone. HyperOS peut bloquer les redémarrages en arrière-plan : vérifiez le démarrage auto.</string>
+    <string name="autostart_state_unknown">Pas encore vérifié : Aura n’a vu aucun redémarrage du téléphone depuis son installation.</string>
     <string name="led_duration">Durée d\'allumage LED : %1$d s</string>
 
     <!-- Rappel persistant -->

@@ -14,6 +14,7 @@ class SettingsAttentionTest {
         notificationAccess = true,
         privilege = true,
         batteryExempt = true,
+        autostartBlocked = false,
         analyticsGranted = true,
         supportAnswer = "donation",
     )
@@ -22,10 +23,18 @@ class SettingsAttentionTest {
         notificationAccess: Boolean = true,
         privilege: Boolean = true,
         batteryExempt: Boolean = true,
+        autostartBlocked: Boolean = false,
         analyticsGranted: Boolean = true,
         supportAnswer: String? = "donation",
     ) = settingsAttention(
-        AttentionInputs(notificationAccess, privilege, batteryExempt, analyticsGranted, supportAnswer),
+        AttentionInputs(
+            notificationAccess = notificationAccess,
+            privilege = privilege,
+            batteryExempt = batteryExempt,
+            autostartBlocked = autostartBlocked,
+            analyticsGranted = analyticsGranted,
+            supportAnswer = supportAnswer,
+        ),
     )
 
     @Test
@@ -63,6 +72,27 @@ class SettingsAttentionTest {
         assertEquals(AttentionLevel.INFO, question.level)
         assertEquals(1, question.info)
         assertEquals(0, question.important)
+    }
+
+    @Test
+    fun `a blocked autostart is a suspicion, not a failure`() {
+        val result = attention(autostartBlocked = true)
+
+        assertEquals(AttentionLevel.INFO, result.level)
+        assertEquals(1, result.info)
+        assertEquals(0, result.important)
+    }
+
+    /**
+     * Two informative gaps have to count two. Written after getting it wrong: an unparenthesised
+     * `if (...) 1 else 0 +` in the sum hands the count to the branch that runs first, so the second
+     * gap would have been counted as "one thing to look at" while the dot said otherwise.
+     */
+    @Test
+    fun `two informational gaps count two`() {
+        val result = attention(batteryExempt = false, autostartBlocked = true)
+
+        assertEquals(2, result.info)
     }
 
     /**

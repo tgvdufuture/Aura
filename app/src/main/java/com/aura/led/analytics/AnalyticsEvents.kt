@@ -22,6 +22,9 @@ object AnalyticsEvents {
     const val SETUP_PRIVILEGE_GRANTED = "setup_privilege_granted"
     const val SETUP_LED_TEST_RUN = "setup_led_test_run"
     const val SETUP_AUTOSTART_OPENED = "setup_autostart_opened"
+
+    /** Deduced, not read: HyperOS delivered a boot broadcast, so the autostart switch works. */
+    const val SETUP_AUTOSTART_GRANTED = "setup_autostart_granted"
     const val SETUP_BATTERY_EXEMPTION_REQUESTED = "setup_battery_exemption_requested"
     const val SETUP_BATTERY_EXEMPTION_GRANTED = "setup_battery_exemption_granted"
 

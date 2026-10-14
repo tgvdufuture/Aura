@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import com.aura.led.service.AuraForegroundService
+import com.aura.led.service.AutostartWatch
 
 /**
  * Restarts Aura's foreground service after the device boots so the notification
@@ -20,6 +21,10 @@ class BootReceiver : BroadcastReceiver() {
         if (action != Intent.ACTION_BOOT_COMPLETED && action != ACTION_QUICKBOOT_POWERON) return
 
         Log.d(TAG, "boot completed (action=$action) -> starting foreground service")
+        // This line is the only proof that HyperOS let Aura start after a reboot: it is what
+        // AutostartWatch compares against the next time the app runs.
+        runCatching { AutostartWatch.recordBootDelivered(context) }
+            .onFailure { Log.w(TAG, "could not record the delivered boot", it) }
         runCatching { AuraForegroundService.start(context) }
             .onFailure { Log.w(TAG, "failed to start foreground service", it) }
     }

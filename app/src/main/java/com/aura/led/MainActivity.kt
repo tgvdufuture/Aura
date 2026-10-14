@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,6 +24,7 @@ import com.aura.led.analytics.Analytics
 import com.aura.led.analytics.AnalyticsEvents
 import com.aura.led.analytics.AnalyticsPrefs
 import com.aura.led.service.AuraForegroundService
+import com.aura.led.service.AutostartWatch
 import com.aura.led.update.UpdateNotifier
 import kotlinx.coroutines.flow.MutableStateFlow
 import com.aura.led.ui.AuraTheme
@@ -81,6 +83,11 @@ class MainActivity : ComponentActivity() {
 
         // Keep the process alive in the background so notifications keep driving the LEDs.
         AuraForegroundService.start(this)
+
+        // The app is being opened by hand, which is what tells an autostart that worked from one
+        // that HyperOS quietly skipped (see AutostartWatch). Recorded before the screens read it.
+        runCatching { AutostartWatch.recordUserOpened(this) }
+            .onFailure { Log.w(TAG, "autostart reading failed", it) }
 
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
@@ -168,5 +175,9 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private companion object {
+        const val TAG = "AuraMain"
     }
 }

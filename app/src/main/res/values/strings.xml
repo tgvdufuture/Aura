@@ -58,8 +58,11 @@
     <string name="listener_disconnected">Disconnected — no LED until it reconnects</string>
     <string name="listener_reconnect">Open notification settings</string>
     <string name="autostart_title">Autostart (HyperOS)</string>
-    <string name="autostart_warning">HyperOS blocks Aura from restarting in the background. Enable Autostart so the LED keeps working after a reboot.</string>
+    <string name="autostart_warning">HyperOS can block Aura from restarting in the background. Enable Autostart so the LED keeps working after a reboot.</string>
     <string name="autostart_open">Open Autostart settings</string>
+    <string name="autostart_state_enabled">Verified: Aura came back after the last phone reboot, without you opening it.</string>
+    <string name="autostart_state_blocked">Aura did not come back after the last phone reboot. HyperOS can block background restarts: check the Autostart setting.</string>
+    <string name="autostart_state_unknown">Not verified yet: Aura has seen no phone reboot since it was installed.</string>
     <string name="led_duration">LED light duration: %1$d s</string>
 
     <!-- Persistent reminder -->

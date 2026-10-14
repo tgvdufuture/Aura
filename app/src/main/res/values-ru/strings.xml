@@ -56,8 +56,11 @@
     <string name="listener_disconnected">Отключено — подсветки не будет до повторного подключения</string>
     <string name="listener_reconnect">Открыть настройки уведомлений</string>
     <string name="autostart_title">Автозапуск (HyperOS)</string>
-    <string name="autostart_warning">HyperOS не даёт Aura перезапускаться в фоне. Включите автозапуск, чтобы подсветка продолжала работать после перезагрузки.</string>
+    <string name="autostart_warning">HyperOS может не дать Aura перезапуститься в фоне. Включите автозапуск, чтобы подсветка работала после перезагрузки.</string>
     <string name="autostart_open">Открыть настройки автозапуска</string>
+    <string name="autostart_state_enabled">Проверено: после последней перезагрузки телефона Aura запустилась сама, без вашего участия.</string>
+    <string name="autostart_state_blocked">После последней перезагрузки телефона Aura не запустилась. HyperOS может блокировать перезапуск в фоне: проверьте настройку автозапуска.</string>
+    <string name="autostart_state_unknown">Пока не проверено: с момента установки Aura не видела ни одной перезагрузки телефона.</string>
     <string name="led_duration">Длительность подсветки: %1$d с</string>
 
     <!-- Persistent reminder -->
