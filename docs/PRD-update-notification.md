@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Date:** 2026-10-14
-**Status:** Implemented and verified on the owner's device (2026-10-14); see `PROGRESS.md` for the evidence and the one gap (no automated test for the notification itself).
+**Status:** Implemented and verified on the owner's device (2026-10-14); see the project's own progress tracker, kept beside the repository rather than in it, for the evidence and the one gap (no automated test for the notification itself).
 
 ## Summary
 

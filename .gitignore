@@ -11,8 +11,10 @@ local.properties
 # Kotlin build cache
 .kotlin/
 
-# Codebuff agent skills (not part of the app)
+# Codebuff agent skills and working notes (not part of the app, not published)
 .agents/
+AGENTS.md
+PROGRESS.md
 
 # Decompiled HyperOS/MIUI framework sources (Xiaomi proprietary code)
 phase0/dex/

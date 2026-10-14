@@ -676,7 +676,7 @@ No remaining open questions for Phases 1–3.
 ## 9. Appendix
 
 - Design references: GitHub Releases download counts (v0.5.1 = 171, v0.5.0 = 543, v0.4.2 = 484, older = 159; total 1357, read 2026-10-14 via the releases API).
-- Related docs: `README.md` (privacy claims to update), `docs/analytics-dashboard.md` (dashboard insight checklist), `PROGRESS.md` (progress tracker), `docs/PRD-persistent-reminder.md` (protected behaviour and PRD format), `docs/index.html` (version reference).
+- Related docs: `README.md` (privacy claims to update), `docs/analytics-dashboard.md` (dashboard insight checklist), the project's progress tracker (kept locally, not published), `docs/PRD-persistent-reminder.md` (protected behaviour and PRD format), `docs/index.html` (version reference).
 - PostHog Android SDK docs: <https://posthog.com/docs/libraries/android> (`capture`, `screen`, `optIn`, `optOut`, `reset`, `personProfiles`, autocapture).
 - Key files: `app/src/main/java/com/aura/led/AuraApp.kt`, `MainActivity.kt`, `ui/Ui.kt`, `notification/AuraNotificationListener.kt`, `data/Data.kt`, `app/src/main/AndroidManifest.xml`, `app/build.gradle.kts`.
 - Test patterns: JUnit4 + `kotlinx-coroutines-test`, see `app/src/test/java/com/aura/led/engine/RuleEngineTest.kt` and `service/NewYearSchedulerTest.kt`.

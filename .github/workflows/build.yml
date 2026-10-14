@@ -3,6 +3,13 @@ name: Build
 on:
   push:
     branches: [ main ]
+    # Documentation edits do not need an Android runner. The pull_request trigger stays unfiltered:
+    # a contributor's PR must always get the check it is required to have.
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.gitignore'
+      - 'LICENSE'
   pull_request:
     branches: [ main ]
 

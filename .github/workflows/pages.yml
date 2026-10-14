@@ -3,6 +3,11 @@ name: Deploy GitHub Pages
 on:
   push:
     branches: [ main ]
+    # Only the site itself needs a deploy; a push that touches no file under docs/ has nothing to
+    # publish, and re-deploying anyway made every code commit look like a site change.
+    paths:
+      - 'docs/**'
+      - '.github/workflows/pages.yml'
   workflow_dispatch:
 
 permissions:
