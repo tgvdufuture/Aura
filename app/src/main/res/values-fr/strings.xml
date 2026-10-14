@@ -118,6 +118,10 @@
 
     <!-- Mise à jour -->
     <string name="update_title">Aura %1$s est disponible</string>
+    <string name="update_notification_title">Aura %1$s est disponible</string>
+    <string name="update_notification_text">Appuyez pour voir les nouveautés et installer.</string>
+    <string name="update_channel_name">Nouvelles versions</string>
+    <string name="update_channel_description">Vous prévient quand une nouvelle version d’Aura est publiée, sans ouvrir l’app. Un contrôle par jour.</string>
     <string name="update_notes_title">Nouveautés</string>
     <string name="update_size">Taille du téléchargement : %1$s</string>
     <string name="update_downloading">Téléchargement… %1$d%%</string>

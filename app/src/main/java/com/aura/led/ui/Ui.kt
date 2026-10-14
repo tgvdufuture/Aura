@@ -123,8 +123,12 @@ import com.aura.led.update.ApkDownloader
 import com.aura.led.update.ApkInstaller
 import com.aura.led.update.CheckResult
 import com.aura.led.update.ReleaseNotes
+import com.aura.led.update.UpdateCache
 import com.aura.led.update.UpdateChecker
+import com.aura.led.update.UpdateNotifier
 import com.aura.led.update.UpdatePolicy
+import com.aura.led.update.UpdateScheduler
+import com.aura.led.update.VersionComparison
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -606,7 +610,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setUpdateCheckEnabled(enabled: Boolean) {
-        AnalyticsPrefs.setUpdateCheckEnabled(ctx(), enabled)
+        val context = ctx()
+        AnalyticsPrefs.setUpdateCheckEnabled(context, enabled)
+        // Turning the check off must also stop the background job: the setting promises no
+        // request at all, not merely no request while a screen is open.
+        UpdateScheduler.sync(context)
         refreshAnalyticsState()
         if (enabled) checkForUpdate()
     }
@@ -639,6 +647,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             when (val result = UpdateChecker.check(installed, installed)) {
                 is CheckResult.UpToDate -> {
                     AnalyticsPrefs.setLastUpdateCheckMs(context, now)
+                    // Nothing left to announce: drop the version the background check had been
+                    // holding and the notification the user might still be keeping in the shade.
+                    UpdateCache.clear(context)
                     Analytics.track(
                         AnalyticsEvents.UPDATE_CHECK_RESULT,
                         mapOf(AnalyticsEvents.P_RESULT to "up_to_date"),
@@ -680,10 +691,42 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             AnalyticsEvents.UPDATE_PROMPT_SHOWN,
                             mapOf(AnalyticsEvents.P_LATEST_TAG to result.tag),
                         )
+                        // The user is reading the dialog: the notification for this tag has done its
+                        // job, and the tag is spent — being told twice about one version is nagging.
+                        AnalyticsPrefs.setNotifiedTag(context, result.tag)
+                        UpdateNotifier.cancel(context)
                     }
                 }
             }
         }
+    }
+
+    /**
+     * Shows the update screen for the version the background check announced, when its notification
+     * is tapped. The record comes from preferences, not from a fresh GitHub request: the tap has to
+     * work on a plane, and a failed round trip would leave the user staring at the app list.
+     */
+    fun showPendingUpdate() {
+        val context = ctx()
+        val pending = UpdateCache.load(context)
+        val installed = installedVersionName()
+        if (pending == null || !VersionComparison.isNewer(installed, pending.tag)) {
+            // Stale record (the version got installed in the meantime): the notification pointing at
+            // it is misleading too, so both go.
+            UpdateCache.clear(context)
+            return
+        }
+        pendingApkUrl = pending.apkUrl
+        _update.value = UpdateUiState(
+            phase = UpdatePhase.AVAILABLE,
+            versionName = pending.versionName,
+            sizeBytes = pending.sizeBytes,
+            notes = pending.notes,
+        )
+        Analytics.track(
+            AnalyticsEvents.UPDATE_NOTIFICATION_TAPPED,
+            mapOf(AnalyticsEvents.P_LATEST_TAG to pending.tag),
+        )
     }
 
     /** Downloads the release APK and launches the system installer. */
@@ -714,6 +757,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             AnalyticsEvents.UPDATE_INSTALL_LAUNCHED,
                             mapOf(AnalyticsEvents.P_LATEST_TAG to _update.value.versionName),
                         )
+                        // The install is under way; the notification has nothing left to say.
+                        UpdateNotifier.cancel(context)
                         _update.value = UpdateUiState()
                     } else {
                         // The installer refused the intent: hand the user the release page instead.
@@ -745,6 +790,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         )
         // Closing the dialog means "not this version"; "Later" only postpones.
         AnalyticsPrefs.setDismissedTag(context, "v${_update.value.versionName}")
+        // "Not this version" also covers the notification: it must not reappear on its own.
+        UpdateNotifier.cancel(context)
         _update.value = UpdateUiState()
     }
 

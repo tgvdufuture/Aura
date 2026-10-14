@@ -133,6 +133,14 @@ object Analytics {
         if (lastSeen != currentCode) AnalyticsPrefs.setLastSeenVersionCode(context, currentCode)
     }
 
+    /**
+     * Sends whatever is queued, now. Used before a background job hands the process back to the
+     * system: the SDK would otherwise flush on its own timer, which will not run again.
+     */
+    fun flush() {
+        if (active) runCatching { PostHog.flush() }
+    }
+
     /** Ends the foreground session so the next resume reports a new one. */
     fun onBackground() {
         foregroundTracked = false

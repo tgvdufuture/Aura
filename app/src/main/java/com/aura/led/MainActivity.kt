@@ -2,6 +2,7 @@ package com.aura.led
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -9,6 +10,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -20,6 +23,8 @@ import com.aura.led.analytics.Analytics
 import com.aura.led.analytics.AnalyticsEvents
 import com.aura.led.analytics.AnalyticsPrefs
 import com.aura.led.service.AuraForegroundService
+import com.aura.led.update.UpdateNotifier
+import kotlinx.coroutines.flow.MutableStateFlow
 import com.aura.led.ui.AuraTheme
 import com.aura.led.ui.ConsentScreen
 import com.aura.led.ui.LanguagePickerScreen
@@ -31,6 +36,22 @@ class MainActivity : ComponentActivity() {
 
     private val requestPostNotifications =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    /**
+     * Set when Aura was opened from the update notification, which carries a pending version to
+     * show. A state flow rather than a flag read once: the notification is delivered through
+     * `onNewIntent` when the app is already running, and that has to reach the composition whether
+     * it started the activity or woke it up.
+     */
+    private val showUpdateRequest = MutableStateFlow(false)
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(UpdateNotifier.EXTRA_SHOW_UPDATE, false)) {
+            showUpdateRequest.value = true
+        }
+    }
 
     override fun attachBaseContext(newBase: Context) {
         val language = LanguageManager.getSavedLanguage(newBase)
@@ -52,6 +73,11 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Launched from the update notification: pick the request up in the composition, once the
+        // ViewModel that serves the update screen exists.
+        showUpdateRequest.value =
+            intent?.getBooleanExtra(UpdateNotifier.EXTRA_SHOW_UPDATE, false) == true
 
         // Keep the process alive in the background so notifications keep driving the LEDs.
         AuraForegroundService.start(this)
@@ -82,6 +108,19 @@ class MainActivity : ComponentActivity() {
                 // list leaves the composition while the privacy screen is shown, which would forget
                 // the state and send Back to the main list instead of back to the settings list.
                 var showSettings by rememberSaveable { mutableStateOf(false) }
+
+                // A tap on the update notification lands here, on whatever screen the app was left
+                // on: the update screen takes over rather than waiting behind a settings list the
+                // user is not looking at.
+                val updateRequested by showUpdateRequest.collectAsState()
+                LaunchedEffect(updateRequested) {
+                    if (updateRequested) {
+                        showSettings = false
+                        viewModel.showPendingUpdate()
+                        showUpdateRequest.value = false
+                    }
+                }
+
                 if (savedLanguage == null) {
                     LanguagePickerScreen(
                         onSelect = { language ->

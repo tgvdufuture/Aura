@@ -129,6 +129,10 @@
 
     <!-- Update flow -->
     <string name="update_title">Aura %1$s is available</string>
+    <string name="update_notification_title">Aura %1$s is available</string>
+    <string name="update_notification_text">Tap to see what\'s new and install it.</string>
+    <string name="update_channel_name">New versions</string>
+    <string name="update_channel_description">Tells you when a new version of Aura is out, without opening the app. One check a day.</string>
     <string name="update_notes_title">What\'s new</string>
     <string name="update_size">Download size: %1$s</string>
     <string name="update_downloading">Downloading… %1$d%%</string>

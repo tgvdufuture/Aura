@@ -127,6 +127,10 @@
 
     <!-- Обновление -->
     <string name="update_title">Доступна Aura %1$s</string>
+    <string name="update_notification_title">Доступна Aura %1$s</string>
+    <string name="update_notification_text">Нажмите, чтобы увидеть новое и установить.</string>
+    <string name="update_channel_name">Новые версии</string>
+    <string name="update_channel_description">Сообщает о выходе новой версии Aura, не открывая приложение. Одна проверка в день.</string>
     <string name="update_notes_title">Что нового</string>
     <string name="update_size">Размер загрузки: %1$s</string>
     <string name="update_downloading">Загрузка… %1$d%%</string>

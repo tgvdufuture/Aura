@@ -45,6 +45,8 @@ object AnalyticsEvents {
     // ---- Update flow ----
     const val UPDATE_CHECK_RESULT = "update_check_result"
     const val UPDATE_PROMPT_SHOWN = "update_prompt_shown"
+    const val UPDATE_NOTIFICATION_SHOWN = "update_notification_shown"
+    const val UPDATE_NOTIFICATION_TAPPED = "update_notification_tapped"
     const val UPDATE_PROMPT_ACCEPTED = "update_prompt_accepted"
     const val UPDATE_PROMPT_POSTPONED = "update_prompt_postponed"
     const val UPDATE_DOWNLOAD_RESULT = "update_download_result"

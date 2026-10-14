@@ -19,6 +19,12 @@ object AnalyticsPrefs {
     private const val KEY_LAST_CHECK_MS = "lastUpdateCheckMs"
     private const val KEY_LAST_PROMPT_MS = "lastPromptMs"
     private const val KEY_DISMISSED_TAG = "dismissedVersion"
+    private const val KEY_NOTIFIED_TAG = "notifiedVersion"
+    private const val KEY_PENDING_TAG = "pendingUpdateTag"
+    private const val KEY_PENDING_VERSION = "pendingUpdateVersion"
+    private const val KEY_PENDING_URL = "pendingUpdateUrl"
+    private const val KEY_PENDING_SIZE = "pendingUpdateSize"
+    private const val KEY_PENDING_NOTES = "pendingUpdateNotes"
     private const val KEY_SUPPORT_ANSWER = "supportAnswer"
     private const val KEY_LAST_SEEN_VERSION_CODE = "lastSeenVersionCode"
     private const val KEY_SETUP_FLAG = "setupFlag"
@@ -60,6 +66,60 @@ object AnalyticsPrefs {
 
     fun setDismissedTag(context: Context, tag: String) {
         prefs(context).edit().putString(KEY_DISMISSED_TAG, tag).apply()
+    }
+
+    /**
+     * The last tag the user was told about by notification. A version is announced once: without
+     * this, a user who ignores the notification would be told again every single day.
+     */
+    fun notifiedTag(context: Context): String = prefs(context).getString(KEY_NOTIFIED_TAG, "") ?: ""
+
+    fun setNotifiedTag(context: Context, tag: String) {
+        prefs(context).edit().putString(KEY_NOTIFIED_TAG, tag).apply()
+    }
+
+    // The release the app has discovered and not installed yet (`PendingUpdate`), written by the
+    // background check so the notification can open the update screen without a second GitHub
+    // request. Five entries, not one packed value: the release notes are free text.
+
+    fun pendingUpdateTag(context: Context): String = prefs(context).getString(KEY_PENDING_TAG, "").orEmpty()
+
+    fun pendingUpdateVersion(context: Context): String =
+        prefs(context).getString(KEY_PENDING_VERSION, "").orEmpty()
+
+    fun pendingUpdateUrl(context: Context): String =
+        prefs(context).getString(KEY_PENDING_URL, "").orEmpty()
+
+    fun pendingUpdateSize(context: Context): Long = prefs(context).getLong(KEY_PENDING_SIZE, 0L)
+
+    fun pendingUpdateNotes(context: Context): String =
+        prefs(context).getString(KEY_PENDING_NOTES, "").orEmpty()
+
+    fun setPendingUpdate(
+        context: Context,
+        tag: String,
+        versionName: String,
+        apkUrl: String,
+        sizeBytes: Long,
+        notes: String,
+    ) {
+        prefs(context).edit()
+            .putString(KEY_PENDING_TAG, tag)
+            .putString(KEY_PENDING_VERSION, versionName)
+            .putString(KEY_PENDING_URL, apkUrl)
+            .putLong(KEY_PENDING_SIZE, sizeBytes)
+            .putString(KEY_PENDING_NOTES, notes)
+            .apply()
+    }
+
+    fun clearPendingUpdate(context: Context) {
+        prefs(context).edit()
+            .remove(KEY_PENDING_TAG)
+            .remove(KEY_PENDING_VERSION)
+            .remove(KEY_PENDING_URL)
+            .remove(KEY_PENDING_SIZE)
+            .remove(KEY_PENDING_NOTES)
+            .apply()
     }
 
     // ---- Version bookkeeping (first run / update detection) ----

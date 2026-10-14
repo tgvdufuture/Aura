@@ -88,6 +88,10 @@ dependencies {
 
     implementation("com.posthog:posthog-android:3.72.2")
 
+    // Daily background check for a new release, so the notification reaches the user even
+    // when the app has not been opened.
+    implementation("androidx.work:work-runtime-ktx:2.10.1")
+
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
 }
