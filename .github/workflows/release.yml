@@ -45,6 +45,18 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
+      # local.properties is gitignored, so without this step the published APK would carry an empty
+      # POSTHOG_PROJECT_TOKEN: no event could ever be sent, while the consent screen still asks the
+      # user to share them. A warning rather than a failure — the app works without analytics.
+      - name: Write the analytics token into local.properties
+        env:
+          POSTHOG_PROJECT_TOKEN: ${{ secrets.POSTHOG_PROJECT_TOKEN }}
+        run: |
+          if [ -z "$POSTHOG_PROJECT_TOKEN" ]; then
+            echo "::warning::POSTHOG_PROJECT_TOKEN is not set: this APK will ship with usage analytics permanently disabled, while the consent screen still offers to share them."
+          fi
+          printf 'POSTHOG_PROJECT_TOKEN=%s\n' "$POSTHOG_PROJECT_TOKEN" > local.properties
+
       - name: Build release APK
         run: ./gradlew :app:assembleRelease --console=plain
 

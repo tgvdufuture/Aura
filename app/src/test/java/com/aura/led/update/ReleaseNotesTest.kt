@@ -1,6 +1,8 @@
 package com.aura.led.update
 
+import java.io.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -70,6 +72,39 @@ class ReleaseNotesTest {
         val long = (1..60).joinToString("\n") { "- line $it" }
 
         assertEquals(ReleaseNotes.MAX_NOTES, ReleaseNotes.parse(long).size)
+    }
+
+    /**
+     * The bodies actually published, rendered by the code that will render them on a phone. A typed
+     * fixture proves the parser; this proves the text going into a release — that it is not empty,
+     * that the dialog will not truncate it, and that no markdown syntax reaches the user's screen.
+     */
+    @Test
+    fun `every release body in the repository is written for this parser`() {
+        val notesFiles = File("../docs").listFiles { file ->
+            file.name.startsWith("release-notes-") && file.name.endsWith(".md")
+        }.orEmpty()
+
+        assertFalse("no release body found in docs/", notesFiles.isEmpty())
+        notesFiles.forEach { file ->
+            val notes = ReleaseNotes.parse(file.readText())
+            val texts = notes.map { it.text }
+
+            assertFalse("${file.name} parses to nothing", notes.isEmpty())
+            assertTrue(
+                "${file.name} would be truncated by the dialog: ${notes.size} notes",
+                notes.size < ReleaseNotes.MAX_NOTES,
+            )
+            assertEquals("${file.name} does not start on a heading", ReleaseNotes.Kind.HEADING, notes.first().kind)
+            assertTrue(
+                "${file.name} leaks markdown syntax: $texts",
+                texts.none { it.contains("**") || it.contains("}](http") },
+            )
+            assertTrue(
+                "${file.name} leaks a changelog link: $texts",
+                texts.none { it.contains("github.com") },
+            )
+        }
     }
 
     @Test
