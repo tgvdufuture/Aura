@@ -1,0 +1,5 @@
+#!/bin/sh
+
+C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe \
+  -NoProfile -ExecutionPolicy Bypass \
+  -File "$(dirname "$0")/clean-commit-message.ps1" "$1"

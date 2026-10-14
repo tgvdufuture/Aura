@@ -78,6 +78,10 @@ class MainActivity : ComponentActivity() {
                 }
                 // Settings can re-open the privacy screen so the choice can be reviewed at any time.
                 var reviewingPrivacy by rememberSaveable { mutableStateOf(false) }
+                // Declared next to the flag above, not inside the screen that uses it: the settings
+                // list leaves the composition while the privacy screen is shown, which would forget
+                // the state and send Back to the main list instead of back to the settings list.
+                var showSettings by rememberSaveable { mutableStateOf(false) }
                 if (savedLanguage == null) {
                     LanguagePickerScreen(
                         onSelect = { language ->
@@ -101,7 +105,6 @@ class MainActivity : ComponentActivity() {
                         },
                     )
                 } else {
-                    var showSettings by rememberSaveable { mutableStateOf(false) }
                     if (showSettings) {
                 SettingsScreen(
                     currentLanguage = savedLanguage,

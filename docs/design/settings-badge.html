@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rond des Réglages — placement</title>
+<!--
+  Outil de réglage, pas une page du produit : rien de ce fichier n'est livré dans l'app.
+  La maquette est au 1:1 avec le téléphone (1 px CSS = 1 dp, zoom ×2 par défaut).
+  Toutes les cotes viennent du relevé fait sur l'appareil (Xiaomi, 520 dpi) :
+    écran 390,15 dp de large · barre d'état 48 dp · barre du haut 64 dp
+    zone tactile 48 dp, marge de fin 4 dp · encre de l'engrenage 17,8 × 18,8 dp
+    rond en place dans l'app : 7,5 dp, centre à (−16,8 ; +11,9) dp du coin haut-droit de la zone
+    tactile (réglé le 14/10 ; l'ancien placement, posé par Material, était (−3,2 ; +2,9) sur 6 dp)
+-->
+<style>
+  :root {
+    --ink: #ece9f2;
+    --ink-soft: #a09dab;
+    --ink-faint: #8b8896;   /* 5,1:1 sur le panneau et 5,4:1 sur le fond : le titre de bloc reste discret, plus illisible */
+    --space: #101014;
+    --panel: #18181d;
+    --line: #2a2931;
+    --line-soft: #212128;
+    --focus: #b9b3ff;
+    --radius: 14px;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { margin: 0; }
+  body {
+    background: var(--space);
+    color: var(--ink);
+    font: 15px/1.5 system-ui, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection { background: #3b3663; color: #fff; }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+
+  header {
+    padding: 28px 28px 0;
+    max-width: 1320px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 1.35rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin: 0 0 6px;
+    text-wrap: balance;
+  }
+  header p {
+    margin: 0;
+    color: var(--ink-soft);
+    max-width: 68ch;
+  }
+  header p b { color: var(--ink); font-weight: 600; }
+
+  main {
+    max-width: 1320px;
+    margin: 24px auto 48px;
+    padding: 0 28px;
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(320px, 380px);
+    gap: 32px;
+    align-items: start;
+  }
+
+  /* ---------- la maquette ---------- */
+
+  .stage {
+    background:
+      radial-gradient(120% 80% at 20% 0%, #1a1a22 0%, var(--space) 60%);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--radius);
+    padding: 24px;
+    overflow: auto;
+  }
+  .scalebox { position: relative; }
+
+  .phone {
+    position: relative;
+    width: 390.15px;
+    height: 300px;               /* le haut de l'écran suffit : le rond vit dans la barre */
+    transform-origin: top left;
+    transform: scale(var(--zoom, 2));
+    background: var(--mr-surface);
+    border-radius: 2px;
+    box-shadow: 0 24px 60px -30px #000;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+  }
+  .phone[data-dragging="on"] { cursor: grabbing; }
+
+  /* Palette Material 3 de base — celles que l'app déclare (lightColorScheme/darkColorScheme). */
+  .phone, .phone[data-theme="light"] {
+    --mr-surface: #fef7ff;
+    --mr-ink: #1d1b20;
+    --mr-ink-soft: #49454f;
+    --mr-error: #b3261e;
+  }
+  .phone[data-theme="dark"] {
+    --mr-surface: #141218;
+    --mr-ink: #e6e0e9;
+    --mr-ink-soft: #cac4d0;
+    --mr-error: #f2b8b5;
+  }
+
+  .screen {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+  }
+  /* l'écran continue : le bas de la maquette s'efface */
+  .screen::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 56px;
+    background: linear-gradient(to bottom, transparent, var(--mr-surface) 70%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent, #000);
+    mask-image: linear-gradient(to bottom, transparent, #000);
+    pointer-events: none;
+  }
+
+  .statusbar {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px 0 26px;
+    color: var(--mr-ink);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+  .statusbar svg { display: block; }
+  .status-icons { display: flex; align-items: center; gap: 5px; }
+
+  .appbar {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 4px 0 16px;
+  }
+  .apptitle {
+    font-size: 22px;
+    font-weight: 400;
+    margin: 0;
+    color: var(--mr-ink);
+    letter-spacing: 0;
+  }
+
+  .iconbtn {
+    position: relative;
+    width: 48px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+  }
+  .gear { width: 24px; height: 24px; fill: var(--mr-ink-soft); }
+
+  .dot {
+    position: absolute;
+    border-radius: 50%;
+    background: var(--mr-error);
+    will-change: left, top, width, height;
+  }
+  .phone[data-state="info"] .dot { background: var(--mr-ink-soft); }
+  /* Pas d'animation d'entrée sur le rond : il est l'instrument de mesure, et une apparition qui
+     l'agrandit ou le rétrécit ment sur sa taille pendant le temps où on la lit. */
+
+  /* repères de mesure */
+  .guide { position: absolute; pointer-events: none; }
+  .phone[data-guides="off"] .guide { display: none; }
+  .guide-box { border: 1px dashed #8b7bff7a; }
+  .guide-glyph { border: 1px dashed #ff9d5c8c; }
+  .guide-bar { border-top: 1px dashed #6ee7ff59; border-bottom: 1px dashed #6ee7ff59; }
+
+  .content { padding: 8px 16px; color: var(--mr-ink); }
+  .section { font-size: 16px; font-weight: 500; margin: 0 0 12px; }
+  .searchfield {
+    height: 56px;
+    border: 1px solid var(--mr-ink-soft);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    color: var(--mr-ink-soft);
+    font-size: 16px;
+  }
+
+  /* ---------- le panneau ---------- */
+
+  .panel { display: grid; gap: 18px; }
+
+  .block {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px;
+  }
+  .block h2 {
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+    margin: 0 0 14px;
+  }
+
+  .reading { display: grid; grid-template-columns: 1fr auto; gap: 10px 14px; align-items: baseline; }
+  .reading dt { color: var(--ink-soft); font-size: 0.9rem; }
+  .reading dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    font-size: 1.05rem;
+  }
+  .reading dd.big { font-size: 1.5rem; letter-spacing: -0.01em; }
+  .reading dd.hero { grid-column: 1 / -1; margin-top: -4px; }
+  .reading dd small { font-weight: 400; color: var(--ink-soft); font-size: 0.8rem; }
+  .reading dt.hero { margin-bottom: -6px; }
+  .reading dd.warn { color: #ff9c92; }
+
+  .note { margin: 14px 0 0; font-size: 0.85rem; color: var(--ink-soft); border-top: 1px solid var(--line-soft); padding-top: 12px; }
+  .note[hidden] { display: none; }
+  .note.alert { color: #ffb4a8; }
+  .anchor-note { margin: 6px 0 0; font-size: 0.8rem; color: var(--ink-faint); }
+
+  .controls { display: grid; gap: 16px; }
+  .field { display: grid; gap: 8px; }
+  .field > span { font-size: 0.85rem; color: var(--ink-soft); }
+
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; gap: 2px; }
+  .seg button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--ink-soft);
+    font: inherit;
+    font-size: 0.85rem;
+    padding: 5px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .seg button[aria-pressed="true"] { background: #2f2e3b; color: var(--ink); }
+  .seg button:hover { color: var(--ink); }
+
+  input[type="range"] { width: 100%; accent-color: var(--focus); cursor: pointer; }
+
+  .btn {
+    appearance: none;
+    font: inherit;
+    font-size: 0.9rem;
+    color: var(--ink);
+    background: #252431;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 9px 14px;
+    cursor: pointer;
+  }
+  .btn:hover { background: #2d2c3b; }
+  .btn[aria-pressed="true"] { background: #322f4d; border-color: #464179; color: #fff; }
+  .btn.primary { background: #3b3760; border-color: #4a4478; }
+  .btn.primary:hover { background: #454072; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  pre {
+    margin: 0;
+    padding: 12px;
+    background: #101015;
+    border: 1px solid var(--line-soft);
+    border-radius: 10px;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    color: #d6d2e4;
+    overflow: auto;
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    caret-color: var(--focus);
+  }
+  pre::-webkit-scrollbar { height: 10px; width: 10px; }
+  pre::-webkit-scrollbar-thumb { background: #2f2e3b; border-radius: 999px; }
+  pre::-webkit-scrollbar-track { background: transparent; }
+
+  .hint { font-size: 0.85rem; color: var(--ink-soft); margin: 0; }
+  .foot { font-size: 0.8rem; color: var(--ink-faint); margin: 0; }
+
+  @media (max-width: 900px) {
+    main { grid-template-columns: minmax(0, 1fr); }
+    header, main { padding-left: 16px; padding-right: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Où poser le rond sur l'engrenage des Réglages</h1>
+  <p>Maquette au <b>1:1</b> avec le téléphone : tire le rond où tu le veux, ou dis-moi les chiffres.
+     <b>Rouge</b> = ce que l'app ne peut pas faire sans (notifications, Shizuku/root),
+     <b>gris</b> = à regarder sans urgence (batterie, question).</p>
+</header>
+
+<main>
+  <section class="stage">
+    <div class="scalebox" id="scalebox">
+      <div class="phone" id="phone" data-theme="light" data-state="important" data-guides="on"
+           tabindex="0" role="group"
+           aria-label="Maquette de la barre du haut. Flèches pour déplacer le rond.">
+        <div class="screen">
+          <div class="statusbar">
+            <span>16:10</span>
+            <span class="status-icons" aria-hidden="true">
+              <svg width="13" height="10" viewBox="0 0 13 10" fill="currentColor"><path d="M6.5 9.4 3.9 6.6a3.9 3.9 0 0 1 5.2 0zM2.6 5.3a6 6 0 0 1 7.8 0l1.2-1.3a7.8 7.8 0 0 0-10.2 0zM0 2.6a10 10 0 0 1 13 0L11.8 3.9a8.2 8.2 0 0 0-10.6 0z"/></svg>
+              <svg width="22" height="11" viewBox="0 0 22 11" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="0.6" y="0.6" width="17.8" height="9.3" rx="2.4"/><rect x="2.2" y="2.2" width="11" height="6.1" rx="1.2" fill="currentColor" stroke="none"/><path d="M20 4v3" stroke-linecap="round"/></svg>
+            </span>
+          </div>
+
+          <div class="appbar">
+            <div class="guide guide-bar" style="left:0;right:0;top:0;height:64px"></div>
+            <h1 class="apptitle">Aura</h1>
+            <div class="iconbtn" id="iconbtn">
+              <div class="guide guide-box" style="inset:0"></div>
+              <div class="guide guide-glyph" style="left:15.1px;top:14.6px;width:17.8px;height:18.8px"></div>
+              <svg class="gear" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14,12.94c0.04,-0.3 0.06,-0.61 0.06,-0.94c0,-0.32 -0.02,-0.64 -0.07,-0.94l2.03,-1.58c0.18,-0.14 0.23,-0.41 0.12,-0.61l-1.92,-3.32c-0.12,-0.22 -0.37,-0.29 -0.59,-0.22l-2.39,0.96c-0.5,-0.38 -1.03,-0.7 -1.62,-0.94L14.4,2.81c-0.04,-0.24 -0.24,-0.41 -0.48,-0.41h-3.84c-0.24,0 -0.43,0.17 -0.47,0.41L9.25,5.35C8.66,5.59 8.12,5.92 7.63,6.29L5.24,5.33c-0.22,-0.08 -0.47,0 -0.59,0.22L2.74,8.87C2.62,9.08 2.66,9.34 2.86,9.48l2.03,1.58C4.84,11.36 4.8,11.69 4.8,12s0.02,0.64 0.07,0.94l-2.03,1.58c-0.18,0.14 -0.23,0.41 -0.12,0.61l1.92,3.32c0.12,0.22 0.37,0.29 0.59,0.22l2.39,-0.96c0.5,0.38 1.03,0.7 1.62,0.94l0.36,2.54c0.05,0.24 0.24,0.41 0.48,0.41h3.84c0.24,0 0.44,-0.17 0.47,-0.41l0.36,-2.54c0.59,-0.24 1.13,-0.56 1.62,-0.94l2.39,0.96c0.22,0.08 0.47,0 0.59,-0.22l1.92,-3.32c0.12,-0.22 0.07,-0.47 -0.12,-0.61L19.14,12.94zM12,15.6c-1.98,0 -3.6,-1.62 -3.6,-3.6s1.62,-3.6 3.6,-3.6s3.6,1.62 3.6,3.6S13.98,15.6 12,15.6z"/></svg>
+              <span class="dot" id="dot" aria-hidden="true"></span>
+            </div>
+          </div>
+
+          <div class="content">
+            <p class="section">Applications</p>
+            <div class="searchfield">Rechercher une app</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="hint" style="margin-top:16px">
+      Glisse n'importe où dans la maquette. Flèches = 0,5 dp · Maj + flèches = 5 dp.
+    </p>
+  </section>
+
+  <aside class="panel">
+    <div class="block">
+      <h2>Position</h2>
+      <dl class="reading" aria-live="polite">
+        <dt class="hero">Centre du rond depuis le coin haut-droit de la zone tactile</dt>
+        <dd class="hero"><span class="big" id="out-xy">−3,2 ; +2,9</span> <small>dp</small></dd>
+
+        <dt>Diamètre</dt>
+        <dd><span id="out-d">6</span> <small>dp</small></dd>
+
+        <dt>Marge jusqu'au bord droit de l'écran</dt>
+        <dd id="out-edge">4,2 dp</dd>
+
+        <dt>Écart au bord de l'engrenage</dt>
+        <dd id="out-gap">12,4 dp</dd>
+      </dl>
+      <p class="anchor-note">Le coin haut-droit, c'est celui de la zone tactile de 48 dp autour de l'engrenage
+        (coin à 386,2 ; 56,0 dp du coin de l'écran).</p>
+      <p class="note alert" id="out-warn" hidden></p>
+      <p class="note" id="out-read"></p>
+    </div>
+
+    <div class="block">
+      <h2>Réglages</h2>
+      <div class="controls">
+        <div class="field">
+          <span>État du rond</span>
+          <div class="seg" role="group" aria-label="État du rond">
+            <button type="button" data-state="important" aria-pressed="true">Important · rouge</button>
+            <button type="button" data-state="info" aria-pressed="false">Informatif · gris</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span>Thème de la maquette</span>
+          <div class="seg" role="group" aria-label="Thème de la maquette">
+            <button type="button" data-theme="light" aria-pressed="true">Clair</button>
+            <button type="button" data-theme="dark" aria-pressed="false">Sombre</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span>Diamètre <b id="out-d2">6</b> dp</span>
+          <input id="in-d" type="range" min="4" max="12" step="0.5" value="6"
+                 aria-label="Diamètre du rond en dp">
+        </div>
+
+        <div class="field">
+          <span>Zoom</span>
+          <div class="seg" role="group" aria-label="Zoom">
+            <button type="button" data-zoom="1" aria-pressed="false">×1</button>
+            <button type="button" data-zoom="2" aria-pressed="true">×2</button>
+            <button type="button" data-zoom="3" aria-pressed="false">×3</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <button type="button" class="btn" id="in-guides" aria-pressed="true">Repères</button>
+          <button type="button" class="btn" id="in-reset">Placement actuel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="block">
+      <h2>À me coller</h2>
+      <pre id="out-json">…</pre>
+      <div class="row" style="margin-top:12px">
+        <button type="button" class="btn primary" id="in-copy">Copier</button>
+      </div>
+      <p class="hint" style="margin-top:12px">Et voici la ligne que j'écrirai dans le code :</p>
+      <pre id="out-code" style="margin-top:8px">…</pre>
+    </div>
+
+    <p class="foot">Outil de réglage : rien de cette page n'est livré dans l'app.
+      Cotes relevées sur l'appareil (écran 390 dp · barre 64 dp · zone tactile 48 dp).</p>
+  </aside>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  // Relevé sur l'appareil (520 dpi → 1 px CSS = 1 dp).
+  const GEO = {
+    screenW: 390.15,
+    screenH: 848,
+    statusBar: 48,
+    barH: 64,
+    btn: 48,
+    endPad: 4,
+    glyphW: 17.8,
+    glyphH: 18.8,
+  };
+  // Coin haut-droit de la zone tactile : ce que le rond mesure son décalage depuis.
+  const ANCHOR = {
+    x: GEO.screenW - GEO.endPad,
+    y: GEO.statusBar + (GEO.barH - GEO.btn) / 2,
+  };
+  const ICON = { x: ANCHOR.x - GEO.btn / 2, y: ANCHOR.y + GEO.btn / 2 };
+  const GLYPH = {
+    l: ICON.x - GEO.glyphW / 2,
+    t: ICON.y - GEO.glyphH / 2,
+    r: ICON.x + GEO.glyphW / 2,
+    b: ICON.y + GEO.glyphH / 2,
+  };
+  // Ce que l'app dessine aujourd'hui (BADGE_CENTRE_X_DP / _Y_DP / BADGE_SIZE_DP dans Ui.kt) :
+  // c'est ce que « Placement actuel » doit remettre, sinon l'outil mentirait sur l'app.
+  const CURRENT = { cx: -16.8, cy: 11.9, d: 7.5 };
+
+  const el = {
+    phone: document.getElementById("phone"),
+    scalebox: document.getElementById("scalebox"),
+    dot: document.getElementById("dot"),
+    xy: document.getElementById("out-xy"),
+    d: document.getElementById("out-d"),
+    d2: document.getElementById("out-d2"),
+    edge: document.getElementById("out-edge"),
+    gap: document.getElementById("out-gap"),
+    warn: document.getElementById("out-warn"),
+    read: document.getElementById("out-read"),
+    json: document.getElementById("out-json"),
+    code: document.getElementById("out-code"),
+    range: document.getElementById("in-d"),
+    guides: document.getElementById("in-guides"),
+    copy: document.getElementById("in-copy"),
+    reset: document.getElementById("in-reset"),
+  };
+
+  let pos = { ...CURRENT };
+  let zoom = 2;
+  let zoomPinned = false;
+
+  const fr = (n, digits = 1) =>
+    (n === 0 ? 0 : n).toFixed(digits).replace("-", "−").replace(".", ",");
+  const dot = (n, digits = 1) => Number(n.toFixed(digits)).toString();
+
+  function box(p) {
+    return {
+      l: ANCHOR.x + p.cx - p.d / 2,
+      t: ANCHOR.y + p.cy - p.d / 2,
+      r: ANCHOR.x + p.cx + p.d / 2,
+      b: ANCHOR.y + p.cy + p.d / 2,
+    };
+  }
+
+  function gapToGlyph(b) {
+    const gx = Math.max(GLYPH.l - b.r, b.l - GLYPH.r, 0);
+    const gy = Math.max(GLYPH.t - b.b, b.t - GLYPH.b, 0);
+    return Math.hypot(gx, gy);
+  }
+
+  function warnings(b) {
+    const out = [];
+    if (b.l < 0 || b.r > GEO.screenW || b.t < 0 || b.b > GEO.screenH) {
+      out.push("Le rond est coupé par le bord de l'écran.");
+    } else if (b.t < GEO.statusBar) {
+      out.push("Le rond mord dans la barre d'état.");
+    } else if (b.b > GEO.statusBar + GEO.barH) {
+      out.push("Le rond sort de la barre du haut.");
+    }
+    return out;
+  }
+
+  function render() {
+    const b = box(pos);
+
+    el.dot.style.left = (GEO.btn + pos.cx - pos.d / 2) + "px";
+
+    el.dot.style.top = (pos.cy - pos.d / 2) + "px";
+    el.dot.style.width = pos.d + "px";
+    el.dot.style.height = pos.d + "px";
+
+    const sign = (n) => (n >= 0 ? "+" : "−") + fr(Math.abs(n));
+    el.xy.textContent = `${sign(pos.cx)} ; ${sign(pos.cy)}`;
+    el.d.textContent = fr(pos.d, 1);
+    el.d2.textContent = fr(pos.d, 1);
+    el.range.value = String(pos.d);
+
+    const margin = GEO.screenW - b.r;
+    el.edge.textContent = fr(margin) + " dp";
+    el.edge.className = margin < 1 ? "warn" : "";
+
+    const gap = gapToGlyph(b);
+    el.gap.textContent = gap > 0 ? fr(gap) + " dp" : "recouvert";
+
+    const warns = warnings(b);
+    el.warn.hidden = warns.length === 0;
+    el.warn.textContent = warns.join(" ");
+
+    // Ce que le chiffre veut dire, en clair : un rond collé à l'icône, ou un rond qui flotte.
+    el.read.textContent = warns.length > 0 ? "Reprends une position dans la barre pour voir si elle tient."
+      : margin < 2
+        ? `Le rond frôle le bord de l'écran (${fr(margin)} dp).`
+        : gap === 0
+          ? "Le rond recouvre le coin de l'engrenage."
+          : gap > 3
+            ? `Le rond flotte à ${fr(gap)} dp de l'engrenage : rien ne dit qu'il le désigne.`
+            : `Le rond est à ${fr(gap)} dp de l'engrenage : collé à l'icône.`;
+
+    el.json.textContent = JSON.stringify({ cx: +dot(pos.cx), cy: +dot(pos.cy), d: +dot(pos.d) });
+    el.code.textContent =
+      "Modifier\n" +
+      "    .align(Alignment.TopEnd)\n" +
+      // Deux décimales : ce sont des cotes dérivées, elles doivent tomber juste, pas joliment.
+      `    .offset(x = (${dot(pos.cx + pos.d / 2, 2)}).dp, y = (${dot(pos.cy - pos.d / 2, 2)}).dp)\n` +
+      `    .size(${dot(pos.d)}.dp)`;
+
+  }
+
+  // Au chargement, la maquette se cale sur la place disponible : ouverte dans une fenêtre
+  // étroite, elle ne doit pas pousser le rond hors de l'écran.
+  function fitZoom() {
+    const w = window.innerWidth;
+    // Grand écran : la place de la colonne de droite en moins. Étroit : la page est empilée.
+    const avail = (w >= 900 ? w - 56 - 380 - 32 : w - 32) - 48;
+    return Math.max(1, Math.min(2, Math.floor(avail / GEO.screenW)));
+  }
+
+  function setZoom(z) {
+    zoom = z;
+    el.phone.style.setProperty("--zoom", z);
+    el.scalebox.style.width = (GEO.screenW * z) + "px";
+    el.scalebox.style.height = (300 * z) + "px";
+    document.querySelectorAll("[data-zoom]").forEach((b) =>
+      b.setAttribute("aria-pressed", String(Number(b.dataset.zoom) === z)));
+  }
+
+  /* ---------- glisser ---------- */
+
+  let drag = null;
+  el.phone.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    el.phone.setPointerCapture(e.pointerId);
+    el.phone.dataset.dragging = "on";
+    drag = { x: e.clientX, y: e.clientY, cx: pos.cx, cy: pos.cy };
+  });
+  el.phone.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    pos.cx = drag.cx + (e.clientX - drag.x) / zoom;
+    pos.cy = drag.cy + (e.clientY - drag.y) / zoom;
+    render();
+  });
+  const endDrag = (e) => {
+    if (!drag) return;
+    drag = null;
+    delete el.phone.dataset.dragging;
+    if (el.phone.hasPointerCapture(e.pointerId)) el.phone.releasePointerCapture(e.pointerId);
+  };
+  el.phone.addEventListener("pointerup", endDrag);
+  el.phone.addEventListener("pointercancel", endDrag);
+
+  /* ---------- clavier ---------- */
+
+  el.phone.addEventListener("keydown", (e) => {
+    const step = e.shiftKey ? 5 : 0.5;
+    const move = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+    if (!move) return;
+    e.preventDefault();
+    pos.cx += move[0] * step;
+    pos.cy += move[1] * step;
+    render();
+  });
+
+  /* ---------- commandes ---------- */
+
+  document.querySelectorAll("[data-state]").forEach((b) =>
+    b.addEventListener("click", () => {
+      el.phone.dataset.state = b.dataset.state;
+      document.querySelectorAll("[data-state]").forEach((o) =>
+        o.setAttribute("aria-pressed", String(o === b)));
+    }));
+
+  document.querySelectorAll("[data-theme]").forEach((b) =>
+    b.addEventListener("click", () => {
+      el.phone.dataset.theme = b.dataset.theme;
+      document.querySelectorAll("[data-theme]").forEach((o) =>
+        o.setAttribute("aria-pressed", String(o === b)));
+    }));
+
+  document.querySelectorAll("[data-zoom]").forEach((b) =>
+    b.addEventListener("click", () => { zoomPinned = true; setZoom(Number(b.dataset.zoom)); }));
+
+  addEventListener("resize", () => { if (!zoomPinned) setZoom(fitZoom()); });
+
+  el.range.addEventListener("input", () => {
+    pos.d = Number(el.range.value);
+    render();
+  });
+
+  el.guides.addEventListener("click", () => {
+    const on = el.phone.dataset.guides !== "on";
+    el.phone.dataset.guides = on ? "on" : "off";
+    el.guides.setAttribute("aria-pressed", String(on));
+  });
+
+  el.reset.addEventListener("click", () => {
+    pos = { ...CURRENT };
+    render();
+  });
+
+  el.copy.addEventListener("click", async () => {
+    const text = el.json.textContent;
+    try {
+      await navigator.clipboard.writeText(text);
+      el.copy.textContent = "Copié";
+    } catch {
+      const r = document.createRange();
+      r.selectNodeContents(el.json);
+      const s = getSelection();
+      s.removeAllRanges();
+      s.addRange(r);
+      el.copy.textContent = "Ctrl+C";
+    }
+    setTimeout(() => { el.copy.textContent = "Copier"; }, 1600);
+  });
+
+  setZoom(fitZoom());
+  render();
+})();
+</script>
+</body>
+</html>

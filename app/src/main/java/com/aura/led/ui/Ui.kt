@@ -1169,6 +1169,12 @@ fun ConsentScreen(
     var updateCheckEnabled by remember { mutableStateOf(updateCheckEnabledInitially) }
     var showDetails by remember { mutableStateOf(false) }
 
+    // Re-opened from Settings, this screen is a sub-screen: Back returns to the settings list, the
+    // same thing the "Fermer" button does. Without this the press fell through to the activity and
+    // Aura looked like it was quitting. On first run there is nothing to go back to, so Back keeps
+    // its default meaning — leaving the app — and the choice is asked again next launch.
+    BackHandler(enabled = onCancel != null) { onCancel?.invoke() }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
