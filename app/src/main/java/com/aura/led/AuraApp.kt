@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.service.notification.NotificationListenerService
 import android.util.Log
+import com.aura.led.analytics.Analytics
 import com.aura.led.data.AppDatabase
 import com.aura.led.data.RuleRepository
 import com.aura.led.notification.AuraNotificationListener
@@ -25,6 +26,9 @@ class AuraApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // No-op unless the user explicitly agreed to anonymous usage statistics. Initialised
+        // here so events emitted while the app runs in the background (LED activity) are queued.
+        Analytics.init(this)
         CoroutineScope(Dispatchers.IO).launch { RootManager.refresh() }
         // Best-effort rebind safety net. The listener auto-binds through the system
         // whenever access is granted, but HyperOS can leave it unbound after a process

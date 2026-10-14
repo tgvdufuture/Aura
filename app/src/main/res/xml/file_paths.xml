@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Exposes the downloaded update APK to the system installer through the app's
+     FileProvider; app-private external storage needs no storage permission. -->
+<paths>
+    <external-files-path
+        name="update"
+        path="update/" />
+</paths>

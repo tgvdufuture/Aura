@@ -17,6 +17,8 @@
 
     <!-- Main screen -->
     <string name="settings">Настройки</string>
+    <string name="settings_attention_important">Настройки — исправить: %1$d</string>
+    <string name="settings_attention_info">Настройки — проверить: %1$d</string>
     <string name="back">Назад</string>
     <string name="section_applications">Приложения</string>
     <string name="search_hint">Поиск приложения</string>
@@ -97,4 +99,63 @@
     <string name="ok">ОК</string>
     <string name="cancel">Отмена</string>
     <string name="hsv_label">H %1$d° · S %2$d%% · V %3$d%%</string>
+
+    <!-- Согласие при первом запуске и конфиденциальность -->
+    <string name="consent_title">Анонимная статистика</string>
+    <string name="consent_lead">Aura ничего не собирает без вашего согласия.</string>
+    <string name="consent_funding">Проект живёт на донаты, а не на ваших данных. Донат работает независимо от того, делитесь вы статистикой или нет.</string>
+    <string name="consent_point_sent_label">Если вы согласны</string>
+    <string name="consent_point_sent_body">Версия приложения и Android, модель, использованные функции, шаги настройки и их результат.</string>
+    <string name="consent_point_never_label">Никогда не отправляется</string>
+    <string name="consent_point_never_body">Содержимое уведомлений, имена контактов и групп, тексты сообщений, ваши контакты и приложения.</string>
+    <string name="consent_update_label">Проверять новые версии</string>
+    <string name="consent_update_hint">Один запрос в день к GitHub. Идентификаторы не отправляются.</string>
+    <string name="consent_details_show">Что именно отправляется?</string>
+    <string name="consent_details_hide">Скрыть подробности</string>
+    <string name="consent_details">• Анонимный идентификатор установки (случайный, не связан с аккаунтом или устройством)\n• Версия приложения и Android, модель, язык, тема\n• Использованные функции: включённые приложения, цвета, правила по контактам, анимации, длительность подсветки, напоминание\n• Каждый шаг настройки и его результат\n• Проверки обновлений и результаты загрузок\n\nНикогда не отправляется: содержимое уведомлений, имена контактов и групп, текст сообщений, список контактов или установленных приложений.</string>
+    <string name="consent_accept">Отправлять анонимную статистику</string>
+    <string name="consent_decline">Нет, спасибо</string>
+    <string name="consent_close">Закрыть</string>
+
+    <!-- Анонимная статистика -->
+    <string name="analytics_title">Анонимная статистика</string>
+    <string name="analytics_description">Необязательная статистика использования, помогающая расставить приоритеты. Отключена до вашего согласия, отключается в любой момент.</string>
+    <string name="analytics_enable">Отправлять анонимную статистику</string>
+    <string name="analytics_update_check">Проверять новые версии</string>
+    <string name="analytics_what_is_sent">Отправляется: версия приложения и Android, модель, использованные функции, шаги настройки. Никогда: содержимое уведомлений, имена контактов, текст сообщений.</string>
+    <string name="analytics_review_screen">Показать экран конфиденциальности</string>
+
+    <!-- Обновление -->
+    <string name="update_title">Доступна Aura %1$s</string>
+    <string name="update_notes_title">Что нового</string>
+    <string name="update_size">Размер загрузки: %1$s</string>
+    <string name="update_downloading">Загрузка… %1$d%%</string>
+    <string name="update_permission_needed">Android требует разрешение, прежде чем Aura сможет установить обновление. Разрешите «Установка неизвестных приложений» для Aura и нажмите «Обновить» снова.</string>
+    <string name="update_open_settings">Открыть настройки</string>
+    <string name="update_install">Обновить</string>
+    <string name="update_retry">Повторить</string>
+    <string name="update_later">Позже</string>
+    <string name="update_hide">Скрыть</string>
+    <string name="update_failed">Не удалось открыть страницу загрузки</string>
+    <string name="update_failed_reason">Ошибка обновления: %1$s</string>
+
+    <!-- Поддержка: донат — реальный путь сегодня; платная версия перечисляется и запрашивается один раз -->
+    <string name="support_title">Помочь Aura оставаться независимой</string>
+    <string name="support_intro">Ни рекламы, ни платной версии сегодня. Донаты оплачивают время разработки — независимо от того, делитесь вы статистикой или нет.</string>
+    <string name="support_donate">Поддержать на Ko-fi</string>
+    <string name="support_offer_title">Что могла бы добавить платная версия</string>
+    <string name="support_offer_items">• Библиотека анимаций от сообщества: просмотр, предпросмотр и импорт анимаций других пользователей\n• Резервное копирование и восстановление правил\n• Профили по времени: ночь, работа, выходные\n• Автоматизация через Tasker и ярлыки</string>
+    <string name="support_question">Как вы предпочли бы поддержать Aura?</string>
+    <string name="support_answer_donation">Разовый донат</string>
+    <string name="support_answer_one_time">Купить платную версию один раз</string>
+    <string name="support_answer_subscription">Оплачивать подписку ежемесячно</string>
+    <string name="support_answer_nothing">Без оплаты — ни сейчас, ни позже</string>
+    <string name="support_answer_saved">Сохранено. Нажмите другой ответ, чтобы изменить.</string>
+
+    <!-- Выбор языка (первый запуск) -->
+    <!-- Empty states: the firefly mascot's poses are on screen, the words carry the meaning -->
+    <string name="empty_no_enabled_title">Пока ни одно приложение не светится</string>
+    <string name="empty_no_enabled_hint">Выберите приложение ниже и включите его: подсветка загорается, как только приходит уведомление.</string>
+
+    <string name="language_subtitle">Можно изменить позже в настройках.</string>
 </resources>

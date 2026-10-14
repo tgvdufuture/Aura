@@ -10,6 +10,8 @@ import android.os.PowerManager
 import android.util.Log
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import com.aura.led.analytics.Analytics
+import com.aura.led.analytics.AnalyticsEvents
 import com.aura.led.data.AppDatabase
 import com.aura.led.data.QuietHours
 import com.aura.led.data.ReminderConfig
@@ -295,6 +297,19 @@ class AuraNotificationListener : NotificationListenerService() {
             emit(command)
             noteEmission(command)
             maybeStartReminderLoop()
+            // Only the kind of rule and the app package are reported — never the resolved
+            // sender, group or notification content (see AnalyticsSanitizer).
+            Analytics.track(
+                AnalyticsEvents.LED_EMITTED,
+                mapOf(
+                    AnalyticsEvents.P_REASON to when {
+                        appRule.senderParsingEnabled && info.senderName != null -> AnalyticsEvents.REASON_CONTACT
+                        appRule.senderParsingEnabled && info.groupName != null -> AnalyticsEvents.REASON_GROUP
+                        else -> AnalyticsEvents.REASON_APP
+                    },
+                    AnalyticsEvents.P_TARGET_PACKAGE to pkg,
+                ),
+            )
         }
     }
 

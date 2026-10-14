@@ -8,6 +8,14 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+// Optional analytics token, kept out of the repository (local.properties is gitignored).
+// When absent, analytics is disabled at runtime instead of failing the build.
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) FileInputStream(file).use { load(it) }
+}
+val postHogProjectToken: String = localProperties.getProperty("POSTHOG_PROJECT_TOKEN", "")
+
 android {
     namespace = "com.aura.led"
     compileSdk = 36
@@ -16,13 +24,16 @@ android {
         applicationId = "com.aura.led"
         minSdk = 26
         targetSdk = 36
-        versionCode = 9
-        versionName = "0.5.1"
+        versionCode = 10
+        versionName = "0.6.0"
+
+        buildConfigField("String", "POSTHOG_PROJECT_TOKEN", "\"$postHogProjectToken\"")
     }
 
     buildFeatures {
         compose = true
         aidl = true
+        buildConfig = true
     }
 
     compileOptions {
@@ -74,6 +85,8 @@ dependencies {
 
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("dev.rikka.shizuku:provider:13.1.5")
+
+    implementation("com.posthog:posthog-android:3.72.2")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")

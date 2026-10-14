@@ -14,6 +14,8 @@
     <string name="theme_dark">Sombre</string>
 
     <string name="settings">Réglages</string>
+    <string name="settings_attention_important">Réglages — %1$d à corriger</string>
+    <string name="settings_attention_info">Réglages — %1$d à vérifier</string>
     <string name="back">Retour</string>
     <string name="section_applications">Applications</string>
     <string name="search_hint">Rechercher une app</string>
@@ -88,4 +90,63 @@
     <string name="ok">OK</string>
     <string name="cancel">Annuler</string>
     <string name="hsv_label">T %1$d° · S %2$d%% · L %3$d%%</string>
+
+    <!-- Consentement au premier lancement + confidentialité -->
+    <string name="consent_title">Statistiques anonymes</string>
+    <string name="consent_lead">Aura ne collecte rien sans votre accord.</string>
+    <string name="consent_funding">Financée par les dons, jamais par vos données. Un don fonctionne que vous partagiez ou non les statistiques.</string>
+    <string name="consent_point_sent_label">Si vous acceptez</string>
+    <string name="consent_point_sent_body">Version de l’app et d’Android, modèle, fonctionnalités utilisées, étapes de configuration et leur résultat.</string>
+    <string name="consent_point_never_label">Jamais envoyé</string>
+    <string name="consent_point_never_body">Contenu des notifications, noms de contacts ou de groupes, textes des messages, vos contacts, vos applications.</string>
+    <string name="consent_update_label">Vérifier les nouvelles versions</string>
+    <string name="consent_update_hint">Une requête par jour vers GitHub. Aucun identifiant envoyé.</string>
+    <string name="consent_details_show">Que reçoit-on exactement ?</string>
+    <string name="consent_details_hide">Masquer le détail</string>
+    <string name="consent_details">• Un identifiant d’installation anonyme (aléatoire, lié ni à votre compte ni à votre matériel)\n• Version de l’app, version d’Android, modèle, langue, thème\n• Fonctionnalités utilisées : apps activées, couleurs, règles par contact, animations, durée de la LED, rappel\n• Chaque étape de configuration et si elle a réussi\n• Vérifications de mise à jour et téléchargements\n\nJamais envoyé : le contenu des notifications, le nom d’un contact ou d’un groupe, le texte d’un message, le carnet d’adresses ou la liste de vos applications.</string>
+    <string name="consent_accept">Partager les statistiques anonymes</string>
+    <string name="consent_decline">Non merci</string>
+    <string name="consent_close">Fermer</string>
+
+    <!-- Statistiques anonymes -->
+    <string name="analytics_title">Statistiques anonymes</string>
+    <string name="analytics_description">Statistiques d’usage facultatives, pour prioriser les prochaines fonctionnalités. Désactivées jusqu’à votre accord, révocables à tout moment.</string>
+    <string name="analytics_enable">Partager les statistiques anonymes</string>
+    <string name="analytics_update_check">Vérifier les nouvelles versions</string>
+    <string name="analytics_what_is_sent">Envoyé : version de l’app et d’Android, modèle, fonctionnalités utilisées, étapes de configuration. Jamais envoyé : contenu des notifications, noms de contacts, textes de messages.</string>
+    <string name="analytics_review_screen">Revoir l’écran de confidentialité</string>
+
+    <!-- Mise à jour -->
+    <string name="update_title">Aura %1$s est disponible</string>
+    <string name="update_notes_title">Nouveautés</string>
+    <string name="update_size">Taille du téléchargement : %1$s</string>
+    <string name="update_downloading">Téléchargement… %1$d%%</string>
+    <string name="update_permission_needed">Android demande votre autorisation avant qu’Aura puisse installer la mise à jour. Autorisez « Installer des applis inconnues » pour Aura, puis relancez la mise à jour.</string>
+    <string name="update_open_settings">Ouvrir les réglages</string>
+    <string name="update_install">Mettre à jour</string>
+    <string name="update_retry">Réessayer</string>
+    <string name="update_later">Plus tard</string>
+    <string name="update_hide">Masquer</string>
+    <string name="update_failed">Impossible d’ouvrir la page de téléchargement</string>
+    <string name="update_failed_reason">Échec de la mise à jour : %1$s</string>
+
+    <!-- Soutien : le don est la vraie voie aujourd’hui ; la version payante est listée, puis demandée une fois -->
+    <string name="support_title">Garder Aura indépendant</string>
+    <string name="support_intro">Aucune publicité, aucune version payante aujourd’hui. Les dons financent le temps que ça demande, et ils comptent que vous partagiez ou non les statistiques.</string>
+    <string name="support_donate">Faire un don sur Ko-fi</string>
+    <string name="support_offer_title">Ce qu’une version payante pourrait ajouter</string>
+    <string name="support_offer_items">• Bibliothèque d’animations communautaire : parcourir, prévisualiser et importer les animations partagées par d’autres utilisateurs\n• Sauvegarde et restauration de vos règles\n• Profils horaires : nuit, travail, week-end\n• Automatisation via Tasker et raccourcis</string>
+    <string name="support_question">Comment préféreriez-vous soutenir Aura ?</string>
+    <string name="support_answer_donation">Faire un don ponctuel</string>
+    <string name="support_answer_one_time">Acheter la version payante une fois</string>
+    <string name="support_answer_subscription">Payer un abonnement mensuel</string>
+    <string name="support_answer_nothing">Aucun paiement, ni maintenant ni plus tard</string>
+    <string name="support_answer_saved">Enregistré. Appuyez sur une autre réponse pour changer.</string>
+
+    <!-- Choix de la langue (premier lancement) -->
+    <!-- Empty states: the firefly mascot's poses are on screen, the words carry the meaning -->
+    <string name="empty_no_enabled_title">Aucune appli ne s\'allume encore</string>
+    <string name="empty_no_enabled_hint">Touchez une appli ci-dessous et activez-la : la LED s\'allume dès qu\'elle vous notifie.</string>
+
+    <string name="language_subtitle">Modifiable plus tard dans les réglages.</string>
 </resources>

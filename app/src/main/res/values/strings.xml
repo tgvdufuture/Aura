@@ -17,6 +17,10 @@
 
     <!-- Main screen -->
     <string name="settings">Settings</string>
+    <!-- The settings gear while its dot is showing: the dot is colour and nothing else, so the
+         severity has to be in words too. %1$d = how many things were found. -->
+    <string name="settings_attention_important">Settings — %1$d to fix</string>
+    <string name="settings_attention_info">Settings — %1$d to check</string>
     <string name="back">Back</string>
     <string name="section_applications">Applications</string>
     <string name="search_hint">Search for an app</string>
@@ -97,4 +101,64 @@
     <string name="ok">OK</string>
     <string name="cancel">Cancel</string>
     <string name="hsv_label">H %1$d° · S %2$d%% · V %3$d%%</string>
+
+    <!-- First-run consent + privacy (see docs/PRD-usage-analytics-and-updates.md) -->
+    <string name="consent_title">Anonymous statistics</string>
+    <string name="consent_lead">Aura collects nothing unless you agree.</string>
+    <string name="consent_funding">Paid for by donations, never by your data. A donation works whether or not you share statistics.</string>
+    <string name="consent_point_sent_label">If you agree</string>
+    <string name="consent_point_sent_body">App and Android version, device model, features used, setup steps and whether they worked.</string>
+    <string name="consent_point_never_label">Never sent</string>
+    <string name="consent_point_never_body">Notification content, contact or group names, message text, your contacts, your installed apps.</string>
+    <string name="consent_update_label">Check for new versions</string>
+    <string name="consent_update_hint">One request a day to GitHub. No identifier is sent.</string>
+    <string name="consent_details_show">What exactly is sent?</string>
+    <string name="consent_details_hide">Hide details</string>
+    <string name="consent_details">• An anonymous install identifier (random, not linked to your account or hardware)\n• App version, Android version, device model, language, theme\n• Features you used: apps enabled, colours changed, sender rules, animations, light duration, reminder\n• Each setup step and whether it worked\n• Update checks and download results\n\nNever sent: notification content, sender or group names, message text, your contacts, or your list of installed apps.</string>
+    <string name="consent_accept">Share anonymous statistics</string>
+    <string name="consent_decline">No thanks</string>
+    <string name="consent_close">Close</string>
+
+    <!-- Anonymous statistics settings -->
+    <string name="analytics_title">Anonymous statistics</string>
+    <string name="analytics_description">Optional usage statistics that help prioritise what to build next. Off until you agree, revocable at any time.</string>
+    <string name="analytics_enable">Share anonymous statistics</string>
+    <string name="analytics_update_check">Check for new versions</string>
+    <string name="analytics_what_is_sent">Sent: app and Android version, device model, features used, setup steps. Never sent: notification content, contact names, message text.</string>
+    <string name="analytics_review_screen">Review the privacy screen</string>
+
+    <!-- Update flow -->
+    <string name="update_title">Aura %1$s is available</string>
+    <string name="update_notes_title">What\'s new</string>
+    <string name="update_size">Download size: %1$s</string>
+    <string name="update_downloading">Downloading… %1$d%%</string>
+    <string name="update_permission_needed">Android needs your permission before Aura can install the update. Allow “Install unknown apps” for Aura, then tap Update again.</string>
+    <string name="update_open_settings">Open settings</string>
+    <string name="update_install">Update</string>
+    <string name="update_retry">Retry</string>
+    <string name="update_later">Later</string>
+    <string name="update_hide">Hide</string>
+    <string name="update_failed">Couldn’t open the download page</string>
+    <string name="update_failed_reason">Update failed: %1$s</string>
+
+    <!-- Support: the donation is the real path today; the paid version is listed, then asked about.
+         Every answer has to read on its own — "Neither" asked the user "neither of what?". -->
+    <string name="support_title">Keep Aura independent</string>
+    <string name="support_intro">No ads, no paid tier today. Donations pay for the time it takes, and they count whether or not you share statistics.</string>
+    <string name="support_donate">Donate on Ko-fi</string>
+    <string name="support_offer_title">What a paid version could add</string>
+    <string name="support_offer_items">• Community animation library: browse, preview and import animations shared by other users\n• Backup and restore of your rules\n• Time-based profiles: night, work, weekend\n• Automation through Tasker and shortcuts</string>
+    <string name="support_question">How would you prefer to support Aura?</string>
+    <string name="support_answer_donation">Make a one-off donation</string>
+    <string name="support_answer_one_time">Buy the paid version once</string>
+    <string name="support_answer_subscription">Pay a monthly subscription</string>
+    <string name="support_answer_nothing">No payment, now or later</string>
+    <string name="support_answer_saved">Saved. Tap another answer to change it.</string>
+
+    <!-- Empty states: the firefly mascot's poses are on screen, the words carry the meaning -->
+    <string name="empty_no_enabled_title">No app lights up yet</string>
+    <string name="empty_no_enabled_hint">Pick an app below and turn it on: the LED lights the moment it sends you a notification.</string>
+
+    <!-- Language picker (first run) -->
+    <string name="language_subtitle">You can change this later in Settings.</string>
 </resources>

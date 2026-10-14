@@ -11,6 +11,7 @@ import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -25,26 +26,35 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -65,6 +75,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -72,7 +83,11 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.Lifecycle
@@ -83,6 +98,9 @@ import com.aura.led.AuraApp
 import com.aura.led.LanguageManager
 import com.aura.led.R
 import com.aura.led.ThemeManager
+import com.aura.led.analytics.Analytics
+import com.aura.led.analytics.AnalyticsEvents
+import com.aura.led.analytics.AnalyticsPrefs
 import com.aura.led.data.AppRule
 import com.aura.led.data.QuietHours
 import com.aura.led.data.ReminderConfig
@@ -101,6 +119,12 @@ import com.aura.led.root.RootState
 import com.aura.led.service.AuraForegroundService
 import com.aura.led.shizuku.ShizukuManager
 import com.aura.led.shizuku.ShizukuState
+import com.aura.led.update.ApkDownloader
+import com.aura.led.update.ApkInstaller
+import com.aura.led.update.CheckResult
+import com.aura.led.update.ReleaseNotes
+import com.aura.led.update.UpdateChecker
+import com.aura.led.update.UpdatePolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -127,6 +151,7 @@ private val ANIMATION_OPTIONS = listOf(
 // long duration (so the preview stays lit once the user stops dragging).
 private const val SETTLE_DEBOUNCE_MS = 300L
 
+
 private val MAIN_COLOR_SWATCHES = listOf(
     "#ef3030", "#f65d32", "#ff8818", "#ffc21d",
     "#acd21b", "#31b343", "#0e9951", "#47c7ad",
@@ -151,7 +176,15 @@ fun AuraTheme(
     val colors = if (darkTheme) darkColorScheme() else lightColorScheme()
     androidx.compose.material3.MaterialTheme(
         colorScheme = colors,
-        content = content,
+        content = {
+            // A Surface is what provides LocalContentColor. Without it, any screen that is not
+            // wrapped in a Scaffold draws its text in the default black on top of the window
+            // background — 1.6:1 contrast in dark mode, i.e. invisible. It also keeps the
+            // background consistent with the Scaffold-based screens.
+            Surface(color = colors.background, contentColor = colors.onBackground) {
+                content()
+            }
+        },
     )
 }
 
@@ -185,6 +218,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             )
         }.onFailure { Log.w("AuraVM", "open notification listener settings failed", it) }
+        Analytics.track(AnalyticsEvents.SETUP_NOTIFICATION_ACCESS_OPENED)
     }
 
     /** Opens HyperOS's autostart manager so the listener/service can restart after a reboot. */
@@ -207,6 +241,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
         }
+        Analytics.track(AnalyticsEvents.SETUP_AUTOSTART_OPENED)
     }
 
     data class SystemLedState(val canControl: Boolean = false, val disabled: Boolean = false)
@@ -226,6 +261,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         SystemLedManager.setDisabled(disabled)
         repository.setBoolSetting(SettingsKeys.SYSTEM_LED_DISABLED, disabled)
         refreshSystemLed()
+        Analytics.track(AnalyticsEvents.SYSTEM_LED_TOGGLED, mapOf(AnalyticsEvents.P_DISABLED to disabled))
     }
 
     data class HealthState(val batteryExempt: Boolean = false, val serviceRunning: Boolean = false)
@@ -233,13 +269,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _health = MutableStateFlow(HealthState())
     val health: StateFlow<HealthState> = _health
 
+    /**
+     * Re-reads everything the settings badge is computed from. All local (binder and settings reads,
+     * no network), so it can be called every time the app comes back to the foreground — and the
+     * privilege and the battery exemption are both granted outside the app.
+     */
+    fun refreshSetupState() {
+        refreshSystemLed()
+        refreshHealth()
+        refreshAnalyticsState()
+    }
+
     fun refreshHealth() {
         val ctx = getApplication<Application>()
         val pm = ctx.getSystemService(PowerManager::class.java)
+        val batteryExempt = pm.isIgnoringBatteryOptimizations(ctx.packageName)
         _health.value = HealthState(
-            batteryExempt = pm.isIgnoringBatteryOptimizations(ctx.packageName),
+            batteryExempt = batteryExempt,
             serviceRunning = AuraForegroundService.running,
         )
+        if (batteryExempt) {
+            Analytics.trackSetupOnce(ctx, AnalyticsEvents.SETUP_BATTERY_EXEMPTION_GRANTED)
+        }
     }
 
     fun requestBatteryExemption() {
@@ -251,12 +302,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
         }
+        Analytics.track(AnalyticsEvents.SETUP_BATTERY_EXEMPTION_REQUESTED)
     }
 
     fun setServiceRunning(running: Boolean) {
         val ctx = getApplication<Application>()
         if (running) AuraForegroundService.start(ctx) else AuraForegroundService.stop(ctx)
         refreshHealth()
+        Analytics.track(AnalyticsEvents.SERVICE_TOGGLED, mapOf(AnalyticsEvents.P_RUNNING to running))
     }
 
     data class LedSettingsState(val timeoutMs: Long = 10_000L)
@@ -269,6 +322,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         ShizukuLEDController.ledTimeoutMs = clamped
         _ledSettings.value = LedSettingsState(timeoutMs = clamped)
         viewModelScope.launch { repository.setSetting(SettingsKeys.LED_TIMEOUT_MS, clamped.toString()) }
+        Analytics.track(
+            AnalyticsEvents.LED_DURATION_CHANGED,
+            mapOf(AnalyticsEvents.P_SECONDS to (clamped / 1000).toInt()),
+        )
     }
 
     // ---- Persistent reminder (PRD docs/PRD-persistent-reminder.md, Phase 1) ----
@@ -301,6 +358,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.setBoolSetting(SettingsKeys.REMINDER_ENABLED, enabled)
         }
+        Analytics.track(AnalyticsEvents.REMINDER_TOGGLED, mapOf(AnalyticsEvents.P_ENABLED to enabled))
     }
 
     fun setReminderInterval(ms: Long) {
@@ -310,6 +368,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.setSetting(SettingsKeys.REMINDER_INTERVAL_MS, clamped.toString())
         }
+        Analytics.track(
+            AnalyticsEvents.REMINDER_INTERVAL_CHANGED,
+            mapOf(AnalyticsEvents.P_INTERVAL_S to (clamped / 1000).toInt()),
+        )
     }
 
     /** Accepts "HH:mm" values only; invalid input keeps the previous stored value. */
@@ -324,6 +386,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             repository.setSetting(SettingsKeys.REMINDER_QUIET_START, normalizedStart)
             repository.setSetting(SettingsKeys.REMINDER_QUIET_END, normalizedEnd)
         }
+        Analytics.track(AnalyticsEvents.REMINDER_QUIET_HOURS_CHANGED)
     }
 
     data class AppInfo(val packageName: String, val label: String)
@@ -344,17 +407,32 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setEnabled(pkg: String, label: String, enabled: Boolean) = viewModelScope.launch {
         val existing = repository.getAppRule(pkg)
         repository.upsertAppRule(existing?.copy(enabled = enabled) ?: AppRule(pkg, label, enabled = enabled))
+        Analytics.track(
+            AnalyticsEvents.APP_RULE_TOGGLED,
+            mapOf(AnalyticsEvents.P_TARGET_PACKAGE to pkg, AnalyticsEvents.P_ENABLED to enabled),
+        )
     }
 
     fun setColor(pkg: String, label: String, color: String) = viewModelScope.launch {
         val existing = repository.getAppRule(pkg)
         repository.upsertAppRule(existing?.copy(defaultColorHex = color) ?: AppRule(pkg, label, defaultColorHex = color))
+        Analytics.track(
+            AnalyticsEvents.APP_RULE_COLOR_CHANGED,
+            mapOf(
+                AnalyticsEvents.P_TARGET_PACKAGE to pkg,
+                AnalyticsEvents.P_IS_CUSTOM to (color !in MAIN_COLOR_SWATCHES),
+            ),
+        )
     }
 
     fun setSenderParsing(pkg: String, label: String, enabled: Boolean) = viewModelScope.launch {
         val existing = repository.getAppRule(pkg)
         repository.upsertAppRule(
             existing?.copy(senderParsingEnabled = enabled) ?: AppRule(pkg, label, senderParsingEnabled = enabled)
+        )
+        Analytics.track(
+            AnalyticsEvents.SENDER_PARSING_TOGGLED,
+            mapOf(AnalyticsEvents.P_TARGET_PACKAGE to pkg, AnalyticsEvents.P_ENABLED to enabled),
         )
     }
 
@@ -365,18 +443,50 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             repository.upsertSenderRule(
                 SenderRule(kind = kind, appPackage = appPkg, matchKey = key, colorHex = color, animationId = animationId)
             )
+            // The rule name itself is never reported, only the app it belongs to.
+            Analytics.track(
+                AnalyticsEvents.SENDER_RULE_CREATED,
+                mapOf(
+                    AnalyticsEvents.P_KIND to kind,
+                    AnalyticsEvents.P_TARGET_PACKAGE to appPkg,
+                    AnalyticsEvents.P_ANIMATION_ID to animationId,
+                ),
+            )
+            if (animationId != null) {
+                Analytics.track(
+                    AnalyticsEvents.ANIMATION_SELECTED,
+                    mapOf(
+                        AnalyticsEvents.P_ANIMATION_ID to animationId,
+                        AnalyticsEvents.P_TARGET_PACKAGE to appPkg,
+                    ),
+                )
+            }
         }
 
     fun deleteSenderRule(rule: SenderRule) = viewModelScope.launch {
         repository.deleteSenderRule(rule.id)
+        Analytics.track(
+            AnalyticsEvents.SENDER_RULE_DELETED,
+            mapOf(AnalyticsEvents.P_KIND to rule.kind, AnalyticsEvents.P_TARGET_PACKAGE to rule.appPackage),
+        )
     }
 
-    fun requestShizuku() = ShizukuManager.requestPermission()
+    fun requestShizuku() {
+        Analytics.track(
+            AnalyticsEvents.SETUP_PRIVILEGE_REQUESTED,
+            mapOf(AnalyticsEvents.P_KIND to AnalyticsEvents.KIND_SHIZUKU),
+        )
+        ShizukuManager.requestPermission()
+    }
 
     private val led = ShizukuLEDController()
 
     fun testLed() = viewModelScope.launch(Dispatchers.IO) {
-        led.setColor("#ff0000")
+        val success = led.setColor("#ff0000").getOrDefault(false)
+        Analytics.track(
+            AnalyticsEvents.SETUP_LED_TEST_RUN,
+            mapOf(AnalyticsEvents.P_SUCCESS to success),
+        )
     }
 
     // Latest requested preview (color, animation, persistence); null = stop. A StateFlow
@@ -393,11 +503,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** Persistent preview (custom picker / sender rules): tracks, then stays lit. */
     fun previewLed(colorHex: String, animationId: String? = null) {
         previewRequests.value = LedPreviewRequest(colorHex, animationId, persistent = true)
+        if (animationId == null) trackPreview(colorHex)
     }
 
     /** Transient preview (default swatches): brief flash, then auto-off. */
     fun flashLed(colorHex: String) {
         previewRequests.value = LedPreviewRequest(colorHex, persistent = false)
+        trackPreview(colorHex)
+    }
+
+    private fun trackPreview(colorHex: String) {
+        Analytics.track(
+            AnalyticsEvents.APP_RULE_PREVIEWED,
+            mapOf(AnalyticsEvents.P_IS_CUSTOM to (colorHex !in MAIN_COLOR_SWATCHES)),
+        )
     }
 
     /** Turns the preview LED off (e.g. when the color picker is dismissed). */
@@ -431,7 +550,285 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     @Volatile
     private var lastPreviewFailureToast = 0L
 
+    // ---- Usage analytics (opt-in) and in-app update ----
+    // PRD: docs/PRD-usage-analytics-and-updates.md
+
+    data class AnalyticsState(
+        val granted: Boolean = false,
+        val updateCheckEnabled: Boolean = true,
+        /** The support answer currently selected, `null` while the user has not answered. */
+        val supportAnswer: String? = null,
+    )
+
+    private val _analytics = MutableStateFlow(AnalyticsState())
+    val analytics: StateFlow<AnalyticsState> = _analytics
+
+    enum class UpdatePhase { HIDDEN, AVAILABLE, PERMISSION_REQUIRED, DOWNLOADING, ERROR }
+
+    data class UpdateUiState(
+        val phase: UpdatePhase = UpdatePhase.HIDDEN,
+        val versionName: String = "",
+        val sizeBytes: Long = 0L,
+        val notes: String = "",
+        val progress: Int = 0,
+        val error: String? = null,
+    )
+
+    private val _update = MutableStateFlow(UpdateUiState())
+    val update: StateFlow<UpdateUiState> = _update
+
+    /** Kept out of the UI state: only the phase and the size are shown. */
+    private var pendingApkUrl = ""
+
+    private fun ctx(): Application = getApplication()
+
+    fun refreshAnalyticsState() {
+        val context = ctx()
+        _analytics.value = AnalyticsState(
+            granted = AnalyticsPrefs.isGranted(context),
+            updateCheckEnabled = AnalyticsPrefs.isUpdateCheckEnabled(context),
+            supportAnswer = AnalyticsPrefs.supportAnswer(context),
+        )
+    }
+
+    /** Records the answer to the first-run consent screen, or the Settings toggle. */
+    fun setAnalyticsEnabled(enabled: Boolean) {
+        val context = ctx()
+        if (enabled) {
+            Analytics.grantConsent(context)
+            Analytics.track(AnalyticsEvents.CONSENT_GRANTED)
+            trackLanguageStepOnce()
+        } else {
+            Analytics.track(AnalyticsEvents.CONSENT_DECLINED)
+            Analytics.revokeConsent(context)
+        }
+        refreshAnalyticsState()
+    }
+
+    fun setUpdateCheckEnabled(enabled: Boolean) {
+        AnalyticsPrefs.setUpdateCheckEnabled(ctx(), enabled)
+        refreshAnalyticsState()
+        if (enabled) checkForUpdate()
+    }
+
+    /** The language step happens before the consent screen, so it is reported once consent exists. */
+    private fun trackLanguageStepOnce() {
+        val context = ctx()
+        if (!AnalyticsPrefs.isGranted(context)) return
+        val language = LanguageManager.getSavedLanguage(context) ?: return
+        Analytics.trackSetupOnce(
+            context,
+            AnalyticsEvents.SETUP_LANGUAGE_SELECTED,
+            mapOf(AnalyticsEvents.P_LANGUAGE to language),
+        )
+    }
+
+    /**
+     * Asks GitHub for the latest release, at most once a day (and never when the user
+     * disabled the check). Failures are silent: the owner sees them in the log, the user
+     * sees nothing.
+     */
+    fun checkForUpdate() {
+        val context = ctx()
+        if (!AnalyticsPrefs.isUpdateCheckEnabled(context)) return
+        val now = System.currentTimeMillis()
+        // One request a day at most: screens can recompose freely.
+        if (!UpdatePolicy.shouldCheck(now, AnalyticsPrefs.lastUpdateCheckMs(context))) return
+        viewModelScope.launch(Dispatchers.IO) {
+            val installed = installedVersionName()
+            when (val result = UpdateChecker.check(installed, installed)) {
+                is CheckResult.UpToDate -> {
+                    AnalyticsPrefs.setLastUpdateCheckMs(context, now)
+                    Analytics.track(
+                        AnalyticsEvents.UPDATE_CHECK_RESULT,
+                        mapOf(AnalyticsEvents.P_RESULT to "up_to_date"),
+                    )
+                }
+
+                is CheckResult.Failed -> {
+                    // Throttled too, so a broken network cannot turn every launch into a request.
+                    AnalyticsPrefs.setLastUpdateCheckMs(context, now)
+                    UpdateChecker.logFailure(result.reason)
+                }
+
+                is CheckResult.UpdateAvailable -> {
+                    val decision = UpdatePolicy.decide(
+                        nowMs = now,
+                        lastCheckMs = AnalyticsPrefs.lastUpdateCheckMs(context),
+                        lastPromptMs = AnalyticsPrefs.lastPromptMs(context),
+                        dismissedTag = AnalyticsPrefs.dismissedTag(context),
+                        latestTag = result.tag,
+                    )
+                    AnalyticsPrefs.setLastUpdateCheckMs(context, now)
+                    Analytics.track(
+                        AnalyticsEvents.UPDATE_CHECK_RESULT,
+                        mapOf(
+                            AnalyticsEvents.P_RESULT to "update_available",
+                            AnalyticsEvents.P_LATEST_TAG to result.tag,
+                        ),
+                    )
+                    if (decision.shouldPrompt) {
+                        pendingApkUrl = result.apkUrl
+                        AnalyticsPrefs.setLastPromptMs(context, now)
+                        _update.value = UpdateUiState(
+                            phase = UpdatePhase.AVAILABLE,
+                            versionName = result.versionName,
+                            sizeBytes = result.sizeBytes,
+                            notes = result.notes,
+                        )
+                        Analytics.track(
+                            AnalyticsEvents.UPDATE_PROMPT_SHOWN,
+                            mapOf(AnalyticsEvents.P_LATEST_TAG to result.tag),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    /** Downloads the release APK and launches the system installer. */
+    fun startUpdate() {
+        val context = ctx()
+        if (pendingApkUrl.isBlank()) return
+        if (!ApkInstaller.canInstall(context)) {
+            _update.value = _update.value.copy(phase = UpdatePhase.PERMISSION_REQUIRED)
+            return
+        }
+        Analytics.track(
+            AnalyticsEvents.UPDATE_PROMPT_ACCEPTED,
+            mapOf(AnalyticsEvents.P_LATEST_TAG to _update.value.versionName),
+        )
+        viewModelScope.launch(Dispatchers.IO) {
+            val expectedSize = _update.value.sizeBytes
+            _update.value = _update.value.copy(phase = UpdatePhase.DOWNLOADING, progress = 0, error = null)
+            ApkDownloader.download(context, pendingApkUrl, expectedSize) { percent ->
+                _update.value = _update.value.copy(progress = percent)
+            }.fold(
+                onSuccess = { apk ->
+                    Analytics.track(
+                        AnalyticsEvents.UPDATE_DOWNLOAD_RESULT,
+                        mapOf(AnalyticsEvents.P_RESULT to "success"),
+                    )
+                    if (ApkInstaller.install(context, apk)) {
+                        Analytics.track(
+                            AnalyticsEvents.UPDATE_INSTALL_LAUNCHED,
+                            mapOf(AnalyticsEvents.P_LATEST_TAG to _update.value.versionName),
+                        )
+                        _update.value = UpdateUiState()
+                    } else {
+                        // The installer refused the intent: hand the user the release page instead.
+                        ApkInstaller.openReleasePage(context, RELEASES_PAGE_URL)
+                        _update.value = UpdateUiState()
+                    }
+                },
+                onFailure = { error ->
+                    Analytics.track(
+                        AnalyticsEvents.UPDATE_DOWNLOAD_RESULT,
+                        mapOf(AnalyticsEvents.P_RESULT to "error"),
+                    )
+                    _update.value = _update.value.copy(
+                        phase = UpdatePhase.ERROR,
+                        error = error.message ?: error.javaClass.simpleName,
+                    )
+                },
+            )
+        }
+    }
+
+    fun openInstallPermissionSettings() = ApkInstaller.openInstallPermissionSettings(ctx())
+
+    fun dismissUpdateDialog() {
+        val context = ctx()
+        Analytics.track(
+            AnalyticsEvents.UPDATE_PROMPT_POSTPONED,
+            mapOf(AnalyticsEvents.P_LATEST_TAG to _update.value.versionName),
+        )
+        // Closing the dialog means "not this version"; "Later" only postpones.
+        AnalyticsPrefs.setDismissedTag(context, "v${_update.value.versionName}")
+        _update.value = UpdateUiState()
+    }
+
+    fun postponeUpdate() {
+        Analytics.track(
+            AnalyticsEvents.UPDATE_PROMPT_POSTPONED,
+            mapOf(AnalyticsEvents.P_LATEST_TAG to _update.value.versionName),
+        )
+        AnalyticsPrefs.setLastPromptMs(ctx(), System.currentTimeMillis())
+        _update.value = UpdateUiState()
+    }
+
+    fun reportSupportIntent(answer: String) {
+        // The choice stays editable, so it is reported only when it actually changes: re-tapping
+        // the selected answer must not add a second event for the same opinion.
+        if (SupportQuestion.shouldRecord(AnalyticsPrefs.supportAnswer(ctx()), answer)) {
+            Analytics.track(AnalyticsEvents.SUPPORT_INTENT, mapOf(AnalyticsEvents.P_ANSWER to answer))
+            AnalyticsPrefs.setSupportAnswer(ctx(), answer)
+            refreshAnalyticsState()
+        }
+        // Answering "a donation now" is a request, not a vote: open the page instead of
+        // recording an intention the user cannot act on.
+        if (SupportQuestion.opensDonationPage(answer)) openDonationPage()
+    }
+
+    /** Opens the Ko-fi page. Not analytics: this works whether or not statistics are enabled. */
+    fun openDonationPage() {
+        Analytics.track(AnalyticsEvents.SUPPORT_CLICKED, mapOf(AnalyticsEvents.P_CHANNEL to "kofi"))
+        val context = ctx()
+        runCatching {
+            context.startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse(DONATION_URL))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }.onFailure { Log.w("AuraVM", "could not open the donation page", it) }
+    }
+
+    private fun installedVersionName(): String = runCatching {
+        ctx().packageManager.getPackageInfo(ctx().packageName, 0).versionName.orEmpty()
+    }.getOrDefault("")
+
     init {
+        refreshAnalyticsState()
+        trackLanguageStepOnce()
+        // Setup-funnel steps observed after the fact: notification access, autostart and the
+        // battery exemption are granted in system screens, so Aura reports the result the first
+        // time it sees it instead of polling.
+        viewModelScope.launch {
+            NotificationListenerState.connected.collect { connected ->
+                if (connected) {
+                    Analytics.trackSetupOnce(getApplication(), AnalyticsEvents.SETUP_NOTIFICATION_ACCESS_GRANTED)
+                }
+            }
+        }
+        viewModelScope.launch {
+            ShizukuManager.state.collect { state ->
+                // Shizuku can come up (or be granted) long after this ViewModel was built, and the
+                // badge on the settings gear reads the privilege from that state: recompute it here
+                // or the gear keeps claiming something is missing that was fixed minutes ago.
+                refreshSetupState()
+                if (state.hasPermission) {
+                    Analytics.trackSetupOnce(
+                        getApplication(),
+                        AnalyticsEvents.SETUP_PRIVILEGE_GRANTED,
+                        mapOf(AnalyticsEvents.P_KIND to AnalyticsEvents.KIND_SHIZUKU),
+                        flag = AnalyticsEvents.SETUP_PRIVILEGE_GRANTED + "_" + AnalyticsEvents.KIND_SHIZUKU,
+                    )
+                }
+            }
+        }
+        viewModelScope.launch {
+            RootManager.state.collect { state ->
+                // Same reason as Shizuku above: the badge waits for this answer.
+                refreshSetupState()
+                if (state.available) {
+                    Analytics.trackSetupOnce(
+                        getApplication(),
+                        AnalyticsEvents.SETUP_PRIVILEGE_GRANTED,
+                        mapOf(AnalyticsEvents.P_KIND to AnalyticsEvents.KIND_ROOT),
+                        flag = AnalyticsEvents.SETUP_PRIVILEGE_GRANTED + "_" + AnalyticsEvents.KIND_ROOT,
+                    )
+                }
+            }
+        }
         viewModelScope.launch(Dispatchers.IO) {
             RootManager.refresh()
             refreshSystemLed()
@@ -480,7 +877,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+
+    private companion object {
+        const val RELEASES_PAGE_URL = "https://github.com/tgvdufuture/Aura/releases/latest"
+        const val DONATION_URL = "https://ko-fi.com/tgvdufuture"
+    }
 }
+
+/**
+ * Where the dot on the Settings gear sits.
+ *
+ * Its centre, in dp, measured from the top-end corner of the 48 dp touch target: a negative x is to
+ * the left of that corner, a positive y below its top edge. [BADGE_SIZE_DP] is its diameter. These
+ * are the numbers chosen with `docs/design/settings-badge.html`, a life-size mock of this bar —
+ * open it there to pick another spot instead of nudging these by eye.
+ */
+private const val BADGE_CENTRE_X_DP = -16.8f
+private const val BADGE_CENTRE_Y_DP = 11.9f
+private const val BADGE_SIZE_DP = 7.5f
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -490,8 +904,42 @@ fun MainScreen(
 ) {
     val appRules by viewModel.appRules.collectAsState()
     val senderRules by viewModel.senderRules.collectAsState()
+    val update by viewModel.update.collectAsState()
+    val listenerConnected by viewModel.listenerConnected.collectAsState()
+    val systemLed by viewModel.systemLed.collectAsState()
+    val health by viewModel.health.collectAsState()
+    val analytics by viewModel.analytics.collectAsState()
 
     val rulesByApp = remember(senderRules) { senderRules.groupBy { it.appPackage } }
+
+    // The privilege and the battery exemption are granted in system screens, so the state behind the
+    // badge is stale by design until we look again: same refresh-on-resume the Settings cards use.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.refreshSetupState()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // Whether Settings is owed something, and how badly — see SettingsAttention.kt for which state
+    // sits on which side of "important".
+    val attention = settingsAttention(
+        AttentionInputs(
+            notificationAccess = listenerConnected,
+            privilege = systemLed.canControl,
+            batteryExempt = health.batteryExempt,
+            analyticsGranted = analytics.granted,
+            supportAnswer = analytics.supportAnswer,
+        ),
+    )
+
+    LaunchedEffect(Unit) {
+        Analytics.screen("main")
+        // Throttled to one GitHub request per day inside the ViewModel.
+        viewModel.checkForUpdate()
+    }
 
     var searchQuery by remember { mutableStateOf("") }
     val filteredApps = remember(viewModel.installedApps, searchQuery) {
@@ -507,11 +955,44 @@ fun MainScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.app_name)) },
                 actions = {
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(
-                            painterResource(R.drawable.ic_settings),
-                            contentDescription = stringResource(R.string.settings),
-                        )
+                    // The dot is the only part of this screen a screen reader cannot see, so the
+                    // gear says what it found — including the severity, not just the count.
+                    // The count announced is the count of the level being announced: saying "3 to
+                    // fix" when one of the three is merely worth a look would be the label lying.
+                    val description = when (attention.level) {
+                        AttentionLevel.IMPORTANT ->
+                            stringResource(R.string.settings_attention_important, attention.important)
+                        AttentionLevel.INFO ->
+                            stringResource(R.string.settings_attention_info, attention.info)
+                        null -> stringResource(R.string.settings)
+                    }
+                    // Hand-placed rather than a BadgedBox: the framework pins its badge to the very
+                    // corner of the touch target, against the edge of the screen and a dozen dp off
+                    // the gear's own ink, where it reads as belonging to the bar and not the icon.
+                    Box {
+                        IconButton(onClick = onOpenSettings) {
+                            Icon(painterResource(R.drawable.ic_settings), contentDescription = description)
+                        }
+                        if (attention.level != null) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    // This offset moves the dot's own top-end corner, so the centre
+                                    // above is what the constants mean and what the tool reports.
+                                    .offset(
+                                        x = (BADGE_CENTRE_X_DP + BADGE_SIZE_DP / 2f).dp,
+                                        y = (BADGE_CENTRE_Y_DP - BADGE_SIZE_DP / 2f).dp,
+                                    )
+                                    .size(BADGE_SIZE_DP.dp)
+                                    .background(
+                                        color = when (attention.level) {
+                                            AttentionLevel.IMPORTANT -> MaterialTheme.colorScheme.error
+                                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                        },
+                                        shape = CircleShape,
+                                    ),
+                            )
+                        }
                     }
                 },
             )
@@ -534,8 +1015,17 @@ fun MainScreen(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            if (filteredApps.isEmpty()) {
-                item { Text(stringResource(R.string.no_apps_found), style = MaterialTheme.typography.bodyMedium) }
+            // Two different empties: "nothing matches that name" and "nothing is lit yet". The
+            // second one is the app's real activation moment, so it says what to do about it.
+            if (searchQuery.isNotBlank() && filteredApps.isEmpty()) {
+                item { EmptyState(title = stringResource(R.string.no_apps_found)) }
+            } else if (searchQuery.isBlank() && appRules.none { it.enabled }) {
+                item {
+                    EmptyState(
+                        title = stringResource(R.string.empty_no_enabled_title),
+                        body = stringResource(R.string.empty_no_enabled_hint),
+                    )
+                }
             }
             items(filteredApps) { app ->
                 val rule = appRules.firstOrNull { it.packageName == app.packageName }
@@ -558,6 +1048,14 @@ fun MainScreen(
             }
         }
     }
+
+    UpdateDialog(
+        state = update,
+        onUpdate = viewModel::startUpdate,
+        onLater = viewModel::postponeUpdate,
+        onDismiss = viewModel::dismissUpdateDialog,
+        onOpenPermissionSettings = viewModel::openInstallPermissionSettings,
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -568,6 +1066,7 @@ fun SettingsScreen(
     themeMode: String,
     onThemeChange: (String) -> Unit,
     onBack: () -> Unit,
+    onReviewPrivacy: () -> Unit,
     viewModel: MainViewModel = viewModel(),
 ) {
     val shizuku by viewModel.shizuku.collectAsState()
@@ -577,6 +1076,13 @@ fun SettingsScreen(
     val ledSettings by viewModel.ledSettings.collectAsState()
     val listenerConnected by viewModel.listenerConnected.collectAsState()
     val reminder by viewModel.reminder.collectAsState()
+    val analytics by viewModel.analytics.collectAsState()
+
+    LaunchedEffect(Unit) { Analytics.screen("settings") }
+
+    // Settings is a screen of the app, not a second app: without this the system Back button
+    // finishes the activity, which reads as Aura quitting rather than as going back.
+    BackHandler(onBack = onBack)
 
     Scaffold(
         topBar = {
@@ -627,8 +1133,475 @@ fun SettingsScreen(
                 onIntervalChange = viewModel::setReminderInterval,
                 onQuietHoursChange = viewModel::setQuietHours,
             ) }
+            item {
+                AnalyticsCard(
+                    state = analytics,
+                    onAnalyticsToggle = viewModel::setAnalyticsEnabled,
+                    onUpdateCheckToggle = viewModel::setUpdateCheckEnabled,
+                    onReviewPrivacy = onReviewPrivacy,
+                )
+            }
+            item { SupportCard(onDonate = viewModel::openDonationPage) }
+            // Asked with consent only (an answer that cannot be sent is not worth asking for),
+            // but always editable afterwards: the choice is shown back and can be changed.
+            if (analytics.granted) {
+                item {
+                    SupportQuestionCard(
+                        currentAnswer = analytics.supportAnswer,
+                        onAnswer = viewModel::reportSupportIntent,
+                    )
+                }
+            }
         }
     }
+}
+
+/**
+ * First-run explanation of what Aura may report. Shown once, after the language picker and
+ * before the app itself: both answers are one tap away and the statistics switch starts off.
+ */
+@Composable
+fun ConsentScreen(
+    updateCheckEnabledInitially: Boolean,
+    onDone: (analyticsEnabled: Boolean, updateCheckEnabled: Boolean) -> Unit,
+    onCancel: (() -> Unit)? = null,
+) {
+    var updateCheckEnabled by remember { mutableStateOf(updateCheckEnabledInitially) }
+    var showDetails by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            // Android 15+ draws edge to edge, so content would otherwise sit under the system bars.
+            .systemBarsPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 24.dp),
+    ) {
+        // A friendly face on a serious screen, and it makes no claim.
+        AuraMascot(mood = MascotMood.JOY, size = 72.dp)
+        Spacer(modifier = Modifier.height(14.dp))
+        Text(
+            stringResource(R.string.consent_title),
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            stringResource(R.string.consent_lead),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        // Why this screen exists at all: the app is funded by donations, not by data.
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(
+            stringResource(R.string.consent_funding),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
+
+        // Two labelled points instead of one dense paragraph: the promise and its limit are
+        // what the user has to be able to read at a glance.
+        Spacer(modifier = Modifier.height(22.dp))
+        ConsentPoint(
+            label = stringResource(R.string.consent_point_sent_label),
+            body = stringResource(R.string.consent_point_sent_body),
+            accent = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(modifier = Modifier.height(14.dp))
+        ConsentPoint(
+            label = stringResource(R.string.consent_point_never_label),
+            body = stringResource(R.string.consent_point_never_body),
+            accent = MaterialTheme.colorScheme.outline,
+        )
+
+        Spacer(modifier = Modifier.height(6.dp))
+        TextButton(
+            onClick = { showDetails = !showDetails },
+            contentPadding = PaddingValues(0.dp),
+        ) {
+            Text(
+                stringResource(
+                    if (showDetails) R.string.consent_details_hide else R.string.consent_details_show
+                )
+            )
+        }
+        if (showDetails) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                stringResource(R.string.consent_details),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        Spacer(modifier = Modifier.height(22.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Spacer(modifier = Modifier.height(18.dp))
+
+        // A separate network feature, deliberately outside the privacy choice above.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.consent_update_label),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Switch(checked = updateCheckEnabled, onCheckedChange = { updateCheckEnabled = it })
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            stringResource(R.string.consent_update_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Spacer(modifier = Modifier.height(28.dp))
+        Button(
+            onClick = { onDone(true, updateCheckEnabled) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.consent_accept))
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        OutlinedButton(
+            onClick = { onDone(false, updateCheckEnabled) },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.consent_decline))
+        }
+        if (onCancel != null) {
+            Spacer(modifier = Modifier.height(6.dp))
+            TextButton(
+                onClick = onCancel,
+                modifier = Modifier.align(Alignment.End),
+            ) {
+                Text(
+                    stringResource(R.string.consent_close),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * One labelled point of the promise, marked by a dot so the two points read as a pair at a
+ * glance instead of as two more paragraphs.
+ */
+@Composable
+private fun ConsentPoint(label: String, body: String, accent: Color) {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(
+            modifier = Modifier
+                .padding(top = 6.dp)
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(accent),
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                body,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AnalyticsCard(
+    state: MainViewModel.AnalyticsState,
+    onAnalyticsToggle: (Boolean) -> Unit,
+    onUpdateCheckToggle: (Boolean) -> Unit,
+    onReviewPrivacy: () -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.analytics_title), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.analytics_description), style = MaterialTheme.typography.bodySmall)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.analytics_enable), modifier = Modifier.weight(1f))
+                Switch(checked = state.granted, onCheckedChange = onAnalyticsToggle)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.analytics_update_check), modifier = Modifier.weight(1f))
+                Switch(checked = state.updateCheckEnabled, onCheckedChange = onUpdateCheckToggle)
+            }
+            Text(stringResource(R.string.analytics_what_is_sent), style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = onReviewPrivacy) { Text(stringResource(R.string.analytics_review_screen)) }
+        }
+    }
+}
+
+/**
+ * Empty states. A tinted band, the mascot asking its question, and words that say what to do — the
+ * list below is the answer to the question this asks.
+ */
+@Composable
+private fun EmptyState(title: String, body: String? = null) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            AuraMascot(mood = MascotMood.WHAT, size = 92.dp)
+            Text(title, style = MaterialTheme.typography.titleSmall, textAlign = TextAlign.Center)
+            if (body != null) {
+                Text(body, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
+            }
+        }
+    }
+}
+
+/**
+ * Support card, always available: Aura is funded by donations today, so the donation path is the
+ * primary action here rather than something mentioned in passing.
+ */
+@Composable
+private fun SupportCard(onDonate: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.support_title), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.support_intro), style = MaterialTheme.typography.bodyMedium)
+            Button(onClick = onDonate) { Text(stringResource(R.string.support_donate)) }
+        }
+    }
+}
+
+/**
+ * Question about how users would support the project. The offer is listed first: asking "would you
+ * pay?" with nothing on screen cannot separate "no interest" from "nothing to buy".
+ *
+ * The answer is a selection, not a one-shot vote: the current choice stays highlighted and any
+ * chip can be tapped again to change it.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SupportQuestionCard(currentAnswer: String?, onAnswer: (String) -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.support_offer_title), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.support_offer_items), style = MaterialTheme.typography.bodyMedium)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(stringResource(R.string.support_question), style = MaterialTheme.typography.titleSmall)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SupportQuestion.ANSWERS.forEach { (value, labelRes) ->
+                    FilterChip(
+                        selected = value == currentAnswer,
+                        onClick = { onAnswer(value) },
+                        label = { Text(stringResource(labelRes)) },
+                    )
+                }
+            }
+            // Say so explicitly: nothing else on screen tells the user the choice is reversible.
+            if (currentAnswer != null) {
+                Text(
+                    stringResource(R.string.support_answer_saved),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun UpdateDialog(
+    state: MainViewModel.UpdateUiState,
+    onUpdate: () -> Unit,
+    onLater: () -> Unit,
+    onDismiss: () -> Unit,
+    onOpenPermissionSettings: () -> Unit,
+) {
+    if (state.phase == MainViewModel.UpdatePhase.HIDDEN) return
+
+    val downloading = state.phase == MainViewModel.UpdatePhase.DOWNLOADING
+    val shape = MaterialTheme.shapes.extraLarge
+    val title = stringResource(R.string.update_title, state.versionName)
+    // The release body is markdown written for a web page; parse it once per version, not per frame.
+    val notes = remember(state.notes) { ReleaseNotes.parse(state.notes) }
+
+    Dialog(
+        // Tapping outside means "not this version"; mid-download it means "hide this", because a
+        // dialog a running download cannot be closed from is a trap, not a safeguard.
+        onDismissRequest = { if (downloading) onLater() else onDismiss() },
+    ) {
+        Surface(
+            modifier = Modifier.semantics { paneTitle = title },
+            shape = shape,
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp,
+        ) {
+            Column(modifier = Modifier.clip(shape)) {
+                // The mascot says what this dialog is about before a word is read, and it keeps
+                // saying it: laughing when a version is ready, puzzled when Android wants a
+                // permission, disappointed when the install failed.
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.secondaryContainer)
+                        .padding(vertical = 20.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    AuraMascot(mood = mascotFor(state.phase), size = 104.dp)
+                }
+
+                Column(
+                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(title, style = MaterialTheme.typography.headlineSmall)
+
+                    when (state.phase) {
+                        MainViewModel.UpdatePhase.AVAILABLE -> {
+                            if (notes.isNotEmpty()) {
+                                Text(
+                                    stringResource(R.string.update_notes_title),
+                                    style = MaterialTheme.typography.titleSmall,
+                                )
+                                Box(modifier = Modifier.heightIn(max = 168.dp)) {
+                                    Column(
+                                        modifier = Modifier
+                                            .verticalScroll(rememberScrollState())
+                                            // Same height as the mask below: without it the mask would
+                                            // dim the last line of every release, for good.
+                                            .padding(bottom = 20.dp),
+                                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                                    ) {
+                                        notes.forEach { note -> ReleaseNoteLine(note) }
+                                    }
+                                    // The copy slides under the dialog's own surface: a mask, not a
+                                    // shadow, and the only thing saying "there is more below" —
+                                    // without it a long release ends on a half-cut line.
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.BottomCenter)
+                                            .fillMaxWidth()
+                                            .height(20.dp)
+                                            .background(
+                                                Brush.verticalGradient(
+                                                    listOf(Color.Transparent, MaterialTheme.colorScheme.surface),
+                                                )
+                                            ),
+                                    )
+                                }
+                            }
+                            Text(
+                                stringResource(R.string.update_size, formatSize(state.sizeBytes)),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+
+                        MainViewModel.UpdatePhase.DOWNLOADING -> {
+                            Text(
+                                stringResource(R.string.update_downloading, state.progress),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            LinearProgressIndicator(
+                                progress = { state.progress / 100f },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+
+                        MainViewModel.UpdatePhase.PERMISSION_REQUIRED -> Text(
+                            stringResource(R.string.update_permission_needed),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+
+                        MainViewModel.UpdatePhase.ERROR -> Text(
+                            stringResource(R.string.update_failed_reason, state.error.orEmpty()),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+
+                        MainViewModel.UpdatePhase.HIDDEN -> Unit
+                    }
+
+                    // One obvious action per state; "later" is always the quieter of the two.
+                    when (state.phase) {
+                        MainViewModel.UpdatePhase.AVAILABLE -> Button(
+                            onClick = onUpdate,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(stringResource(R.string.update_install))
+                        }
+
+                        MainViewModel.UpdatePhase.ERROR -> Button(
+                            onClick = onUpdate,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(stringResource(R.string.update_retry))
+                        }
+
+                        MainViewModel.UpdatePhase.PERMISSION_REQUIRED -> Button(
+                            onClick = onOpenPermissionSettings,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(stringResource(R.string.update_open_settings))
+                        }
+
+                        else -> Unit
+                    }
+
+                    // There is always a way out, including mid-download: "Later" postpones the
+                    // decision while the download keeps running, "Hide" says exactly that.
+                    TextButton(
+                        onClick = onLater,
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    ) {
+                        Text(
+                            stringResource(
+                                if (downloading) R.string.update_hide else R.string.update_later
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** One line of a release body: a heading, a bullet with its drawn dot, or a paragraph. */
+@Composable
+private fun ReleaseNoteLine(note: ReleaseNotes.Note) {
+    when (note.kind) {
+        ReleaseNotes.Kind.HEADING -> Text(note.text, style = MaterialTheme.typography.titleSmall)
+
+        ReleaseNotes.Kind.BULLET -> Row(verticalAlignment = Alignment.Top) {
+            Box(
+                modifier = Modifier
+                    .padding(top = 7.dp, end = 8.dp)
+                    .size(4.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary),
+            )
+            Text(note.text, style = MaterialTheme.typography.bodyMedium)
+        }
+
+        ReleaseNotes.Kind.PARAGRAPH -> Text(
+            note.text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+private fun formatSize(bytes: Long): String = if (bytes <= 0L) {
+    "—"
+} else {
+    "%.1f MB".format(bytes / (1024.0 * 1024.0))
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1325,25 +2298,42 @@ fun LanguagePickerScreen(onSelect: (String) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .systemBarsPadding()
             .padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(stringResource(R.string.language_title), style = MaterialTheme.typography.titleLarge)
-        Spacer(modifier = Modifier.height(24.dp))
-        Button(onClick = { onSelect(LanguageManager.LANG_EN) }, modifier = Modifier.fillMaxWidth()) {
-            Text("English")
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        Button(onClick = { onSelect(LanguageManager.LANG_FR) }, modifier = Modifier.fillMaxWidth()) {
-            Text("Français")
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        Button(onClick = { onSelect(LanguageManager.LANG_RU) }, modifier = Modifier.fillMaxWidth()) {
-            Text("Русский")
+        Text(
+            stringResource(R.string.language_title),
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            stringResource(R.string.language_subtitle),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(modifier = Modifier.height(28.dp))
+        // Language names stay in their own language: that is how someone finds theirs.
+        LANGUAGE_OPTIONS.forEach { (code, label) ->
+            OutlinedButton(
+                onClick = { onSelect(code) },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+            ) {
+                Text(label, style = MaterialTheme.typography.titleMedium)
+            }
+            Spacer(modifier = Modifier.height(10.dp))
         }
     }
 }
+
+private val LANGUAGE_OPTIONS = listOf(
+    LanguageManager.LANG_EN to "English",
+    LanguageManager.LANG_FR to "Français",
+    LanguageManager.LANG_RU to "Русский",
+)
 
 @Composable
 private fun LanguageToggle(currentLanguage: String, onLanguageChange: (String) -> Unit) {
