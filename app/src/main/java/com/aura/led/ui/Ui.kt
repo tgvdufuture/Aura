@@ -1280,7 +1280,12 @@ fun SettingsScreen(
                     onReviewPrivacy = onReviewPrivacy,
                 )
             }
-            item { SupportCard(onDonate = viewModel::openDonationPage) }
+            item {
+                SupportCard(
+                    onDonate = viewModel::openDonationPage,
+                    onStar = viewModel::openGitHubRepo,
+                )
+            }
             // Asked with consent only (an answer that cannot be sent is not worth asking for),
             // but always editable afterwards: the choice is shown back and can be changed.
             if (analytics.granted) {
@@ -1600,12 +1605,17 @@ private fun EmptyState(title: String, body: String? = null) {
  * primary action here rather than something mentioned in passing.
  */
 @Composable
-private fun SupportCard(onDonate: () -> Unit) {
+private fun SupportCard(onDonate: () -> Unit, onStar: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(R.string.support_title), style = MaterialTheme.typography.titleMedium)
             Text(stringResource(R.string.support_intro), style = MaterialTheme.typography.bodyMedium)
             Button(onClick = onDonate) { Text(stringResource(R.string.support_donate)) }
+            // The star asked for in the update dialog, given a home that does not depend on a
+            // pending update: only users who are a version behind ever see that dialog, and a star
+            // is what the next visitor to the repository checks first. Quieter than the donation on
+            // purpose — it costs nothing and buys nothing.
+            TextButton(onClick = onStar) { Text(stringResource(R.string.star_repo)) }
         }
     }
 }
@@ -1742,7 +1752,7 @@ private fun UpdateDialog(
                                 onClick = onStar,
                                 modifier = Modifier.align(Alignment.CenterHorizontally),
                             ) {
-                                Text(stringResource(R.string.update_star))
+                                Text(stringResource(R.string.star_repo))
                             }
                         }
 

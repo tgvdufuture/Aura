@@ -137,7 +137,7 @@
     <string name="update_channel_name">New versions</string>
     <string name="update_channel_description">Tells you when a new version of Aura is out, without opening the app. One check a day.</string>
     <string name="update_notes_title">What\'s new</string>
-    <string name="update_star">Star Aura on GitHub</string>
+    <string name="star_repo">Star Aura on GitHub</string>
     <string name="update_size">Download size: %1$s</string>
     <string name="update_downloading">Downloading… %1$d%%</string>
     <string name="update_permission_needed">Android needs your permission before Aura can install the update. Allow “Install unknown apps” for Aura, then tap Update again.</string>
