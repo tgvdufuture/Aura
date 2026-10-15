@@ -95,3 +95,12 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
 }
+
+// `DashboardGuideTest` reads `docs/analytics-dashboard.md` as text. Gradle cannot see that: the guide
+// is not a source file and not a resource, so editing the guide alone left the test task UP-TO-DATE
+// and reported a green that had not run against the new file. Declared here so a guide edit reruns
+// the suite that checks it.
+tasks.withType<Test>().configureEach {
+    inputs.file(rootProject.file("docs/analytics-dashboard.md"))
+        .withPropertyName("analyticsDashboardGuide")
+}
