@@ -23,11 +23,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aura.led.analytics.Analytics
 import com.aura.led.analytics.AnalyticsEvents
 import com.aura.led.analytics.AnalyticsPrefs
+import com.aura.led.led.DeviceSupport
 import com.aura.led.service.AuraForegroundService
 import com.aura.led.service.AutostartWatch
 import com.aura.led.update.UpdateNotifier
 import kotlinx.coroutines.flow.MutableStateFlow
 import com.aura.led.ui.AuraTheme
+import com.aura.led.ui.CompatibilityScreen
 import com.aura.led.ui.ConsentScreen
 import com.aura.led.ui.LanguagePickerScreen
 import com.aura.led.ui.MainScreen
@@ -109,6 +111,11 @@ class MainActivity : ComponentActivity() {
                 var consentAnswered by rememberSaveable {
                     mutableStateOf(AnalyticsPrefs.consent(this@MainActivity) != null)
                 }
+                // The full-screen notice for a phone Aura cannot drive is shown once, then the
+                // standing band on the app list carries the fact (see CompatibilityNotice).
+                var compatAcknowledged by rememberSaveable {
+                    mutableStateOf(AnalyticsPrefs.isCompatAcknowledged(this@MainActivity))
+                }
                 // Settings can re-open the privacy screen so the choice can be reviewed at any time.
                 var reviewingPrivacy by rememberSaveable { mutableStateOf(false) }
                 // Declared next to the flag above, not inside the screen that uses it: the settings
@@ -148,6 +155,19 @@ class MainActivity : ComponentActivity() {
                             { reviewingPrivacy = false }
                         } else {
                             null
+                        },
+                    )
+                } else if (
+                    !showSettings &&
+                    DeviceSupport.shouldShowScreen(Build.MANUFACTURER, Build.BRAND, compatAcknowledged)
+                ) {
+                    // `!showSettings` is load-bearing: closing the privacy screen re-opened from
+                    // Settings lands here, and taking over there would drop the user out of
+                    // Settings — the exact defect that was found and fixed twice on 2026-10-14.
+                    CompatibilityScreen(
+                        onContinue = {
+                            AnalyticsPrefs.setCompatAcknowledged(this@MainActivity, true)
+                            compatAcknowledged = true
                         },
                     )
                 } else {

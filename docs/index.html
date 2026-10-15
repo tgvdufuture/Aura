@@ -36,7 +36,7 @@
     "url": "https://tgvdufuture.github.io/Aura/",
     "image": "https://tgvdufuture.github.io/Aura/icon.png",
     "downloadUrl": "https://github.com/tgvdufuture/Aura/releases/latest",
-    "softwareVersion": "0.6.0",
+    "softwareVersion": "0.6.1",
     "isAccessibleForFree": true,
     "license": "https://github.com/tgvdufuture/Aura/blob/main/LICENSE",
     "codeRepository": "https://github.com/tgvdufuture/Aura",
@@ -202,6 +202,9 @@
     details p { max-width: 760px; margin: 0; padding: 0 1.2rem 1.2rem; color: var(--muted); }
     .cta { display: grid; grid-template-columns: 1fr auto; gap: 2rem; align-items: center; padding: clamp(1.5rem, 4vw, 3rem); border: 1px solid var(--violet); background: linear-gradient(115deg, rgba(157, 114, 255, .18), rgba(99, 231, 255, .06)); box-shadow: 10px 10px 0 rgba(157, 114, 255, .14); }
     .cta p { max-width: 650px; margin: .8rem 0 0; color: var(--muted); }
+    /* The compatibility requirement, read at the button: same measure as the copy beside it, but in
+       the ink colour so it reads as a condition of the download and not as one more sentence. */
+    .cta .cta-compat { margin-top: 1rem; color: var(--ink); }
     .footer { padding: 2rem 0 4rem; color: var(--faint); font-family: var(--mono); font-size: .72rem; }
     .footer-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; }
     .footer a { color: var(--muted); }
@@ -385,7 +388,7 @@
     <div class="shell">
       <section class="hero" aria-labelledby="hero-title">
         <div>
-          <p class="eyebrow">Open-source Android app / v0.6.0</p>
+          <p class="eyebrow">Open-source Android app / v0.6.1</p>
           <h1 id="hero-title">Custom LED <span>notifications</span> for POCO X8 Pro.</h1>
           <p class="hero-copy">Custom RGB notification lights for the POCO X8 Pro. Give every app, contact and group its own color and animation on the back LED rings.</p>
           <div class="actions">
@@ -475,7 +478,7 @@
 
       <section class="section" aria-labelledby="download-title">
         <div class="cta">
-          <div><p class="eyebrow">Ready when you are</p><h2 id="download-title">Make the back of your phone speak.</h2><p>Download Aura, enable the back light effects in HyperOS and start building your own notification language.</p></div>
+          <div><p class="eyebrow">Ready when you are</p><h2 id="download-title">Make the back of your phone speak.</h2><p>Download Aura, enable the back light effects in HyperOS and start building your own notification language.</p><p class="cta-compat"><strong>POCO X8 Pro, X8 Pro Max (Redmi Turbo 5 Max) only.</strong> Aura drives the rear RGB ring, which only the Xiaomi/HyperOS family exposes: on any other phone, no notification lights anything up, with or without Shizuku.</p></div>
           <a class="button" href="https://github.com/tgvdufuture/Aura/releases/latest">Get Aura ↗</a>
         </div>
       </section>

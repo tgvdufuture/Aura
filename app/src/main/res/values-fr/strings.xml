@@ -155,5 +155,13 @@
     <string name="empty_no_enabled_title">Aucune appli ne s\'allume encore</string>
     <string name="empty_no_enabled_hint">Touchez une appli ci-dessous et activez-la : la LED s\'allume dès qu\'elle vous notifie.</string>
 
+    <!-- Compatibilité matérielle : le backend LED est le service HyperOS, donc c'est la seule
+         chose à dire sur un téléphone qu'Aura ne peut pas piloter. -->
+    <string name="compat_title">Aura ne peut pas éclairer ce téléphone</string>
+    <string name="compat_body">Aura pilote l\'anneau RGB arrière, que seuls les appareils Xiaomi/HyperOS exposent : POCO X8 Pro, X8 Pro Max (Redmi Turbo 5 Max). Sur ce téléphone, aucune notification n\'allumera quoi que ce soit, avec ou sans Shizuku.</string>
+    <string name="compat_works_label">Compatible avec</string>
+    <string name="compat_works_body">POCO X8 Pro et POCO X8 Pro Max (Redmi Turbo 5 Max) sous HyperOS 3, avec Shizuku ou root.</string>
+    <string name="compat_continue">Continuer quand même</string>
+
     <string name="language_subtitle">Modifiable plus tard dans les réglages.</string>
 </resources>

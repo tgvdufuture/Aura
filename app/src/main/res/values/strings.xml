@@ -166,6 +166,14 @@
     <string name="empty_no_enabled_title">No app lights up yet</string>
     <string name="empty_no_enabled_hint">Pick an app below and turn it on: the LED lights the moment it sends you a notification.</string>
 
+    <!-- Device compatibility: the LED backend is the HyperOS light service, so this is the one
+         thing to say on a phone that cannot be driven at all. -->
+    <string name="compat_title">Aura cannot light this phone</string>
+    <string name="compat_body">Aura drives the rear RGB ring, which only Xiaomi/HyperOS devices expose: POCO X8 Pro, X8 Pro Max (Redmi Turbo 5 Max). On this phone no notification will light anything up, with or without Shizuku.</string>
+    <string name="compat_works_label">Works on</string>
+    <string name="compat_works_body">POCO X8 Pro and POCO X8 Pro Max (Redmi Turbo 5 Max) under HyperOS 3, with Shizuku or root.</string>
+    <string name="compat_continue">Continue anyway</string>
+
     <!-- Language picker (first run) -->
     <string name="language_subtitle">You can change this later in Settings.</string>
 </resources>

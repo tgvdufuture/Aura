@@ -39,7 +39,11 @@ En français : Aura permet de personnaliser la **LED arrière**, la **lumière d
 
 Get the latest signed APK from the [releases page](https://github.com/tgvdufuture/Aura/releases/latest):
 
-- **[v0.6.0](https://github.com/tgvdufuture/Aura/releases/tag/v0.6.0)** — `app-release.apk`
+- **[v0.6.1](https://github.com/tgvdufuture/Aura/releases/tag/v0.6.1)** — `app-release.apk`
+
+> **POCO X8 Pro and X8 Pro Max (Redmi Turbo 5 Max) only.** Aura drives the rear RGB ring, which only
+> the Xiaomi/HyperOS family exposes. On any other phone no notification lights anything up, with or
+> without Shizuku — the app says so on its first screen and stays usable, but it has no light to drive.
 
 > Already installed? Aura 0.6.0+ tells you when a new version is out and installs it in one tap. Older versions (0.1.0–0.5.1) have no update check, so they need one manual download from the releases page.
 

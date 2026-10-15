@@ -110,6 +110,7 @@ import com.aura.led.data.SenderRule
 import com.aura.led.data.SettingsKeys
 import com.aura.led.led.Animations
 import com.aura.led.led.ColorMapper
+import com.aura.led.led.DeviceSupport
 import com.aura.led.led.ShizukuLEDController
 import com.aura.led.led.SystemLedManager
 import com.aura.led.notification.AuraNotificationListener
@@ -1002,6 +1003,9 @@ fun MainScreen(
     }
 
     var searchQuery by remember { mutableStateOf("") }
+    // A phone Aura cannot drive at all. The list stays browsable, but nothing here will ever light
+    // up, and the empty state below would promise the opposite.
+    val unsupportedDevice = remember { DeviceSupport.shouldWarn(Build.MANUFACTURER, Build.BRAND) }
     val filteredApps = remember(viewModel.installedApps, searchQuery) {
         val q = searchQuery.trim()
         if (q.isEmpty()) viewModel.installedApps
@@ -1065,6 +1069,9 @@ fun MainScreen(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            if (unsupportedDevice) {
+                item { CompatibilityNotice() }
+            }
             item { Text(stringResource(R.string.section_applications), style = MaterialTheme.typography.titleMedium) }
             item {
                 OutlinedTextField(
@@ -1076,10 +1083,12 @@ fun MainScreen(
                 )
             }
             // Two different empties: "nothing matches that name" and "nothing is lit yet". The
-            // second one is the app's real activation moment, so it says what to do about it.
+            // second one is the app's real activation moment, so it says what to do about it — but
+            // only where the promise holds: on a phone Aura cannot drive, the notice above is the
+            // truthful message and "the LED lights the moment it notifies" would be a lie.
             if (searchQuery.isNotBlank() && filteredApps.isEmpty()) {
                 item { EmptyState(title = stringResource(R.string.no_apps_found)) }
-            } else if (searchQuery.isBlank() && appRules.none { it.enabled }) {
+            } else if (searchQuery.isBlank() && appRules.none { it.enabled } && !unsupportedDevice) {
                 item {
                     EmptyState(
                         title = stringResource(R.string.empty_no_enabled_title),
@@ -1401,6 +1410,91 @@ private fun AnalyticsCard(
             }
             Text(stringResource(R.string.analytics_what_is_sent), style = MaterialTheme.typography.bodySmall)
             TextButton(onClick = onReviewPrivacy) { Text(stringResource(R.string.analytics_review_screen)) }
+        }
+    }
+}
+
+/**
+ * The full-screen notice for a phone Aura cannot drive, shown once, after the privacy screen.
+ *
+ * Only a device *positively identified* outside the Xiaomi family reaches it ([DeviceSupport]); an
+ * unknown identity never does, and a Xiaomi-family phone never does. It says what the phone cannot
+ * do rather than claiming something failed: nothing is broken, the app opens, there is simply no
+ * light to drive. The single action is "continue anyway", so a phone that would in fact work — a
+ * rebranded device, a HyperOS port — is never locked out and its LED test still reaches PostHog.
+ */
+@Composable
+fun CompatibilityScreen(onContinue: () -> Unit) {
+    // Nothing to go back to on first run, so Back does exactly what the single visible action does.
+    // A screen whose only exit is a button is a trap; the two Back defects of 2026-10-14 are why.
+    BackHandler { onContinue() }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .systemBarsPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(start = 24.dp, end = 24.dp, top = 28.dp, bottom = 24.dp),
+    ) {
+        // The disappointed face, not the puzzled one: this is bad news about the phone, and the
+        // mascot never wears the face of good news for it (see MascotMood).
+        AuraMascot(mood = MascotMood.OH, size = 72.dp)
+        Spacer(modifier = Modifier.height(14.dp))
+        Text(
+            stringResource(R.string.compat_title),
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            stringResource(R.string.compat_body),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        // The one actionable thing on this screen: which phones actually work.
+        Spacer(modifier = Modifier.height(22.dp))
+        ConsentPoint(
+            label = stringResource(R.string.compat_works_label),
+            body = stringResource(R.string.compat_works_body),
+            accent = MaterialTheme.colorScheme.primary,
+        )
+
+        Spacer(modifier = Modifier.height(22.dp))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Spacer(modifier = Modifier.height(18.dp))
+        Button(onClick = onContinue, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.compat_continue))
+        }
+    }
+}
+
+/**
+ * The one honest thing to say on a phone Aura cannot drive.
+ *
+ * The only LED backend is the HyperOS light service, so on any other device family every command
+ * fails — the v0.6.0 data is unambiguous: 12 LED tests run outside the family, 12 failures, and not
+ * a single `led_emitted`. Saying it here costs one band and spares the user the Shizuku setup they
+ * would otherwise do for nothing. Non-blocking and not dismissible: it is a fact about the phone.
+ */
+@Composable
+private fun CompatibilityNotice() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AuraMascot(mood = MascotMood.OH, size = 64.dp)
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(stringResource(R.string.compat_title), style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.compat_body), style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }

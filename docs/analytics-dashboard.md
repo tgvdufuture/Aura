@@ -101,6 +101,8 @@ them on a single dashboard named **Aura**.
 | Update prompt conversion | Funnel | `update_prompt_shown` → `update_prompt_accepted` → `update_download_result` (`result = success`) → `update_install_launched` |
 | Update adoptions | Trend | `app_opened` where `is_update = true`, over time |
 | Device/OS spread | Trend, breakdown | `app_opened` broken down by `device_model` and `android_sdk` — confirms the X8 Pro Max / other models report in |
+| Non-addressable installs | Trend, breakdown | `app_opened` broken down by `$device_manufacturer` — outside the Xiaomi family (`Xiaomi`/`Redmi`/`POCO`) the rear ring does not exist, so those installs can never light anything up |
+| Which models the ring actually works on | Trend, breakdown | `led_emitted` broken down by `device_model`, plus `setup_led_test_run` where `success = true` — **the only evidence that justifies naming another model** in the README, the landing page or the in-app notice. A POCO F7 or a Redmi Turbo 4 Pro that emits is a working phone whatever the copy says; one that never emits is not, and no amount of community reports replaces this. Read it before widening the supported-device list (PRD `device-compatibility`, D-13) |
 
 ## 3. How to read it
 
@@ -119,6 +121,17 @@ them on a single dashboard named **Aura**.
    prompt or the install permission is failing and the funnel insight will show where.
 6. **Only trust `support_intent` once the opt-in rate is above ~10 %** and read it as a share of
    consenting users, never as a share of all installs.
+7. **Read the funnel on addressable devices only.** Aura drives `miui.lights`, a HyperOS service:
+   on an Infinix, a Samsung, a OnePlus or an emulator, no LED command can ever succeed. Of the first
+   six external installs of v0.6.0, five were exactly that — 12 LED tests, 12 failures, and the one
+   "I would pay" answer came from a phone where the app cannot work. Split `app_opened` by
+   `$device_manufacturer` before drawing any conclusion, and never read a
+   `setup_led_test_run{success=false}` share as a hardware regression until the devices are Xiaomi.
+8. **The Ring worked on which models is the question the copy is waiting on.** From v0.6.1 the
+   compatibility notice fires only on that same non-Xiaomi slice, so the volume of
+   `setup_led_test_run` from non-Xiaomi devices, before and after 2026-10-15, says whether the notice
+   stopped those installs or the installs stopped coming at all. The notice itself sends no event (no
+   new disclosure was added for it), and it never blocks anything.
 
 ## 4. Sanity checks
 

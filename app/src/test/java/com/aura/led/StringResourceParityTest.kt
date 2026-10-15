@@ -44,6 +44,11 @@ class StringResourceParityTest {
         "autostart_state_unknown",
         "empty_no_enabled_title",
         "empty_no_enabled_hint",
+        "compat_title",
+        "compat_body",
+        "compat_works_label",
+        "compat_works_body",
+        "compat_continue",
         "settings_attention_important",
         "settings_attention_info",
     )
@@ -68,6 +73,26 @@ class StringResourceParityTest {
     fun `every string this feature introduced exists in all three locales`() {
         for (locale in locales) {
             assertEquals("missing from ${locale.first}", emptySet<String>(), featureKeys - locale.second)
+        }
+    }
+
+    /**
+     * The compatibility notice exists to stop a phone that cannot light up from trying anyway.
+     * Wording it as a broad "Xiaomi/HyperOS" promise instead of naming the two supported devices
+     * would defeat it: a Redmi Note owner reads that as supported, while the README says other
+     * models are not guaranteed. Naming them is the whole content of the notice, so it is pinned.
+     */
+    @Test
+    fun `the compatibility notice names the devices Aura supports`() {
+        for ((qualifier, _) in locales) {
+            val body = stringValue(qualifier, "compat_body")
+
+            for (device in listOf("POCO X8 Pro", "X8 Pro Max")) {
+                assertTrue(
+                    "$qualifier/compat_body does not name $device: \"$body\"",
+                    body.contains(device),
+                )
+            }
         }
     }
 

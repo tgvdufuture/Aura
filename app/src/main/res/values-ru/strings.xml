@@ -164,5 +164,13 @@
     <string name="empty_no_enabled_title">Пока ни одно приложение не светится</string>
     <string name="empty_no_enabled_hint">Выберите приложение ниже и включите его: подсветка загорается, как только приходит уведомление.</string>
 
+    <!-- Совместимость: LED-бэкенд — это служба HyperOS, поэтому на телефоне, которым Aura не может
+         управлять, нужно сказать именно это. -->
+    <string name="compat_title">Aura не может подсветить этот телефон</string>
+    <string name="compat_body">Aura управляет задним RGB-кольцом, которое есть только у устройств Xiaomi/HyperOS: POCO X8 Pro, X8 Pro Max (Redmi Turbo 5 Max). На этом телефоне ни одно уведомление ничего не подсветит — с Shizuku или без него.</string>
+    <string name="compat_works_label">Работает на</string>
+    <string name="compat_works_body">POCO X8 Pro и POCO X8 Pro Max (Redmi Turbo 5 Max) под HyperOS 3, с Shizuku или root.</string>
+    <string name="compat_continue">Всё равно продолжить</string>
+
     <string name="language_subtitle">Можно изменить позже в настройках.</string>
 </resources>

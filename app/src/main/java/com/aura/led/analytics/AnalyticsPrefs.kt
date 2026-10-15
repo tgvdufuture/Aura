@@ -30,6 +30,7 @@ object AnalyticsPrefs {
     private const val KEY_LAST_SEEN_BOOT_MS = "lastSeenBootMs"
     private const val KEY_PROMPT_DELIVERY_BOOT_MS = "promptDeliveryBootMs"
     private const val KEY_SETUP_FLAG = "setupFlag"
+    private const val KEY_COMPAT_ACK = "compatAcknowledged"
 
     private fun prefs(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -170,6 +171,20 @@ object AnalyticsPrefs {
 
     fun setSupportAnswer(context: Context, answer: String) {
         prefs(context).edit().putString(KEY_SUPPORT_ANSWER, answer).apply()
+    }
+
+    // ---- Device compatibility notice ----
+
+    /**
+     * Whether the user has already been through the full-screen notice for a phone Aura cannot
+     * drive. Acknowledged once: the standing band stays on the app list, but the screen itself must
+     * not greet the same user at every launch.
+     */
+    fun isCompatAcknowledged(context: Context): Boolean =
+        prefs(context).getBoolean(KEY_COMPAT_ACK, false)
+
+    fun setCompatAcknowledged(context: Context, value: Boolean) {
+        prefs(context).edit().putBoolean(KEY_COMPAT_ACK, value).apply()
     }
 
     // ---- One-shot flags for lazily observed setup steps ----
