@@ -147,7 +147,8 @@
     <string name="update_later">Later</string>
     <string name="update_hide">Hide</string>
     <string name="update_failed">Couldn’t open the download page</string>
-    <string name="update_failed_reason">Update failed: %1$s</string>
+    <string name="update_failed_body">Aura could not install the update automatically.</string>
+    <string name="update_failed_manual">Download it from the releases page</string>
 
     <!-- Support: the donation is the real path today; the paid version is listed, then asked about.
          Every answer has to read on its own — "Neither" asked the user "neither of what?". -->

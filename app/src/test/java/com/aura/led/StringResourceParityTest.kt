@@ -35,6 +35,8 @@ class StringResourceParityTest {
         "language_subtitle",
         "update_notes_title",
         "update_star",
+        "update_failed_body",
+        "update_failed_manual",
         "update_hide",
         "update_notification_title",
         "update_notification_text",

@@ -582,13 +582,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     enum class UpdatePhase { HIDDEN, AVAILABLE, PERMISSION_REQUIRED, DOWNLOADING, ERROR }
 
+    // No failure reason in the state: the dialog used to print the raw exception next to the
+    // buttons ("Échec de la mise à jour : unexpected package com.aura.led" on a French screen),
+    // which tells a user nothing and reads like the app is broken. The reason is logged instead.
     data class UpdateUiState(
         val phase: UpdatePhase = UpdatePhase.HIDDEN,
         val versionName: String = "",
         val sizeBytes: Long = 0L,
         val notes: String = "",
         val progress: Int = 0,
-        val error: String? = null,
     )
 
     private val _update = MutableStateFlow(UpdateUiState())
@@ -765,7 +767,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         )
         viewModelScope.launch(Dispatchers.IO) {
             val expectedSize = _update.value.sizeBytes
-            _update.value = _update.value.copy(phase = UpdatePhase.DOWNLOADING, progress = 0, error = null)
+            _update.value = _update.value.copy(phase = UpdatePhase.DOWNLOADING, progress = 0)
             ApkDownloader.download(context, pendingApkUrl, expectedSize) { percent ->
                 _update.value = _update.value.copy(progress = percent)
             }.fold(
@@ -799,16 +801,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             AnalyticsEvents.P_LATEST_TAG to pendingTag,
                         ),
                     )
-                    _update.value = _update.value.copy(
-                        phase = UpdatePhase.ERROR,
-                        error = error.message ?: error.javaClass.simpleName,
-                    )
+                    // The only trace of why, now that the dialog no longer prints it: the failures
+                    // worth knowing about (wrong package, older build, truncated file) are decided
+                    // in ApkDownloader and never reached this far before.
+                    Log.w("AuraVM", "update download failed: ${error.message ?: error.javaClass.simpleName}")
+                    _update.value = _update.value.copy(phase = UpdatePhase.ERROR)
                 },
             )
         }
     }
 
     fun openInstallPermissionSettings() = ApkInstaller.openInstallPermissionSettings(ctx())
+
+    /**
+     * The way out when Aura cannot install the update itself: the release page in a browser. The
+     * download still counts on GitHub, and the user is never left with only "Retry" on a failure
+     * that will repeat.
+     */
+    fun openReleasePage() = ApkInstaller.openReleasePage(ctx(), RELEASES_PAGE_URL)
 
     /**
      * Back from the system's "install unknown apps" screen.
@@ -1183,6 +1193,7 @@ fun MainScreen(
         onLater = viewModel::postponeUpdate,
         onDismiss = viewModel::dismissUpdateDialog,
         onOpenPermissionSettings = viewModel::openInstallPermissionSettings,
+        onOpenReleasePage = viewModel::openReleasePage,
     )
 }
 
@@ -1644,6 +1655,7 @@ private fun UpdateDialog(
     onLater: () -> Unit,
     onDismiss: () -> Unit,
     onOpenPermissionSettings: () -> Unit,
+    onOpenReleasePage: () -> Unit,
 ) {
     if (state.phase == MainViewModel.UpdatePhase.HIDDEN) return
 
@@ -1750,10 +1762,21 @@ private fun UpdateDialog(
                             style = MaterialTheme.typography.bodyMedium,
                         )
 
-                        MainViewModel.UpdatePhase.ERROR -> Text(
-                            stringResource(R.string.update_failed_reason, state.error.orEmpty()),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
+                        MainViewModel.UpdatePhase.ERROR -> {
+                            Text(
+                                stringResource(R.string.update_failed_body),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            // Retry is the primary action, but it cannot fix a wrong package or a
+                            // truncated file: without this the user is stuck on a failure that
+                            // repeats, which is exactly what happened on the device.
+                            TextButton(
+                                onClick = onOpenReleasePage,
+                                modifier = Modifier.align(Alignment.CenterHorizontally),
+                            ) {
+                                Text(stringResource(R.string.update_failed_manual))
+                            }
+                        }
 
                         MainViewModel.UpdatePhase.HIDDEN -> Unit
                     }

@@ -145,7 +145,8 @@
     <string name="update_later">Позже</string>
     <string name="update_hide">Скрыть</string>
     <string name="update_failed">Не удалось открыть страницу загрузки</string>
-    <string name="update_failed_reason">Ошибка обновления: %1$s</string>
+    <string name="update_failed_body">Aura не смогла установить обновление автоматически.</string>
+    <string name="update_failed_manual">Скачать со страницы версий</string>
 
     <!-- Поддержка: донат — реальный путь сегодня; платная версия перечисляется и запрашивается один раз -->
     <string name="support_title">Помочь Aura оставаться независимой</string>

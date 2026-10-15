@@ -136,7 +136,8 @@
     <string name="update_later">Plus tard</string>
     <string name="update_hide">Masquer</string>
     <string name="update_failed">Impossible d’ouvrir la page de téléchargement</string>
-    <string name="update_failed_reason">Échec de la mise à jour : %1$s</string>
+    <string name="update_failed_body">Aura n’a pas pu installer la mise à jour automatiquement.</string>
+    <string name="update_failed_manual">La télécharger depuis la page des versions</string>
 
     <!-- Soutien : le don est la vraie voie aujourd’hui ; la version payante est listée, puis demandée une fois -->
     <string name="support_title">Garder Aura indépendant</string>
