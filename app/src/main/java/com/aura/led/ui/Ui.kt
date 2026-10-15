@@ -810,6 +810,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun openInstallPermissionSettings() = ApkInstaller.openInstallPermissionSettings(ctx())
 
+    /**
+     * Back from the system's "install unknown apps" screen.
+     *
+     * The grant happens outside the app, so this state is stale by design until we look again, and
+     * nothing else looks at it: the dialog kept offering "Open settings" to a user who had just
+     * allowed the install, with no button left that would download the update — while the copy on
+     * that same screen says "then start the update again". Closing the dialog there also marked the
+     * release as dismissed and cancelled its notification, so the update was gone for good.
+     */
+    fun refreshInstallPermission() {
+        if (_update.value.phase != UpdatePhase.PERMISSION_REQUIRED) return
+        if (ApkInstaller.canInstall(ctx())) {
+            _update.value = _update.value.copy(phase = UpdatePhase.AVAILABLE)
+        }
+    }
+
     fun dismissUpdateDialog() {
         val context = ctx()
         Analytics.track(
@@ -1014,7 +1030,12 @@ fun MainScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) viewModel.refreshSetupState()
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshSetupState()
+                // Same reason, for the dialog: the install permission is granted in a system screen,
+                // and coming back from it has to put the download button back.
+                viewModel.refreshInstallPermission()
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
