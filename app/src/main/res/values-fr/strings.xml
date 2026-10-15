@@ -126,6 +126,7 @@
     <string name="update_channel_name">Nouvelles versions</string>
     <string name="update_channel_description">Vous prévient quand une nouvelle version d’Aura est publiée, sans ouvrir l’app. Un contrôle par jour.</string>
     <string name="update_notes_title">Nouveautés</string>
+    <string name="update_star">Ajouter une étoile sur GitHub</string>
     <string name="update_size">Taille du téléchargement : %1$s</string>
     <string name="update_downloading">Téléchargement… %1$d%%</string>
     <string name="update_permission_needed">Android demande votre autorisation avant qu’Aura puisse installer la mise à jour. Autorisez « Installer des applis inconnues » pour Aura, puis relancez la mise à jour.</string>

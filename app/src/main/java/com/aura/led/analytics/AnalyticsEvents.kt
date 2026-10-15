@@ -55,6 +55,14 @@ object AnalyticsEvents {
     const val UPDATE_DOWNLOAD_RESULT = "update_download_result"
     const val UPDATE_INSTALL_LAUNCHED = "update_install_launched"
 
+    /**
+     * The only ask the update dialog makes beyond updating: open the GitHub repository.
+     *
+     * GitHub counts downloads whether or not anyone visits the repository, so this event is the
+     * one that says whether the star path is used at all.
+     */
+    const val STAR_CLICKED = "star_clicked"
+
     // ---- Support / monetization intent ----
     const val SUPPORT_INTENT = "support_intent"
     const val SUPPORT_CLICKED = "support_clicked"
@@ -96,6 +104,8 @@ object AnalyticsEvents {
     // ---- Values reused on several call sites ----
     const val KIND_SHIZUKU = "shizuku"
     const val KIND_ROOT = "root"
+    const val CHANNEL_GITHUB = "github"
+    const val CHANNEL_KOFI = "kofi"
     const val REASON_APP = "app"
     const val REASON_CONTACT = "contact"
     const val REASON_GROUP = "group"

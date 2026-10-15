@@ -597,6 +597,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** Kept out of the UI state: only the phase and the size are shown. */
     private var pendingApkUrl = ""
 
+    /**
+     * The tag the dialog is showing, kept beside the URL and out of the UI state for the same
+     * reason. Every update event has to name the same version: `versionName` drops the `v`, so a
+     * funnel broken down by `latest_tag` would show two series for a single release.
+     */
+    private var pendingTag = ""
+
     private fun ctx(): Application = getApplication()
 
     fun refreshAnalyticsState() {
@@ -693,6 +700,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     )
                     if (decision.shouldPrompt) {
                         pendingApkUrl = result.apkUrl
+                        pendingTag = result.tag
                         AnalyticsPrefs.setLastPromptMs(context, now)
                         _update.value = UpdateUiState(
                             phase = UpdatePhase.AVAILABLE,
@@ -730,6 +738,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         pendingApkUrl = pending.apkUrl
+        pendingTag = pending.tag
         _update.value = UpdateUiState(
             phase = UpdatePhase.AVAILABLE,
             versionName = pending.versionName,
@@ -752,7 +761,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         Analytics.track(
             AnalyticsEvents.UPDATE_PROMPT_ACCEPTED,
-            mapOf(AnalyticsEvents.P_LATEST_TAG to _update.value.versionName),
+            mapOf(AnalyticsEvents.P_LATEST_TAG to pendingTag),
         )
         viewModelScope.launch(Dispatchers.IO) {
             val expectedSize = _update.value.sizeBytes
@@ -763,12 +772,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 onSuccess = { apk ->
                     Analytics.track(
                         AnalyticsEvents.UPDATE_DOWNLOAD_RESULT,
-                        mapOf(AnalyticsEvents.P_RESULT to "success"),
+                        mapOf(
+                            AnalyticsEvents.P_RESULT to "success",
+                            AnalyticsEvents.P_LATEST_TAG to pendingTag,
+                        ),
                     )
                     if (ApkInstaller.install(context, apk)) {
                         Analytics.track(
                             AnalyticsEvents.UPDATE_INSTALL_LAUNCHED,
-                            mapOf(AnalyticsEvents.P_LATEST_TAG to _update.value.versionName),
+                            mapOf(AnalyticsEvents.P_LATEST_TAG to pendingTag),
                         )
                         // The install is under way; the notification has nothing left to say.
                         UpdateNotifier.cancel(context)
@@ -782,7 +794,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 onFailure = { error ->
                     Analytics.track(
                         AnalyticsEvents.UPDATE_DOWNLOAD_RESULT,
-                        mapOf(AnalyticsEvents.P_RESULT to "error"),
+                        mapOf(
+                            AnalyticsEvents.P_RESULT to "error",
+                            AnalyticsEvents.P_LATEST_TAG to pendingTag,
+                        ),
                     )
                     _update.value = _update.value.copy(
                         phase = UpdatePhase.ERROR,
@@ -799,7 +814,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val context = ctx()
         Analytics.track(
             AnalyticsEvents.UPDATE_PROMPT_POSTPONED,
-            mapOf(AnalyticsEvents.P_LATEST_TAG to _update.value.versionName),
+            mapOf(AnalyticsEvents.P_LATEST_TAG to pendingTag),
         )
         // Closing the dialog means "not this version"; "Later" only postpones.
         AnalyticsPrefs.setDismissedTag(context, "v${_update.value.versionName}")
@@ -811,7 +826,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun postponeUpdate() {
         Analytics.track(
             AnalyticsEvents.UPDATE_PROMPT_POSTPONED,
-            mapOf(AnalyticsEvents.P_LATEST_TAG to _update.value.versionName),
+            mapOf(AnalyticsEvents.P_LATEST_TAG to pendingTag),
         )
         AnalyticsPrefs.setLastPromptMs(ctx(), System.currentTimeMillis())
         _update.value = UpdateUiState()
@@ -832,7 +847,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Opens the Ko-fi page. Not analytics: this works whether or not statistics are enabled. */
     fun openDonationPage() {
-        Analytics.track(AnalyticsEvents.SUPPORT_CLICKED, mapOf(AnalyticsEvents.P_CHANNEL to "kofi"))
+        Analytics.track(AnalyticsEvents.SUPPORT_CLICKED, mapOf(AnalyticsEvents.P_CHANNEL to AnalyticsEvents.CHANNEL_KOFI))
         val context = ctx()
         runCatching {
             context.startActivity(
@@ -840,6 +855,27 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             )
         }.onFailure { Log.w("AuraVM", "could not open the donation page", it) }
+    }
+
+    /**
+     * Opens the GitHub repository, which is where a star can be given.
+     *
+     * A download is counted on a page nobody looks at; a star is the first thing the next visitor
+     * checks. The update dialog is the one screen every updating user has in front of them, so the
+     * ask goes there — once, as a quiet text button, and never as a second dialog.
+     */
+    fun openGitHubRepo() {
+        Analytics.track(
+            AnalyticsEvents.STAR_CLICKED,
+            mapOf(AnalyticsEvents.P_CHANNEL to AnalyticsEvents.CHANNEL_GITHUB),
+        )
+        val context = ctx()
+        runCatching {
+            context.startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse(REPO_URL))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }.onFailure { Log.w("AuraVM", "could not open the GitHub repository", it) }
     }
 
     private fun installedVersionName(): String = runCatching {
@@ -940,6 +976,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private companion object {
         const val RELEASES_PAGE_URL = "https://github.com/tgvdufuture/Aura/releases/latest"
+        const val REPO_URL = "https://github.com/tgvdufuture/Aura"
         const val DONATION_URL = "https://ko-fi.com/tgvdufuture"
     }
 }
@@ -1121,6 +1158,7 @@ fun MainScreen(
     UpdateDialog(
         state = update,
         onUpdate = viewModel::startUpdate,
+        onStar = viewModel::openGitHubRepo,
         onLater = viewModel::postponeUpdate,
         onDismiss = viewModel::dismissUpdateDialog,
         onOpenPermissionSettings = viewModel::openInstallPermissionSettings,
@@ -1581,6 +1619,7 @@ private fun SupportQuestionCard(currentAnswer: String?, onAnswer: (String) -> Un
 private fun UpdateDialog(
     state: MainViewModel.UpdateUiState,
     onUpdate: () -> Unit,
+    onStar: () -> Unit,
     onLater: () -> Unit,
     onDismiss: () -> Unit,
     onOpenPermissionSettings: () -> Unit,
@@ -1663,6 +1702,15 @@ private fun UpdateDialog(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            // The one ask this dialog makes beyond updating. Below the release notes
+                            // and above the buttons, so that "Update" stays the obvious action and
+                            // the ask still reads as an aside rather than a second decision.
+                            TextButton(
+                                onClick = onStar,
+                                modifier = Modifier.align(Alignment.CenterHorizontally),
+                            ) {
+                                Text(stringResource(R.string.update_star))
+                            }
                         }
 
                         MainViewModel.UpdatePhase.DOWNLOADING -> {

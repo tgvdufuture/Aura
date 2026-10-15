@@ -34,6 +34,7 @@ class StringResourceParityTest {
         "consent_funding",
         "language_subtitle",
         "update_notes_title",
+        "update_star",
         "update_hide",
         "update_notification_title",
         "update_notification_text",

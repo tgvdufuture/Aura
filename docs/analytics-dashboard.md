@@ -91,6 +91,7 @@ them on a single dashboard named **Aura**.
 |---|---|---|
 | Support intent | Trend, breakdown | `support_intent` broken down by `answer` — **a user may change their answer**, so read the latest value per `distinct_id`, not the event count |
 | Users who acted on it | Trend | `support_clicked` where `channel = kofi` — answers are opinions, this is the users who actually opened the donation page |
+| Stars | Trend, breakdown | `star_clicked` broken down by `channel` (`github`) — the update dialog's "Star Aura on GitHub" button. GitHub counts a download whether or not anyone ever opens the repository, so a rising `update_download_result` with a flat `star_clicked` means the flow converts updates but never converts visitors |
 
 ### Guardrails
 
@@ -98,7 +99,7 @@ them on a single dashboard named **Aura**.
 |---|---|---|
 | Opt-in rate | Formula | `unique(distinct_id)` where `consent_granted` was sent ÷ `unique(distinct_id)` where `app_opened` fired. **Below ~10 % and the sample is not representative — read shares, not absolute numbers.** |
 | Consent revoked | Trend | `consent_declined` — a spike after a release means users are rejecting the privacy change |
-| Update prompt conversion | Funnel | `update_prompt_shown` → `update_prompt_accepted` → `update_download_result` (`result = success`) → `update_install_launched` |
+| Update prompt conversion | Funnel | `update_prompt_shown` **or** `update_notification_tapped` → `update_prompt_accepted` → `update_download_result` (`result = success`) → `update_install_launched`. Two possible first steps: tapping the update notification opens the dialog without a `update_prompt_shown`, and those users were previously dropped at step 1. Every step names the release in `latest_tag` (`vX.Y.Z`, the tag and not the version name), so the funnel also reads per release |
 | Update adoptions | Trend | `app_opened` where `is_update = true`, over time |
 | Device/OS spread | Trend, breakdown | `app_opened` broken down by `device_model` and `android_sdk` — confirms the X8 Pro Max / other models report in |
 | Non-addressable installs | Trend, breakdown | `app_opened` broken down by `$device_manufacturer` — outside the Xiaomi family (`Xiaomi`/`Redmi`/`POCO`) the rear ring does not exist, so those installs can never light anything up |
