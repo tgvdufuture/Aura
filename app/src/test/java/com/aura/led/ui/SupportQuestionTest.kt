@@ -57,6 +57,46 @@ class SupportQuestionTest {
         }
     }
 
+    /**
+     * The app list is the only place the ask reaches someone who never opens Settings, so the three
+     * ways this offer goes wrong are pinned here: asking someone who already answered, asking
+     * someone whose answer could not be recorded, and letting "later" mean "never".
+     */
+    @Test
+    fun `the question is offered on the app list to whoever has not answered it`() {
+        assertTrue(
+            SupportQuestion.shouldOfferOnAppList(consentGranted = true, answer = null, dismissed = false),
+        )
+    }
+
+    @Test
+    fun `an answered question is never offered again`() {
+        for (answer in SupportQuestion.ANSWERS.map { it.first }) {
+            assertFalse(
+                "`$answer` is answered: the ask must not come back",
+                SupportQuestion.shouldOfferOnAppList(consentGranted = true, answer = answer, dismissed = false),
+            )
+        }
+    }
+
+    @Test
+    fun `a question whose answer cannot be recorded is not offered`() {
+        assertFalse(
+            SupportQuestion.shouldOfferOnAppList(consentGranted = false, answer = null, dismissed = false),
+        )
+    }
+
+    @Test
+    fun `later hides the offer without ending it`() {
+        assertFalse(
+            SupportQuestion.shouldOfferOnAppList(consentGranted = true, answer = null, dismissed = true),
+        )
+        assertTrue(
+            "the next launch has to offer it again: only an answer ends the ask",
+            SupportQuestion.shouldOfferOnAppList(consentGranted = true, answer = null, dismissed = false),
+        )
+    }
+
     @Test
     fun `an unknown or differently cased answer never opens the donation page`() {
         assertFalse(SupportQuestion.opensDonationPage("Donation"))

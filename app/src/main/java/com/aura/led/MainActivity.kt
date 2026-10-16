@@ -122,6 +122,9 @@ class MainActivity : ComponentActivity() {
                 // list leaves the composition while the privacy screen is shown, which would forget
                 // the state and send Back to the main list instead of back to the settings list.
                 var showSettings by rememberSaveable { mutableStateOf(false) }
+                // Set when the app-list banner asks for the question itself rather than for
+                // Settings. Reset on every other way in, so the gear still opens at the top.
+                var focusSupport by rememberSaveable { mutableStateOf(false) }
 
                 // A tap on the update notification lands here, on whatever screen the app was left
                 // on: the update screen takes over rather than waiting behind a settings list the
@@ -184,12 +187,14 @@ class MainActivity : ComponentActivity() {
                         ThemeManager.setMode(this@MainActivity, mode)
                         Analytics.track(AnalyticsEvents.THEME_CHANGED, mapOf(AnalyticsEvents.P_MODE to mode))
                     },
-                    onBack = { showSettings = false },
+                    onBack = { showSettings = false; focusSupport = false },
                     onReviewPrivacy = { reviewingPrivacy = true },
+                    focusSupport = focusSupport,
                 )
                     } else {
                         MainScreen(
-                            onOpenSettings = { showSettings = true },
+                            onOpenSettings = { showSettings = true; focusSupport = false },
+                            onOpenSupportQuestion = { showSettings = true; focusSupport = true },
                         )
                     }
                 }

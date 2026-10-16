@@ -34,6 +34,9 @@
     <string name="shizuku_help">Open the Shizuku app → “Start via computer connection” → “Show command”, then run it from the PC.</string>
     <string name="shizuku_request_permission">Request authorization</string>
     <string name="shizuku_test_led">Test the LED (red)</string>
+    <string name="shizuku_test_ok">Test passed — the ring lit up.</string>
+    <string name="shizuku_test_failed">The test failed. Check that Shizuku is running and authorized, then try once more.</string>
+    <string name="shizuku_test_unsupported">Three attempts in a row failed: the light service Aura drives is not available on this phone, so the ring cannot light up however many times you try.</string>
     <string name="root_connected">Root access detected — Shizuku is not required</string>
     <string name="led_preview">Preview LED</string>
     <string name="led_preview_failed">Couldn\'t light the LED — is Shizuku active or is root access available?</string>
@@ -117,7 +120,7 @@
     <string name="consent_update_hint">One request a day to GitHub. No identifier is sent.</string>
     <string name="consent_details_show">What exactly is sent?</string>
     <string name="consent_details_hide">Hide details</string>
-    <string name="consent_details">• An anonymous install identifier (random, not linked to your account or hardware)\n• App version, Android version, device model, language, theme\n• Features you used: apps enabled, colours changed, sender rules, animations, light duration, reminder\n• Each setup step and whether it worked\n• Update checks and download results\n\nNever sent: notification content, sender or group names, message text, your contacts, or your list of installed apps.</string>
+    <string name="consent_details">• An anonymous install identifier (random, not linked to your account or hardware)\n• App version, Android version, device model, language, theme\n• Features you used: apps enabled, colours changed, sender rules, animations, light duration, reminder, support options\n• Each setup step and whether it worked\n• Update checks and download results\n\nNever sent: notification content, sender or group names, message text, your contacts, or your list of installed apps.</string>
     <string name="consent_accept">Share anonymous statistics</string>
     <string name="consent_decline">No thanks</string>
     <string name="consent_close">Close</string>
@@ -144,7 +147,7 @@
     <string name="update_open_settings">Open settings</string>
     <string name="update_install">Update</string>
     <string name="update_retry">Retry</string>
-    <string name="update_later">Later</string>
+    <string name="later">Later</string>
     <string name="update_hide">Hide</string>
     <string name="update_failed">Couldn’t open the download page</string>
     <string name="update_failed_body">Aura could not install the update automatically.</string>
@@ -158,6 +161,7 @@
     <string name="support_offer_title">What a paid version could add</string>
     <string name="support_offer_items">• Community animation library: browse, preview and import animations shared by other users\n• Backup and restore of your rules\n• Time-based profiles: night, work, weekend\n• Automation through Tasker and shortcuts</string>
     <string name="support_question">How would you prefer to support Aura?</string>
+    <string name="support_open_question">Answer the question</string>
     <string name="support_answer_donation">Make a one-off donation</string>
     <string name="support_answer_one_time">Buy the paid version once</string>
     <string name="support_answer_subscription">Pay a monthly subscription</string>

@@ -86,6 +86,16 @@ object AnalyticsEvents {
     const val P_ANSWER = "answer"
     const val P_CHANNEL = "channel"
 
+    /**
+     * Which of the places that lead to the donation page was used.
+     *
+     * `channel` says the page was Ko-fi; it cannot say whether the user came from the
+     * always-visible support card or from the "make a donation" answer, and those are the two
+     * things a change to the support card would move. Same value as the `utm_content` the URL
+     * carries, so the event and the donation itself can be read side by side.
+     */
+    const val P_SOURCE = "source"
+
     const val P_THEME = "theme"
     const val P_LOCALE = "locale"
     const val P_IS_FIRST_RUN = "is_first_run"
@@ -97,7 +107,7 @@ object AnalyticsEvents {
     val PROPERTY_KEYS: Set<String> = setOf(
         P_LANGUAGE, P_KIND, P_SUCCESS, P_TARGET_PACKAGE, P_ENABLED, P_IS_CUSTOM,
         P_ANIMATION_ID, P_SECONDS, P_DISABLED, P_RUNNING, P_MODE, P_INTERVAL_S,
-        P_REASON, P_RESULT, P_LATEST_TAG, P_ANSWER, P_CHANNEL,
+        P_REASON, P_RESULT, P_LATEST_TAG, P_ANSWER, P_CHANNEL, P_SOURCE,
         P_THEME, P_LOCALE, P_IS_FIRST_RUN, P_IS_UPDATE, P_LISTENER_CONNECTED, P_PRIVILEGE,
     )
 
@@ -106,6 +116,18 @@ object AnalyticsEvents {
     const val KIND_ROOT = "root"
     const val CHANNEL_GITHUB = "github"
     const val CHANNEL_KOFI = "kofi"
+
+    /** The donate button of the always-visible support card, the path that needs no consent. */
+    const val SOURCE_CARD = "card"
+
+    /** The `donation` answer of the support question, the path that only exists with consent. */
+    const val SOURCE_ANSWER = "answer"
+
+    /**
+     * The compact support banner at the top of the app list — the placement that exists to reach
+     * the users who never open Settings.
+     */
+    const val SOURCE_INVITE = "invite"
     const val REASON_APP = "app"
     const val REASON_CONTACT = "contact"
     const val REASON_GROUP = "group"

@@ -40,4 +40,29 @@ object SupportQuestion {
      * same opinion — the dashboard reads the latest answer per user.
      */
     fun shouldRecord(current: String?, answer: String): Boolean = answer != current
+
+    /**
+     * Whether the support banner is shown at the top of the app list.
+     *
+     * The question and its card have only ever lived in Settings, so the users who most need to be
+     * asked — the ones who never open Settings — were exactly the ones never asked. The banner is
+     * not the question: it is the Settings card's own three lines with its donate button, and the
+     * question stays where an answer can be given and changed. What it does is put the ask in front
+     * of people who would otherwise never see it.
+     *
+     * An answer ends it for good, and it is the answer that ends it — not the banner's action and
+     * not a dismissal. It is persisted ([com.aura.led.analytics.AnalyticsPrefs.supportAnswer]), so
+     * "someone who has answered is never asked again" survives a restart and an update.
+     *
+     * [dismissed] is per session and **never persisted**: "later" has to mean later, not never, so
+     * the banner comes back at the next launch until the question is actually answered. A persisted
+     * dismissal would be a silent "no thanks" the user never gave — the same trap the update
+     * dialog's `dismissedVersion` is documented to have.
+     *
+     * Consent is part of the rule for the reason [com.aura.led.ui.settingsAttention] gives: with
+     * statistics off the question is not on the Settings screen at all, and an ask whose answer
+     * could not be recorded is not the ask this banner exists for.
+     */
+    fun shouldOfferOnAppList(consentGranted: Boolean, answer: String?, dismissed: Boolean): Boolean =
+        consentGranted && answer == null && !dismissed
 }

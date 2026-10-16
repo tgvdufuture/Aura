@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -70,8 +71,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -111,6 +114,7 @@ import com.aura.led.data.SettingsKeys
 import com.aura.led.led.Animations
 import com.aura.led.led.ColorMapper
 import com.aura.led.led.DeviceSupport
+import com.aura.led.led.LedTestStreak
 import com.aura.led.led.ShizukuLEDController
 import com.aura.led.led.SystemLedManager
 import com.aura.led.notification.AuraNotificationListener
@@ -124,6 +128,7 @@ import com.aura.led.shizuku.ShizukuState
 import com.aura.led.update.ApkDownloader
 import com.aura.led.update.ApkInstaller
 import com.aura.led.update.CheckResult
+import com.aura.led.update.DownloadFailure
 import com.aura.led.update.ReleaseNotes
 import com.aura.led.update.UpdateCache
 import com.aura.led.update.UpdateChecker
@@ -137,6 +142,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -498,11 +504,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val led = ShizukuLEDController()
 
+    /**
+     * What the LED test did, and how many attempts in a row have failed.
+     *
+     * [lastResult] is `null` until the first test; the streak survives the process (see
+     * [LedTestStreak]) because the phone does not change between launches.
+     */
+    data class LedTestState(val streak: Int = 0, val lastResult: Boolean? = null) {
+        /** The phone has already answered the question, not the user: see [DeviceSupport]. */
+        val conclusive: Boolean get() = DeviceSupport.failuresAreConclusive(streak)
+    }
+
+    private val _ledTest =
+        MutableStateFlow(LedTestState(streak = LedTestStreak.failuresInARow(application)))
+    val ledTest: StateFlow<LedTestState> = _ledTest
+
     fun testLed() = viewModelScope.launch(Dispatchers.IO) {
+        // Read before the attempt: holding the privilege is what makes a failure say something about
+        // the phone instead of saying the user has not granted Shizuku yet.
+        val privileged = ShizukuManager.state.value.hasPermission || RootManager.state.value.available
         val success = led.setColor("#ff0000").getOrDefault(false)
         Analytics.track(
             AnalyticsEvents.SETUP_LED_TEST_RUN,
             mapOf(AnalyticsEvents.P_SUCCESS to success),
+        )
+        // The card answers either way — a button that says nothing is how a user reaches eighty
+        // attempts — but only an attempt that ran is counted against the phone: counting the others
+        // is how a working phone, tested before its grant, would be told it is broken.
+        _ledTest.value = LedTestState(
+            streak = if (privileged) {
+                LedTestStreak.record(getApplication(), success)
+            } else {
+                _ledTest.value.streak
+            },
+            lastResult = success,
         )
     }
 
@@ -799,9 +834,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         mapOf(
                             AnalyticsEvents.P_RESULT to "error",
                             AnalyticsEvents.P_LATEST_TAG to pendingTag,
+                            // Why it failed, from DownloadFailure's fixed vocabulary — never the
+                            // exception's message, which is free text. Added because the only
+                            // accepted update in the field (2026-10-16) failed here and reported
+                            // `result=error` with no reason, which is unrecoverable after the fact.
+                            AnalyticsEvents.P_REASON to DownloadFailure.reasonOf(error),
                         ),
                     )
-                    // The only trace of why, now that the dialog no longer prints it: the failures
+                    // Kept for logcat, where it is useful and stays on the device: the failures
                     // worth knowing about (wrong package, older build, truncated file) are decided
                     // in ApkDownloader and never reached this far before.
                     Log.w("AuraVM", "update download failed: ${error.message ?: error.javaClass.simpleName}")
@@ -868,16 +908,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         // Answering "a donation now" is a request, not a vote: open the page instead of
         // recording an intention the user cannot act on.
-        if (SupportQuestion.opensDonationPage(answer)) openDonationPage()
+        if (SupportQuestion.opensDonationPage(answer)) openDonationPage(AnalyticsEvents.SOURCE_ANSWER)
     }
 
-    /** Opens the Ko-fi page. Not analytics: this works whether or not statistics are enabled. */
-    fun openDonationPage() {
-        Analytics.track(AnalyticsEvents.SUPPORT_CLICKED, mapOf(AnalyticsEvents.P_CHANNEL to AnalyticsEvents.CHANNEL_KOFI))
+    /**
+     * Opens the Ko-fi page. Not analytics: this works whether or not statistics are enabled.
+     *
+     * [source] says which of the two places that lead here was used, and it travels twice: in the
+     * event (read in PostHog) and in the URL's `utm_content` (read by Ko-fi itself). Nothing in the
+     * app can observe a donation — the user leaves for a web page — so the tagged URL is the only
+     * thing that can ever attribute one, and only when the page's Google Analytics is connected.
+     */
+    fun openDonationPage(source: String) {
+        Analytics.track(
+            AnalyticsEvents.SUPPORT_CLICKED,
+            mapOf(
+                AnalyticsEvents.P_CHANNEL to AnalyticsEvents.CHANNEL_KOFI,
+                AnalyticsEvents.P_SOURCE to source,
+            ),
+        )
         val context = ctx()
         runCatching {
             context.startActivity(
-                Intent(Intent.ACTION_VIEW, Uri.parse(DONATION_URL))
+                Intent(Intent.ACTION_VIEW, Uri.parse(donationUrl(source)))
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             )
         }.onFailure { Log.w("AuraVM", "could not open the donation page", it) }
@@ -1004,6 +1057,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         const val RELEASES_PAGE_URL = "https://github.com/tgvdufuture/Aura/releases/latest"
         const val REPO_URL = "https://github.com/tgvdufuture/Aura"
         const val DONATION_URL = "https://ko-fi.com/tgvdufuture"
+
+        /**
+         * The donation page, tagged so a donation can be attributed at all.
+         *
+         * Aura has no way to see a completed donation: Ko-fi is a web page the user leaves for, and
+         * the app never learns what happens there. The URL is the only channel left, and it names
+         * the app, the release flow and the exact placement (`utm_content` = the same `source` the
+         * `support_clicked` event carries). Ko-fi reads those back in its own dashboard once the
+         * page's Google Analytics is connected — without that step the tags change nothing.
+         */
+        fun donationUrl(source: String): String =
+            "$DONATION_URL?utm_source=aura_app&utm_medium=in_app&utm_campaign=donation&utm_content=$source"
     }
 }
 
@@ -1023,6 +1088,8 @@ private const val BADGE_SIZE_DP = 7.5f
 @Composable
 fun MainScreen(
     onOpenSettings: () -> Unit,
+    /** Opens Settings **on the support question**, for the banner above the app list. */
+    onOpenSupportQuestion: () -> Unit,
     viewModel: MainViewModel = viewModel(),
 ) {
     val appRules by viewModel.appRules.collectAsState()
@@ -1064,6 +1131,18 @@ fun MainScreen(
         ),
     )
 
+    // The support question has only ever lived in Settings, which means the users who most need it
+    // — the ones who never open Settings — were exactly the ones never asked. Offered here, once,
+    // to those who have not answered; gone for good once they have. "Later" is a decision about
+    // this session and is deliberately not persisted: a stored dismissal would be a "no thanks"
+    // nobody gave. See SupportQuestion.shouldOfferOnAppList.
+    var supportLater by rememberSaveable { mutableStateOf(false) }
+    val offerSupport = SupportQuestion.shouldOfferOnAppList(
+        consentGranted = analytics.granted,
+        answer = analytics.supportAnswer,
+        dismissed = supportLater,
+    )
+
     LaunchedEffect(Unit) {
         Analytics.screen("main")
         // Throttled to one GitHub request per day inside the ViewModel.
@@ -1071,9 +1150,12 @@ fun MainScreen(
     }
 
     var searchQuery by remember { mutableStateOf("") }
-    // A phone Aura cannot drive at all. The list stays browsable, but nothing here will ever light
-    // up, and the empty state below would promise the opposite.
-    val unsupportedDevice = remember { DeviceSupport.shouldWarn(Build.MANUFACTURER, Build.BRAND) }
+    // A phone Aura cannot drive: known from the family before any setup, or proven by the LED test
+    // itself (see DeviceSupport). The list stays browsable, but nothing here will ever light up, and
+    // the empty state below would promise the opposite.
+    val ledTest by viewModel.ledTest.collectAsState()
+    val unsupportedDevice =
+        DeviceSupport.shouldWarn(Build.MANUFACTURER, Build.BRAND, ledTest.streak)
     val filteredApps = remember(viewModel.installedApps, searchQuery) {
         val q = searchQuery.trim()
         if (q.isEmpty()) viewModel.installedApps
@@ -1139,6 +1221,24 @@ fun MainScreen(
         ) {
             if (unsupportedDevice) {
                 item { CompatibilityNotice() }
+            }
+            // Below the compatibility notice and not above it: a phone Aura cannot drive is owed
+            // the fact before it is asked for anything.
+            if (offerSupport) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        SupportInviteBanner(
+                            onAnswerQuestion = onOpenSupportQuestion,
+                            onDonate = { viewModel.openDonationPage(AnalyticsEvents.SOURCE_INVITE) },
+                        )
+                        TextButton(
+                            onClick = { supportLater = true },
+                            modifier = Modifier.align(Alignment.CenterHorizontally),
+                        ) {
+                            Text(stringResource(R.string.later))
+                        }
+                    }
+                }
             }
             item { Text(stringResource(R.string.section_applications), style = MaterialTheme.typography.titleMedium) }
             item {
@@ -1206,6 +1306,11 @@ fun SettingsScreen(
     onThemeChange: (String) -> Unit,
     onBack: () -> Unit,
     onReviewPrivacy: () -> Unit,
+    /**
+     * Set by the app-list banner's "answer the question" action: Settings opens **on the question**
+     * instead of at the top. The gear sets it false, so the two entry points stay different.
+     */
+    focusSupport: Boolean = false,
     viewModel: MainViewModel = viewModel(),
 ) {
     val shizuku by viewModel.shizuku.collectAsState()
@@ -1216,8 +1321,28 @@ fun SettingsScreen(
     val listenerConnected by viewModel.listenerConnected.collectAsState()
     val reminder by viewModel.reminder.collectAsState()
     val analytics by viewModel.analytics.collectAsState()
+    val ledTest by viewModel.ledTest.collectAsState()
 
     LaunchedEffect(Unit) { Analytics.screen("settings") }
+
+    // A link to the form, not to a screen: the question card sits below six other cards, so opening
+    // Settings at the top leaves the user hunting for the thing they asked for. On the device the
+    // card is not merely low on the list — from the top of it, not one pixel of the card is on screen.
+    //
+    // Scrolled by index rather than asked to bring itself into view: a `LazyColumn` never composes
+    // an item that is off screen, so a `bringIntoViewRequester` on the card is attached to nothing
+    // and the request is dropped in silence. That is how the first version of this link shipped —
+    // it compiled, it ran, and it landed the user at the top of Settings. Waiting for the first
+    // layout instead of guessing a delay: the question is the list's last item, so the count the
+    // list reports is the index to scroll to.
+    val listState = rememberLazyListState()
+    LaunchedEffect(focusSupport) {
+        if (focusSupport) {
+            val lastIndex = snapshotFlow { listState.layoutInfo.totalItemsCount }
+                .first { it > 0 } - 1
+            listState.scrollToItem(lastIndex)
+        }
+    }
 
     // Settings is a screen of the app, not a second app: without this the system Back button
     // finishes the activity, which reads as Aura quitting rather than as going back.
@@ -1239,6 +1364,7 @@ fun SettingsScreen(
         },
     ) { padding ->
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
@@ -1247,7 +1373,7 @@ fun SettingsScreen(
         ) {
             item { LanguageToggle(currentLanguage, onLanguageChange) }
             item { ThemeToggle(themeMode, onThemeChange) }
-            item { ShizukuCard(shizuku, root, onRequest = viewModel::requestShizuku, onTest = viewModel::testLed) }
+            item { ShizukuCard(shizuku, root, ledTest, onRequest = viewModel::requestShizuku, onTest = viewModel::testLed) }
             item {
                 SystemLedCard(
                     state = systemLed,
@@ -1282,7 +1408,7 @@ fun SettingsScreen(
             }
             item {
                 SupportCard(
-                    onDonate = viewModel::openDonationPage,
+                    onDonate = { viewModel.openDonationPage(AnalyticsEvents.SOURCE_CARD) },
                     onStar = viewModel::openGitHubRepo,
                 )
             }
@@ -1601,6 +1727,41 @@ private fun EmptyState(title: String, body: String? = null) {
 }
 
 /**
+ * The support ask on the app list, where the users who never open Settings can see it at all.
+ *
+ * Kept to three lines and two actions, and not the question card itself: on the device that card
+ * measured **446 dp — 53 % of a 1268x2756 screen — and pushed every app in the list below the
+ * fold**, so the first thing Aura showed was a request for money and nothing of what it does. Its
+ * size is not its text but its four answer chips, whose labels are long enough to stack one per row
+ * (~48 dp each), so a discreet banner cannot carry them and the question stays in Settings, the
+ * only place an answer can be given and changed.
+ *
+ * The first version of this banner had a donation button and nothing else, which defeated its
+ * reason for existing: it is here to reach the users who never open Settings, and a banner that
+ * only sells a donation leaves exactly those users unasked. The question therefore comes first, and
+ * the donation stays one quiet tap away.
+ *
+ * The copy is the Settings card's own, so the two never drift; only the star ask is left out, which
+ * belongs to users who have already decided to keep the app.
+ */
+@Composable
+private fun SupportInviteBanner(onAnswerQuestion: () -> Unit, onDonate: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.support_title), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.support_intro), style = MaterialTheme.typography.bodyMedium)
+            // Opens the question itself, scrolled into view in Settings — see SettingsScreen's
+            // `focusSupport`. A link that landed at the top of Settings and left the user hunting
+            // for the card would be a link to a screen, not to the form.
+            Button(onClick = onAnswerQuestion) { Text(stringResource(R.string.support_open_question)) }
+            // The donation remains available here, quieter: it is the support path that exists
+            // today, and the question's own "make a donation" answer leads to the same page.
+            TextButton(onClick = onDonate) { Text(stringResource(R.string.support_donate)) }
+        }
+    }
+}
+
+/**
  * Support card, always available: Aura is funded by donations today, so the donation path is the
  * primary action here rather than something mentioned in passing.
  */
@@ -1629,7 +1790,10 @@ private fun SupportCard(onDonate: () -> Unit, onStar: () -> Unit) {
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SupportQuestionCard(currentAnswer: String?, onAnswer: (String) -> Unit) {
+private fun SupportQuestionCard(
+    currentAnswer: String?,
+    onAnswer: (String) -> Unit,
+) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(R.string.support_offer_title), style = MaterialTheme.typography.titleMedium)
@@ -1825,7 +1989,10 @@ private fun UpdateDialog(
                     ) {
                         Text(
                             stringResource(
-                                if (downloading) R.string.update_hide else R.string.update_later
+                                // `later` and not `update_later`: the same word now dismisses the
+                                // support question on the app list too, and one copy for one action
+                                // is what the star ask taught (see `star_repo`).
+                                if (downloading) R.string.update_hide else R.string.later
                             )
                         )
                     }
@@ -1964,6 +2131,7 @@ private enum class QuietField { START, END }
 private fun ShizukuCard(
     state: ShizukuState,
     root: RootState,
+    test: MainViewModel.LedTestState,
     onRequest: () -> Unit,
     onTest: () -> Unit,
 ) {
@@ -1997,6 +2165,27 @@ private fun ShizukuCard(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(onClick = onTest) { Text(stringResource(R.string.shizuku_test_led)) }
                 }
+            }
+            // What the test did, where the button is. The button used to answer with nothing at all,
+            // which is how a phone that cannot work is asked eighty times (the field data, 2026-10-16).
+            // A success wins over everything — a phone that lit up once works, whatever the count said
+            // before — and the conclusive line wins over a fresh failure, because the phone's answer
+            // does not change with the number of attempts.
+            when {
+                test.lastResult == true -> Text(
+                    stringResource(R.string.shizuku_test_ok),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                test.conclusive -> Text(
+                    stringResource(R.string.shizuku_test_unsupported),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+                test.lastResult == false -> Text(
+                    stringResource(R.string.shizuku_test_failed),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }

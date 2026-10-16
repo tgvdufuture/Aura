@@ -7,7 +7,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
-import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -53,7 +52,7 @@ object ApkDownloader {
             }
             val code = connection.responseCode
             if (code != HttpURLConnection.HTTP_OK) {
-                return Result.failure(IOException("http $code"))
+                return Result.failure(DownloadFailure(DownloadFailure.HTTP, "http $code"))
             }
             val total = expectedSizeBytes.takeIf { it > 0 } ?: connection.contentLengthLong
 
@@ -80,7 +79,7 @@ object ApkDownloader {
 
             if (target.length() < MIN_VALID_BYTES) {
                 target.delete()
-                return Result.failure(IOException("downloaded file too small"))
+                return Result.failure(DownloadFailure(DownloadFailure.TOO_SMALL, "downloaded file too small"))
             }
             validate(context, target)?.let { error ->
                 target.delete()
@@ -89,19 +88,26 @@ object ApkDownloader {
             Result.success(target)
         } catch (e: Exception) {
             target.delete()
-            Log.w(TAG, "download failed", e)
-            Result.failure(e)
+            // Anything thrown this far is the connection or the storage: none of the refusal cases
+            // above throw, they return. Reported as NETWORK, with the message kept for logcat.
+            val failure = e as? DownloadFailure
+                ?: DownloadFailure(DownloadFailure.NETWORK, e.message ?: e.javaClass.simpleName, e)
+            Log.w(TAG, "download failed", failure)
+            Result.failure(failure)
         } finally {
             runCatching { connection?.disconnect() }
         }
     }
 
     /** Returns the reason the file cannot be installed, or null when it is a valid newer APK. */
-    private fun validate(context: Context, apk: File): IOException? {
+    private fun validate(context: Context, apk: File): DownloadFailure? {
         val info = context.packageManager.getPackageArchiveInfo(apk.absolutePath, 0)
-            ?: return IOException("unreadable apk")
+            ?: return DownloadFailure(DownloadFailure.UNREADABLE, "unreadable apk")
         if (info.packageName != context.packageName) {
-            return IOException("unexpected package ${info.packageName}")
+            return DownloadFailure(
+                DownloadFailure.WRONG_PACKAGE,
+                "unexpected package ${info.packageName}",
+            )
         }
         val downloadedCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             info.longVersionCode.toInt()
@@ -114,7 +120,10 @@ object ApkDownloader {
             context.packageManager.getPackageInfo(context.packageName, 0).versionCode
         }
         if (downloadedCode <= installedCode) {
-            return IOException("downloaded version $downloadedCode <= installed $installedCode")
+            return DownloadFailure(
+                DownloadFailure.NOT_NEWER,
+                "downloaded version $downloadedCode <= installed $installedCode",
+            )
         }
         return null
     }

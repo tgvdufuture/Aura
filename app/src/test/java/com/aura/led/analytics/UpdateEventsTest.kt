@@ -2,6 +2,7 @@ package com.aura.led.analytics
 
 import java.io.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -60,6 +61,33 @@ class UpdateEventsTest {
                 callSite.take(220).contains("P_LATEST_TAG"),
             )
         }
+    }
+
+    /**
+     * A failure the dashboard cannot explain is a failure nobody can fix. On 2026-10-16 the only
+     * accepted update in the field failed at the download and the event said `result=error` and
+     * nothing else — the cause was on one phone's logcat and nowhere else, so nothing could be done
+     * about it before the next release. The failing call site now reports `reason`, and it has to be
+     * the classified vocabulary (`DownloadFailure.reasonOf`, unit-tested in `DownloadFailureTest`)
+     * rather than the exception's message: a message is free text, and free text is exactly what the
+     * sanitizer cannot make safe.
+     */
+    @Test
+    fun `a failed download reports why, from the fixed vocabulary`() {
+        val callSites = ui.readText().split("AnalyticsEvents.UPDATE_DOWNLOAD_RESULT").drop(1)
+        val failing = callSites.filter { it.take(400).contains("P_RESULT to \"error\"") }
+
+        assertEquals("no failing update_download_result call site found", 1, failing.size)
+        assertTrue(
+            "the failing download reports no reason, so the next field failure is undiagnosable " +
+                "again: " + failing.first().take(400),
+            failing.first().take(900).contains("P_REASON to DownloadFailure.reasonOf(error)"),
+        )
+        assertFalse(
+            "an exception message is free text (a package name, a URL) and must never be sent: " +
+                "it is on one device's logcat for a reason",
+            ui.readText().contains("to error.message"),
+        )
     }
 
     /**

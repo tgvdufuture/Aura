@@ -32,6 +32,9 @@
     <string name="shizuku_help">Откройте приложение Shizuku → «Запуск через подключение к компьютеру» → «Показать команду», затем выполните её на ПК.</string>
     <string name="shizuku_request_permission">Запросить авторизацию</string>
     <string name="shizuku_test_led">Проверить подсветку (красный)</string>
+    <string name="shizuku_test_ok">Тест пройден — кольцо загорелось.</string>
+    <string name="shizuku_test_failed">Тест не удался. Проверьте, что Shizuku запущен и разрешён, и попробуйте ещё раз.</string>
+    <string name="shizuku_test_unsupported">Три неудачные попытки подряд: служба подсветки, которой управляет Aura, недоступна на этом телефоне — кольцо не загорится, сколько бы попыток вы ни делали.</string>
     <string name="root_connected">Обнаружен root-доступ — Shizuku не требуется</string>
     <string name="led_preview">Предпросмотр подсветки</string>
     <string name="led_preview_failed">Не удалось включить подсветку — Shizuku активен или есть root-доступ?</string>
@@ -115,7 +118,7 @@
     <string name="consent_update_hint">Один запрос в день к GitHub. Идентификаторы не отправляются.</string>
     <string name="consent_details_show">Что именно отправляется?</string>
     <string name="consent_details_hide">Скрыть подробности</string>
-    <string name="consent_details">• Анонимный идентификатор установки (случайный, не связан с аккаунтом или устройством)\n• Версия приложения и Android, модель, язык, тема\n• Использованные функции: включённые приложения, цвета, правила по контактам, анимации, длительность подсветки, напоминание\n• Каждый шаг настройки и его результат\n• Проверки обновлений и результаты загрузок\n\nНикогда не отправляется: содержимое уведомлений, имена контактов и групп, текст сообщений, список контактов или установленных приложений.</string>
+    <string name="consent_details">• Анонимный идентификатор установки (случайный, не связан с аккаунтом или устройством)\n• Версия приложения и Android, модель, язык, тема\n• Использованные функции: включённые приложения, цвета, правила по контактам, анимации, длительность подсветки, напоминание, варианты поддержки\n• Каждый шаг настройки и его результат\n• Проверки обновлений и результаты загрузок\n\nНикогда не отправляется: содержимое уведомлений, имена контактов и групп, текст сообщений, список контактов или установленных приложений.</string>
     <string name="consent_accept">Отправлять анонимную статистику</string>
     <string name="consent_decline">Нет, спасибо</string>
     <string name="consent_close">Закрыть</string>
@@ -142,7 +145,7 @@
     <string name="update_open_settings">Открыть настройки</string>
     <string name="update_install">Обновить</string>
     <string name="update_retry">Повторить</string>
-    <string name="update_later">Позже</string>
+    <string name="later">Позже</string>
     <string name="update_hide">Скрыть</string>
     <string name="update_failed">Не удалось открыть страницу загрузки</string>
     <string name="update_failed_body">Aura не смогла установить обновление автоматически.</string>
@@ -155,6 +158,7 @@
     <string name="support_offer_title">Что могла бы добавить платная версия</string>
     <string name="support_offer_items">• Библиотека анимаций от сообщества: просмотр, предпросмотр и импорт анимаций других пользователей\n• Резервное копирование и восстановление правил\n• Профили по времени: ночь, работа, выходные\n• Автоматизация через Tasker и ярлыки</string>
     <string name="support_question">Как вы предпочли бы поддержать Aura?</string>
+    <string name="support_open_question">Ответить на вопрос</string>
     <string name="support_answer_donation">Разовый донат</string>
     <string name="support_answer_one_time">Купить платную версию один раз</string>
     <string name="support_answer_subscription">Оплачивать подписку ежемесячно</string>

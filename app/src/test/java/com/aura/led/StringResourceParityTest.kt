@@ -26,6 +26,7 @@ class StringResourceParityTest {
         "support_offer_title",
         "support_offer_items",
         "support_question",
+        "support_open_question",
         "support_answer_donation",
         "support_answer_one_time",
         "support_answer_subscription",
@@ -38,6 +39,7 @@ class StringResourceParityTest {
         "update_failed_body",
         "update_failed_manual",
         "update_hide",
+        "later",
         "update_notification_title",
         "update_notification_text",
         "update_channel_name",
@@ -54,6 +56,9 @@ class StringResourceParityTest {
         "compat_continue",
         "settings_attention_important",
         "settings_attention_info",
+        "shizuku_test_ok",
+        "shizuku_test_failed",
+        "shizuku_test_unsupported",
     )
 
     /** The labels of the support question: the copy a user reads before answering. */

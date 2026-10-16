@@ -28,6 +28,9 @@
     <string name="shizuku_help">Ouvre l\'app Shizuku → « Démarrer par connexion à un ordinateur » → « Voir la commande », puis exécute-la depuis le PC.</string>
     <string name="shizuku_request_permission">Demander l\'autorisation</string>
     <string name="shizuku_test_led">Tester la LED (rouge)</string>
+    <string name="shizuku_test_ok">Test réussi — l’anneau s’est allumé.</string>
+    <string name="shizuku_test_failed">Le test a échoué. Vérifiez que Shizuku est actif et autorisé, puis réessayez une fois.</string>
+    <string name="shizuku_test_unsupported">Trois échecs d’affilée : le service d’éclairage qu’Aura pilote n’est pas disponible sur ce téléphone — l’anneau ne peut pas s’allumer, quel que soit le nombre d’essais.</string>
     <string name="root_connected">Accès root détecté — Shizuku n’est pas requis</string>
     <string name="led_preview">Aperçu LED</string>
     <string name="led_preview_failed">Impossible d\'allumer la LED — Shizuku actif ou accès root disponible ?</string>
@@ -106,7 +109,7 @@
     <string name="consent_update_hint">Une requête par jour vers GitHub. Aucun identifiant envoyé.</string>
     <string name="consent_details_show">Que reçoit-on exactement ?</string>
     <string name="consent_details_hide">Masquer le détail</string>
-    <string name="consent_details">• Un identifiant d’installation anonyme (aléatoire, lié ni à votre compte ni à votre matériel)\n• Version de l’app, version d’Android, modèle, langue, thème\n• Fonctionnalités utilisées : apps activées, couleurs, règles par contact, animations, durée de la LED, rappel\n• Chaque étape de configuration et si elle a réussi\n• Vérifications de mise à jour et téléchargements\n\nJamais envoyé : le contenu des notifications, le nom d’un contact ou d’un groupe, le texte d’un message, le carnet d’adresses ou la liste de vos applications.</string>
+    <string name="consent_details">• Un identifiant d’installation anonyme (aléatoire, lié ni à votre compte ni à votre matériel)\n• Version de l’app, version d’Android, modèle, langue, thème\n• Fonctionnalités utilisées : apps activées, couleurs, règles par contact, animations, durée de la LED, rappel, options de soutien\n• Chaque étape de configuration et si elle a réussi\n• Vérifications de mise à jour et téléchargements\n\nJamais envoyé : le contenu des notifications, le nom d’un contact ou d’un groupe, le texte d’un message, le carnet d’adresses ou la liste de vos applications.</string>
     <string name="consent_accept">Partager les statistiques anonymes</string>
     <string name="consent_decline">Non merci</string>
     <string name="consent_close">Fermer</string>
@@ -133,7 +136,7 @@
     <string name="update_open_settings">Ouvrir les réglages</string>
     <string name="update_install">Mettre à jour</string>
     <string name="update_retry">Réessayer</string>
-    <string name="update_later">Plus tard</string>
+    <string name="later">Plus tard</string>
     <string name="update_hide">Masquer</string>
     <string name="update_failed">Impossible d’ouvrir la page de téléchargement</string>
     <string name="update_failed_body">Aura n’a pas pu installer la mise à jour automatiquement.</string>
@@ -146,6 +149,7 @@
     <string name="support_offer_title">Ce qu’une version payante pourrait ajouter</string>
     <string name="support_offer_items">• Bibliothèque d’animations communautaire : parcourir, prévisualiser et importer les animations partagées par d’autres utilisateurs\n• Sauvegarde et restauration de vos règles\n• Profils horaires : nuit, travail, week-end\n• Automatisation via Tasker et raccourcis</string>
     <string name="support_question">Comment préféreriez-vous soutenir Aura ?</string>
+    <string name="support_open_question">Répondre à la question</string>
     <string name="support_answer_donation">Faire un don ponctuel</string>
     <string name="support_answer_one_time">Acheter la version payante une fois</string>
     <string name="support_answer_subscription">Payer un abonnement mensuel</string>

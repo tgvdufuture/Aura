@@ -11,7 +11,15 @@ is a fail-closed allow-list applied to the merged payload through
 manufacturer, the locale, the session id and the two "no person profile" flags; `$timezone`,
 `$network_carrier`, `$user_agent`, `$device_name`, the screen metrics and the internal
 `$sdk_debug_*` counters are dropped. A dashboard insight that needs one of those keys needs the key
-added to that list first.
+added to that list first. The app's own per-event properties are the `P_*` constants in the same
+catalogue, and they are the second allow-list (`AnalyticsSanitizer`) applied before that one.
+
+> **`app_opened` is one per foreground session, and since 2026-10-16 it includes the session that
+granted consent.** Until that fix the resume that opened the consent screen ran while analytics was
+still off, spent the session's single event on nothing, and the whole first session of every install
+reported no `app_opened` at all — measured on the first two days: 7 of 27 consenting users had
+sessions with dozens of events and not one `app_opened`, so G1 (active installs) and G4 (retention)
+undercounted by about a quarter. Data collected before that build is a floor, not a count.
 
 Project token (already injected into the release build from `local.properties`):
 `phc_…` — EU region, ingest host `https://eu.i.posthog.com`.
@@ -63,7 +71,7 @@ them on a single dashboard named **Aura**.
 | Setup funnel | Funnel | Steps in order: `setup_language_selected` → `setup_notification_access_granted` → `setup_privilege_granted` → `setup_led_test_run` (filters: `success = true` on the last step), window 7 days |
 | Privilege path | Trend, breakdown | `setup_privilege_granted` broken down by `kind` (`shizuku` vs `root`) |
 | Privilege requested vs granted | Trend, breakdown | `setup_privilege_requested` broken down by `kind`, read beside `setup_privilege_granted` — the gap is users who opened the Shizuku prompt and never came back with a grant |
-| LED test outcome | Trend | `setup_led_test_run` broken down by `success` — a rising `false` share is a hardware/SELinux regression signal |
+| LED test outcome | Trend | `setup_led_test_run` broken down by `success` — a rising `false` share is a hardware/SELinux regression signal. **Break it down by `device_model` before reading it as one**: on 2026-10-16 the failures were 80 % one Redmi Note 9 (`merlin`, 80 failures from a single user, and that phone never emitted), 6 another Redmi, 1 a third — all Xiaomi identities, none of them warned. **Since 2026-10-16 the app warns them itself**: three failed attempts that ran (privilege held) turn on the band and put a sentence in the Shizuku card, where the button is — PRD `device-compatibility`, D-15 — so this row now also shows how many installs reach that state, and a `success=false` series that stops growing within a day or two of the rule is the rule working. Nothing new is sent to read it: the property set is unchanged |
 | Autostart actually working | Trend | `setup_autostart_granted` — deduced from a boot broadcast that reached the app on its own, once per install, because HyperOS's autostart switch cannot be read: this is the only evidence the switch is on |
 | Robustness steps | Trend | `setup_autostart_opened`, `setup_battery_exemption_requested`, `setup_battery_exemption_granted` — read each "opened" against its "granted": a gap there is exactly where setup loses people |
 | Reload of the notification screen | Trend | `setup_notification_access_opened` — high volume means the listener keeps dropping (HyperOS) |
@@ -101,8 +109,9 @@ them on a single dashboard named **Aura**.
 
 | Insight | Type | Definition |
 |---|---|---|
-| Support intent | Trend, breakdown | `support_intent` broken down by `answer` — **a user may change their answer**, so read the latest value per `distinct_id`, not the event count |
-| Users who acted on it | Trend | `support_clicked` where `channel = kofi` — answers are opinions, this is the users who actually opened the donation page |
+| Support intent | Trend, breakdown | `support_intent` broken down by `answer` — **a user may change their answer**, so read the latest value per `distinct_id`, not the event count. The question card itself only exists in Settings, but the app-list banner leads straight to it, so an answer can come from either entry point — the series counts answers, not a screen's visitors |
+| Users who acted on it | Trend, breakdown | `support_clicked` broken down by `source` — `invite` = the compact banner at the top of the app list (**the only placement that reaches a user who never opens Settings**), `card` = the support card's donate button, `answer` = the "make a donation" chip. Answers are opinions; this is the users who actually opened the donation page, and `source` is the only thing that says which placement earns that. A click on `answer` always comes with a `support_intent` in the same second — the chip records the answer and opens the page — while `invite` and `card` produce clicks with no answer behind them, so a rising share of those two is the app's real conversion path, not a change of opinion |
+| Donations | **Not in PostHog** | Nothing in the app can see a completed donation: Ko-fi is a page the user leaves for. The only attribution that exists is the one the URL carries — `utm_source=aura_app`, `utm_campaign=donation` and `utm_content` = the same `source` as the event above — read back in Ko-fi's own dashboard **once the page's Google Analytics is connected**. Without that step the tags change nothing, and a donation can be tied neither to Aura nor to the placement that produced it. Read it against the row above: clicks are the app's side, this is the only side that shows money, and the gap between them is people who opened the page and did not give |
 | Stars | Trend, breakdown | `star_clicked` broken down by `channel` (`github`) — the update dialog's "Star Aura on GitHub" button. GitHub counts a download whether or not anyone ever opens the repository, so a rising `update_download_result` with a flat `star_clicked` means the flow converts updates but never converts visitors |
 
 ### G6 — Do the updates actually land?
@@ -112,9 +121,9 @@ them on a single dashboard named **Aura**.
 | Update check health | Trend, breakdown | `update_check_result` broken down by `result` (`up_to_date` / `update_available`). A failed check is logged and deliberately not reported (PRD D-07), so a flat series with no `update_available` means the checks are failing, not that everyone is current |
 | Background announcement | Trend | `update_notification_shown` — the notification the daily worker posts for users who never open the app |
 | Notification tap rate | Trend | `update_notification_tapped` read against `update_notification_shown` — the only read on whether a quiet notification is noticed at all |
-| Update prompt conversion | Funnel | `update_prompt_shown` **or** `update_notification_tapped` → `update_prompt_accepted` → `update_download_result` (`result = success`) → `update_install_launched`. Two possible first steps: tapping the update notification opens the dialog without an `update_prompt_shown`, and those users were previously dropped at step 1. Every step names the release in `latest_tag` (`vX.Y.Z`, the tag and not the version name), so the funnel also reads per release |
+| Update prompt conversion | Funnel | `update_prompt_shown` **or** `update_notification_tapped` → `update_prompt_accepted` → `update_download_result` (`result = success`) → `update_install_launched`. Two possible first steps: tapping the update notification opens the dialog without an `update_prompt_shown`, and those users were previously dropped at step 1. Every step names the release in `latest_tag` (`vX.Y.Z`, the tag and not the version name), so the funnel also reads per release. **The last step had never fired as of 2026-10-16**, and the single accepted update failed at the download: until that day the event carried `result` and `latest_tag` alone, so the cause existed only in that phone's logcat (`AuraVM update download failed: …`) and could not be acted on. It now carries `reason` — read the row below to see what each value means |
 | Postponed releases | Trend, breakdown | `update_prompt_postponed` broken down by `latest_tag` — "Later" and the close button both land here; a release postponed version after version is one people are avoiding |
-| Download failures by release | Trend, breakdown | `update_download_result` (`result = error`) broken down by `latest_tag` — separates a broken asset from broken networks |
+| Download failures by release | Trend, breakdown | `update_download_result` (`result = error`) broken down by `latest_tag` **and by `reason`** — separates a broken asset from broken networks, which `result` alone cannot. `reason` is a fixed vocabulary decided in `DownloadFailure`, sent since 2026-10-16: `http` (the server answered with a status other than 200, so the asset or the URL is wrong), `too_small` (the transfer stopped half-way, or what arrived is not an APK), `unreadable` (not readable as an APK at all), `wrong_package` (an APK, but not Aura's), `not_newer` (Aura's own, at a version not newer than the installed one) and `network` (everything the downloader could not classify: timeouts, dropped connections, unreadable storage — fail-closed, never a guess). The exception's message stays on the device: it is free text, and a package name or a URL is exactly what the sanitizer cannot tell from a stack trace |
 | Update adoptions | Trend | `app_opened` where `is_update = true`, over time |
 
 ### Guardrails
@@ -154,7 +163,14 @@ them on a single dashboard named **Aura**.
    compatibility notice fires only on that same non-Xiaomi slice, so the volume of
    `setup_led_test_run` from non-Xiaomi devices, before and after 2026-10-15, says whether the notice
    stopped those installs or the installs stopped coming at all. The notice itself sends no event (no
-   new disclosure was added for it), and it never blocks anything.
+   new disclosure was added for it), and it never blocks anything. **The identity rule is a family
+   rule, not a model rule**: read on 2026-10-16, each of the three non-Xiaomi users who ran
+   an LED test failed every run of it (15 of 15) and none of the nine ever emitted anything, so the
+   rule has no false negative in the data — but three Xiaomi-identity models failed too, one of them
+   80 times from a single user who had Shizuku granted and never lit anything. A Xiaomi phone that
+   fails its own LED test is a phone Aura cannot drive, and it used to get no notice at all — fixed
+   on 2026-10-16: after three failed attempts **that ran**, it gets the band and a sentence in the
+   Shizuku card (D-15 in `docs/PRD-device-compatibility.md`).
 9. **Read G6 before believing any other number.** Everything else here describes whoever is on a
    recent version. If `update_check_result` is empty or `update_notification_shown` never fires, the
    installed base is frozen where it was and the rest of the dashboard is a picture of the past.

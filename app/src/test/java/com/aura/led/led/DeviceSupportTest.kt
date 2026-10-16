@@ -57,6 +57,63 @@ class DeviceSupportTest {
         assertFalse(DeviceSupport.shouldWarn(null, ""))
     }
 
+    /**
+     * The second input, and the reason it exists: the field sequences read on 2026-10-16, replayed.
+     *
+     * A Xiaomi-family phone whose ROM has no `miui.lights` fails every attempt forever and the family
+     * rule says nothing (`merlin`, a Redmi Note 9, 80 attempts, no warning, no LED ever); the phone
+     * that works produced one isolated failure in eight tests. The counter has to tell those apart,
+     * so the test replays both sequences through the same arithmetic the app uses.
+     */
+    @Test
+    fun `a working phone never reaches the threshold, and one that cannot work is warned at three`() {
+        var streak = 0
+        var warned = false
+        for (success in listOf(true, true, true, true, true, true, false, true)) {
+            streak = DeviceSupport.nextFailureStreak(streak, success)
+            if (DeviceSupport.failuresAreConclusive(streak)) warned = true
+        }
+        assertFalse("a phone that lit up six times was declared broken by one fluke", warned)
+
+        streak = 0
+        repeat(3) { streak = DeviceSupport.nextFailureStreak(streak, success = false) }
+        assertTrue(
+            "three failures in a row did not reach the threshold",
+            DeviceSupport.failuresAreConclusive(streak),
+        )
+    }
+
+    @Test
+    fun `a success clears the count, because a phone that lit up works`() {
+        assertEquals(0, DeviceSupport.nextFailureStreak(7, success = true))
+        assertEquals(1, DeviceSupport.nextFailureStreak(0, success = false))
+        assertEquals(2, DeviceSupport.nextFailureStreak(1, success = false))
+    }
+
+    @Test
+    fun `three is the threshold, and the smallest number the data allows`() {
+        assertEquals(3, DeviceSupport.CONCLUSIVE_FAILURES)
+        // Below it: the isolated failure a working phone produced is never read as a verdict.
+        assertFalse(DeviceSupport.failuresAreConclusive(2))
+        // At it: the phones that never emitted anything (80, 10 and 6 in a row) are warned at once.
+        assertTrue(DeviceSupport.failuresAreConclusive(3))
+        assertTrue(DeviceSupport.failuresAreConclusive(80))
+    }
+
+    @Test
+    fun `the standing band takes the test's own verdict as well as the family`() {
+        // The case the family rule cannot see, and the one the owner asked for: a Xiaomi phone with
+        // no service behind it gets the band once its own test has said so three times.
+        assertFalse(DeviceSupport.shouldWarn("Xiaomi", "POCO", failuresInARow = 0))
+        assertFalse(DeviceSupport.shouldWarn("Xiaomi", "POCO", failuresInARow = 2))
+        assertTrue(DeviceSupport.shouldWarn("Xiaomi", "POCO", failuresInARow = 3))
+        // A non-Xiaomi phone needs no test at all, and one attempt does not change the verdict.
+        assertTrue(DeviceSupport.shouldWarn("INFINIX", "Infinix", failuresInARow = 0))
+        assertTrue(DeviceSupport.shouldWarn("INFINIX", "Infinix", failuresInARow = 1))
+        // AC5 still holds: an identity that could not be read is never reported as unsupported.
+        assertFalse(DeviceSupport.shouldWarn(null, "", failuresInARow = 0))
+    }
+
     @Test
     fun `the full-screen notice appears once, and never on a device that may work`() {
         // First launch on a phone whose identity is known to be outside the family.

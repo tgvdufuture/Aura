@@ -78,11 +78,20 @@ object Analytics {
         }
     }
 
-    /** Records the user's agreement, persists it and starts reporting. */
+    /**
+     * Records the user's agreement, persists it and starts reporting.
+     *
+     * Reporting starts *in the session that is already foreground*: the resume that opened the
+     * consent screen ran while analytics was still off, so without this call that session serves
+     * its whole life with no `app_opened` at all. It is the first session of every install, the one
+     * that is counted as an active install and that carries `is_first_run` — losing it is losing
+     * new users. See [onForeground] for the other half of the fix.
+     */
     fun grantConsent(context: Context) {
         AnalyticsPrefs.setConsent(context, AnalyticsPrefs.CONSENT_GRANTED)
         init(context)
         if (active) runCatching { PostHog.optIn() }
+        onForeground(context)
     }
 
     /** Records the refusal, stops reporting immediately and drops the anonymous identity. */
@@ -112,11 +121,17 @@ object Analytics {
     /**
      * One `app_opened` per foreground session, with everything the dashboard needs to
      * segment the base: version, OS, locale, theme, setup progress and privileges.
+     *
+     * The "already reported this session" flag is only consumed once reporting is actually
+     * possible. It used to be set before that check, so a resume that happened while analytics was
+     * still off spent the session's one event on nothing — and every user who consented on first
+     * run was invisible in `app_opened` (the metric G1/G4 of the dashboard are built on) for that
+     * whole session, however much they used the app.
      */
     fun onForeground(context: Context) {
+        if (!active) return
         if (foregroundTracked) return
         foregroundTracked = true
-        if (!active) return
         val lastSeen = AnalyticsPrefs.lastSeenVersionCode(context)
         val currentCode = versionCode(context)
         track(
