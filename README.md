@@ -39,7 +39,7 @@ En français : Aura permet de personnaliser la **LED arrière**, la **lumière d
 
 Get the latest signed APK from the [releases page](https://github.com/tgvdufuture/Aura/releases/latest):
 
-- **[v0.6.4](https://github.com/tgvdufuture/Aura/releases/tag/v0.6.4)** — `app-release.apk`
+- **[v0.6.5](https://github.com/tgvdufuture/Aura/releases/tag/v0.6.5)** — `app-release.apk`
 
 > **POCO X8 Pro and X8 Pro Max (Redmi Turbo 5 Max) only.** Aura drives the rear RGB ring, which only
 > the Xiaomi/HyperOS family exposes. On any other phone no notification lights anything up, with or
