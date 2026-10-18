@@ -52,8 +52,6 @@ object AnalyticsEvents {
     const val UPDATE_NOTIFICATION_TAPPED = "update_notification_tapped"
     const val UPDATE_PROMPT_ACCEPTED = "update_prompt_accepted"
     const val UPDATE_PROMPT_POSTPONED = "update_prompt_postponed"
-    const val UPDATE_DOWNLOAD_RESULT = "update_download_result"
-    const val UPDATE_INSTALL_LAUNCHED = "update_install_launched"
 
     /**
      * The only ask the update dialog makes beyond updating: open the GitHub repository.

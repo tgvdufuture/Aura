@@ -118,7 +118,7 @@
     <string name="consent_update_hint">Один запрос в день к GitHub. Идентификаторы не отправляются.</string>
     <string name="consent_details_show">Что именно отправляется?</string>
     <string name="consent_details_hide">Скрыть подробности</string>
-    <string name="consent_details">• Анонимный идентификатор установки (случайный, не связан с аккаунтом или устройством)\n• Версия приложения и Android, модель, язык, тема\n• Использованные функции: включённые приложения, цвета, правила по контактам, анимации, длительность подсветки, напоминание, варианты поддержки\n• Каждый шаг настройки и его результат\n• Проверки обновлений и результаты загрузок\n\nНикогда не отправляется: содержимое уведомлений, имена контактов и групп, текст сообщений, список контактов или установленных приложений.</string>
+    <string name="consent_details">• Анонимный идентификатор установки (случайный, не связан с аккаунтом или устройством)\n• Версия приложения и Android, модель, язык, тема\n• Использованные функции: включённые приложения, цвета, правила по контактам, анимации, длительность подсветки, напоминание, варианты поддержки\n• Каждый шаг настройки и его результат\n• Проверки обновлений\n\nНикогда не отправляется: содержимое уведомлений, имена контактов и групп, текст сообщений, список контактов или установленных приложений.</string>
     <string name="consent_accept">Отправлять анонимную статистику</string>
     <string name="consent_decline">Нет, спасибо</string>
     <string name="consent_close">Закрыть</string>
@@ -134,22 +134,14 @@
     <!-- Обновление -->
     <string name="update_title">Доступна Aura %1$s</string>
     <string name="update_notification_title">Доступна Aura %1$s</string>
-    <string name="update_notification_text">Нажмите, чтобы увидеть новое и установить.</string>
+    <string name="update_notification_text">Нажмите, чтобы увидеть новое и скачать.</string>
     <string name="update_channel_name">Новые версии</string>
     <string name="update_channel_description">Сообщает о выходе новой версии Aura, не открывая приложение. Одна проверка в день.</string>
     <string name="update_notes_title">Что нового</string>
     <string name="star_repo">Поставить звезду на GitHub</string>
-    <string name="update_size">Размер загрузки: %1$s</string>
-    <string name="update_downloading">Загрузка… %1$d%%</string>
-    <string name="update_permission_needed">Android требует разрешение, прежде чем Aura сможет установить обновление. Разрешите «Установка неизвестных приложений» для Aura и нажмите «Обновить» снова.</string>
-    <string name="update_open_settings">Открыть настройки</string>
-    <string name="update_install">Обновить</string>
-    <string name="update_retry">Повторить</string>
+    <string name="update_download">Скачать</string>
     <string name="later">Позже</string>
-    <string name="update_hide">Скрыть</string>
     <string name="update_failed">Не удалось открыть страницу загрузки</string>
-    <string name="update_failed_body">Aura не смогла установить обновление автоматически.</string>
-    <string name="update_failed_manual">Скачать со страницы версий</string>
 
     <!-- Поддержка: донат — реальный путь сегодня; платная версия перечисляется и запрашивается один раз -->
     <string name="support_title">Помочь Aura оставаться независимой</string>

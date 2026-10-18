@@ -14,8 +14,6 @@ sealed interface CheckResult {
     data class UpdateAvailable(
         val tag: String,
         val versionName: String,
-        val apkUrl: String,
-        val sizeBytes: Long,
         val notes: String,
     ) : CheckResult
 
@@ -61,14 +59,9 @@ object UpdateChecker {
                 return CheckResult.UpToDate
             }
 
-            val asset = firstApkAsset(json)
-                ?: return CheckResult.Failed("no apk asset")
-
             CheckResult.UpdateAvailable(
                 tag = tag,
                 versionName = tag.removePrefix("v"),
-                apkUrl = asset.first,
-                sizeBytes = asset.second,
                 notes = json.optString("body").orEmpty().take(MAX_NOTES_LENGTH),
             )
         } catch (e: IOException) {
@@ -78,18 +71,6 @@ object UpdateChecker {
         } finally {
             runCatching { connection?.disconnect() }
         }
-    }
-
-    private fun firstApkAsset(json: JSONObject): Pair<String, Long>? {
-        val assets = json.optJSONArray("assets") ?: return null
-        for (index in 0 until assets.length()) {
-            val asset = assets.optJSONObject(index) ?: continue
-            if (!asset.optString("name").endsWith(".apk", ignoreCase = true)) continue
-            val url = asset.optString("browser_download_url")
-            if (url.isBlank()) continue
-            return url to asset.optLong("size")
-        }
-        return null
     }
 
     /** Logged helper so call sites keep one log tag for the update flow. */

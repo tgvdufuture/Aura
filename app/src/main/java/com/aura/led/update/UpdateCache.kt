@@ -17,8 +17,6 @@ object UpdateCache {
         val pending = PendingUpdate(
             tag = AnalyticsPrefs.pendingUpdateTag(context),
             versionName = AnalyticsPrefs.pendingUpdateVersion(context),
-            apkUrl = AnalyticsPrefs.pendingUpdateUrl(context),
-            sizeBytes = AnalyticsPrefs.pendingUpdateSize(context),
             notes = AnalyticsPrefs.pendingUpdateNotes(context),
         )
         return pending.takeIf { it.isUsable() }
@@ -31,8 +29,6 @@ object UpdateCache {
             context = context,
             tag = pending.tag,
             versionName = pending.versionName,
-            apkUrl = pending.apkUrl,
-            sizeBytes = pending.sizeBytes,
             notes = pending.notes,
         )
         AnalyticsPrefs.setNotifiedTag(context, pending.tag)

@@ -120,7 +120,7 @@
     <string name="consent_update_hint">One request a day to GitHub. No identifier is sent.</string>
     <string name="consent_details_show">What exactly is sent?</string>
     <string name="consent_details_hide">Hide details</string>
-    <string name="consent_details">• An anonymous install identifier (random, not linked to your account or hardware)\n• App version, Android version, device model, language, theme\n• Features you used: apps enabled, colours changed, sender rules, animations, light duration, reminder, support options\n• Each setup step and whether it worked\n• Update checks and download results\n\nNever sent: notification content, sender or group names, message text, your contacts, or your list of installed apps.</string>
+    <string name="consent_details">• An anonymous install identifier (random, not linked to your account or hardware)\n• App version, Android version, device model, language, theme\n• Features you used: apps enabled, colours changed, sender rules, animations, light duration, reminder, support options\n• Each setup step and whether it worked\n• Update checks\n\nNever sent: notification content, sender or group names, message text, your contacts, or your list of installed apps.</string>
     <string name="consent_accept">Share anonymous statistics</string>
     <string name="consent_decline">No thanks</string>
     <string name="consent_close">Close</string>
@@ -136,22 +136,14 @@
     <!-- Update flow -->
     <string name="update_title">Aura %1$s is available</string>
     <string name="update_notification_title">Aura %1$s is available</string>
-    <string name="update_notification_text">Tap to see what\'s new and install it.</string>
+    <string name="update_notification_text">Tap to see what\'s new and download it.</string>
     <string name="update_channel_name">New versions</string>
     <string name="update_channel_description">Tells you when a new version of Aura is out, without opening the app. One check a day.</string>
     <string name="update_notes_title">What\'s new</string>
     <string name="star_repo">Star Aura on GitHub</string>
-    <string name="update_size">Download size: %1$s</string>
-    <string name="update_downloading">Downloading… %1$d%%</string>
-    <string name="update_permission_needed">Android needs your permission before Aura can install the update. Allow “Install unknown apps” for Aura, then tap Update again.</string>
-    <string name="update_open_settings">Open settings</string>
-    <string name="update_install">Update</string>
-    <string name="update_retry">Retry</string>
+    <string name="update_download">Download</string>
     <string name="later">Later</string>
-    <string name="update_hide">Hide</string>
     <string name="update_failed">Couldn’t open the download page</string>
-    <string name="update_failed_body">Aura could not install the update automatically.</string>
-    <string name="update_failed_manual">Download it from the releases page</string>
 
     <!-- Support: the donation is the real path today; the paid version is listed, then asked about.
          Every answer has to read on its own — "Neither" asked the user "neither of what?". -->

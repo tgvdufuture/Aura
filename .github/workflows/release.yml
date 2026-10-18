@@ -60,8 +60,12 @@ jobs:
       - name: Build release APK
         run: ./gradlew :app:assembleRelease --console=plain
 
+      # The release body is what the in-app dialog shows, so it comes from the file the suite
+      # checks (`ReleaseNotesTest` parses every `docs/release-notes-*.md`) instead of GitHub's
+      # generated commit list. A tag pushed without its notes file fails here rather than shipping
+      # a dialog full of commit subjects.
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           files: app/build/outputs/apk/release/app-release.apk
-          generate_release_notes: true
+          body_path: docs/release-notes-${{ github.ref_name }}.md

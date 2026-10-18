@@ -27,11 +27,12 @@ enum class MascotMood(@DrawableRes val art: Int) {
  * Which face the update dialog wears for each of its states. Kept apart from the composable because
  * a wrong mapping here is invisible to a compiler: an error dialog wearing the laughing face still
  * compiles, still looks like a mascot, and lies about what happened.
+ *
+ * Only good news is left: the dialog has a single state since the update action became "open the
+ * release page", so the puzzled and disappointed faces have no state to show (`what.png` and
+ * `oh.png` stay in the drawables for the next screen that needs them).
  */
 internal fun mascotFor(phase: MainViewModel.UpdatePhase): MascotMood = when (phase) {
     MainViewModel.UpdatePhase.AVAILABLE -> MascotMood.JOY
-    MainViewModel.UpdatePhase.DOWNLOADING -> MascotMood.JOY
-    MainViewModel.UpdatePhase.PERMISSION_REQUIRED -> MascotMood.WHAT
-    MainViewModel.UpdatePhase.ERROR -> MascotMood.OH
     MainViewModel.UpdatePhase.HIDDEN -> MascotMood.JOY
 }

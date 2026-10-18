@@ -48,7 +48,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -125,10 +124,7 @@ import com.aura.led.service.AuraForegroundService
 import com.aura.led.service.AutostartWatch
 import com.aura.led.shizuku.ShizukuManager
 import com.aura.led.shizuku.ShizukuState
-import com.aura.led.update.ApkDownloader
-import com.aura.led.update.ApkInstaller
 import com.aura.led.update.CheckResult
-import com.aura.led.update.DownloadFailure
 import com.aura.led.update.ReleaseNotes
 import com.aura.led.update.UpdateCache
 import com.aura.led.update.UpdateChecker
@@ -615,29 +611,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _analytics = MutableStateFlow(AnalyticsState())
     val analytics: StateFlow<AnalyticsState> = _analytics
 
-    enum class UpdatePhase { HIDDEN, AVAILABLE, PERMISSION_REQUIRED, DOWNLOADING, ERROR }
+    /**
+     * Two states, not five: there is nothing left to wait for. The update action hands the release
+     * page to the browser, so Aura never holds the APK, never shows a progress bar, and never
+     * needs the install permission.
+     */
+    enum class UpdatePhase { HIDDEN, AVAILABLE }
 
-    // No failure reason in the state: the dialog used to print the raw exception next to the
-    // buttons ("Échec de la mise à jour : unexpected package com.aura.led" on a French screen),
-    // which tells a user nothing and reads like the app is broken. The reason is logged instead.
     data class UpdateUiState(
         val phase: UpdatePhase = UpdatePhase.HIDDEN,
         val versionName: String = "",
-        val sizeBytes: Long = 0L,
         val notes: String = "",
-        val progress: Int = 0,
     )
 
     private val _update = MutableStateFlow(UpdateUiState())
     val update: StateFlow<UpdateUiState> = _update
 
-    /** Kept out of the UI state: only the phase and the size are shown. */
-    private var pendingApkUrl = ""
-
     /**
-     * The tag the dialog is showing, kept beside the URL and out of the UI state for the same
-     * reason. Every update event has to name the same version: `versionName` drops the `v`, so a
-     * funnel broken down by `latest_tag` would show two series for a single release.
+     * The tag the dialog is showing, kept out of the UI state. Every update event has to name the
+     * same version: `versionName` drops the `v`, so a funnel broken down by `latest_tag` would
+     * show two series for a single release.
      */
     private var pendingTag = ""
 
@@ -736,13 +729,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         ),
                     )
                     if (decision.shouldPrompt) {
-                        pendingApkUrl = result.apkUrl
                         pendingTag = result.tag
                         AnalyticsPrefs.setLastPromptMs(context, now)
                         _update.value = UpdateUiState(
                             phase = UpdatePhase.AVAILABLE,
                             versionName = result.versionName,
-                            sizeBytes = result.sizeBytes,
                             notes = result.notes,
                         )
                         Analytics.track(
@@ -774,12 +765,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             UpdateCache.clear(context)
             return
         }
-        pendingApkUrl = pending.apkUrl
         pendingTag = pending.tag
         _update.value = UpdateUiState(
             phase = UpdatePhase.AVAILABLE,
             versionName = pending.versionName,
-            sizeBytes = pending.sizeBytes,
             notes = pending.notes,
         )
         Analytics.track(
@@ -788,91 +777,44 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    /** Downloads the release APK and launches the system installer. */
+    /**
+     * Hands the release page to the browser, which downloads and installs the APK itself.
+     *
+     * This is why the manifest asks for no install permission at all: the browser or file manager
+     * that installed Aura in the first place already holds the "install unknown apps" grant, so
+     * the same app stays in the install path instead of a second one being added to it (see
+     * `UpdateActionTest`, which refuses the permission and the provider back in).
+     */
     fun startUpdate() {
-        val context = ctx()
-        if (pendingApkUrl.isBlank()) return
-        if (!ApkInstaller.canInstall(context)) {
-            _update.value = _update.value.copy(phase = UpdatePhase.PERMISSION_REQUIRED)
-            return
-        }
         Analytics.track(
             AnalyticsEvents.UPDATE_PROMPT_ACCEPTED,
             mapOf(AnalyticsEvents.P_LATEST_TAG to pendingTag),
         )
-        viewModelScope.launch(Dispatchers.IO) {
-            val expectedSize = _update.value.sizeBytes
-            _update.value = _update.value.copy(phase = UpdatePhase.DOWNLOADING, progress = 0)
-            ApkDownloader.download(context, pendingApkUrl, expectedSize) { percent ->
-                _update.value = _update.value.copy(progress = percent)
-            }.fold(
-                onSuccess = { apk ->
-                    Analytics.track(
-                        AnalyticsEvents.UPDATE_DOWNLOAD_RESULT,
-                        mapOf(
-                            AnalyticsEvents.P_RESULT to "success",
-                            AnalyticsEvents.P_LATEST_TAG to pendingTag,
-                        ),
-                    )
-                    if (ApkInstaller.install(context, apk)) {
-                        Analytics.track(
-                            AnalyticsEvents.UPDATE_INSTALL_LAUNCHED,
-                            mapOf(AnalyticsEvents.P_LATEST_TAG to pendingTag),
-                        )
-                        // The install is under way; the notification has nothing left to say.
-                        UpdateNotifier.cancel(context)
-                        _update.value = UpdateUiState()
-                    } else {
-                        // The installer refused the intent: hand the user the release page instead.
-                        ApkInstaller.openReleasePage(context, RELEASES_PAGE_URL)
-                        _update.value = UpdateUiState()
-                    }
-                },
-                onFailure = { error ->
-                    Analytics.track(
-                        AnalyticsEvents.UPDATE_DOWNLOAD_RESULT,
-                        mapOf(
-                            AnalyticsEvents.P_RESULT to "error",
-                            AnalyticsEvents.P_LATEST_TAG to pendingTag,
-                            // Why it failed, from DownloadFailure's fixed vocabulary — never the
-                            // exception's message, which is free text. Added because the only
-                            // accepted update in the field (2026-10-16) failed here and reported
-                            // `result=error` with no reason, which is unrecoverable after the fact.
-                            AnalyticsEvents.P_REASON to DownloadFailure.reasonOf(error),
-                        ),
-                    )
-                    // Kept for logcat, where it is useful and stays on the device: the failures
-                    // worth knowing about (wrong package, older build, truncated file) are decided
-                    // in ApkDownloader and never reached this far before.
-                    Log.w("AuraVM", "update download failed: ${error.message ?: error.javaClass.simpleName}")
-                    _update.value = _update.value.copy(phase = UpdatePhase.ERROR)
-                },
-            )
-        }
+        openReleasePage()
+        // The download and the install are the browser's job now: this dialog has nothing left to
+        // show, and the notification has nothing left to say.
+        UpdateNotifier.cancel(ctx())
+        _update.value = UpdateUiState()
     }
 
-    fun openInstallPermissionSettings() = ApkInstaller.openInstallPermissionSettings(ctx())
-
     /**
-     * The way out when Aura cannot install the update itself: the release page in a browser. The
-     * download still counts on GitHub, and the user is never left with only "Retry" on a failure
-     * that will repeat.
+     * The one update action: the release page in a browser. A `startActivity` failure (no browser
+     * installed) is said out loud, because a tap that does nothing reads as a broken button.
      */
-    fun openReleasePage() = ApkInstaller.openReleasePage(ctx(), RELEASES_PAGE_URL)
-
-    /**
-     * Back from the system's "install unknown apps" screen.
-     *
-     * The grant happens outside the app, so this state is stale by design until we look again, and
-     * nothing else looks at it: the dialog kept offering "Open settings" to a user who had just
-     * allowed the install, with no button left that would download the update — while the copy on
-     * that same screen says "then start the update again". Closing the dialog there also marked the
-     * release as dismissed and cancelled its notification, so the update was gone for good.
-     */
-    fun refreshInstallPermission() {
-        if (_update.value.phase != UpdatePhase.PERMISSION_REQUIRED) return
-        if (ApkInstaller.canInstall(ctx())) {
-            _update.value = _update.value.copy(phase = UpdatePhase.AVAILABLE)
+    fun openReleasePage() {
+        val context = ctx()
+        runCatching {
+            context.startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse(RELEASES_PAGE_URL))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }.onFailure {
+            Log.w("AuraVM", "could not open the release page", it)
+            Toast.makeText(
+                context,
+                context.getString(R.string.update_failed),
+                Toast.LENGTH_SHORT,
+            ).show()
         }
     }
 
@@ -1109,9 +1051,6 @@ fun MainScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.refreshSetupState()
-                // Same reason, for the dialog: the install permission is granted in a system screen,
-                // and coming back from it has to put the download button back.
-                viewModel.refreshInstallPermission()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -1292,8 +1231,6 @@ fun MainScreen(
         onStar = viewModel::openGitHubRepo,
         onLater = viewModel::postponeUpdate,
         onDismiss = viewModel::dismissUpdateDialog,
-        onOpenPermissionSettings = viewModel::openInstallPermissionSettings,
-        onOpenReleasePage = viewModel::openReleasePage,
     )
 }
 
@@ -1828,21 +1765,18 @@ private fun UpdateDialog(
     onStar: () -> Unit,
     onLater: () -> Unit,
     onDismiss: () -> Unit,
-    onOpenPermissionSettings: () -> Unit,
-    onOpenReleasePage: () -> Unit,
 ) {
     if (state.phase == MainViewModel.UpdatePhase.HIDDEN) return
 
-    val downloading = state.phase == MainViewModel.UpdatePhase.DOWNLOADING
     val shape = MaterialTheme.shapes.extraLarge
     val title = stringResource(R.string.update_title, state.versionName)
     // The release body is markdown written for a web page; parse it once per version, not per frame.
     val notes = remember(state.notes) { ReleaseNotes.parse(state.notes) }
 
     Dialog(
-        // Tapping outside means "not this version"; mid-download it means "hide this", because a
-        // dialog a running download cannot be closed from is a trap, not a safeguard.
-        onDismissRequest = { if (downloading) onLater() else onDismiss() },
+        // Tapping outside means "not this version": nothing is running behind this dialog, so
+        // closing it is always safe.
+        onDismissRequest = onDismiss,
     ) {
         Surface(
             modifier = Modifier.semantics { paneTitle = title },
@@ -1851,9 +1785,7 @@ private fun UpdateDialog(
             tonalElevation = 6.dp,
         ) {
             Column(modifier = Modifier.clip(shape)) {
-                // The mascot says what this dialog is about before a word is read, and it keeps
-                // saying it: laughing when a version is ready, puzzled when Android wants a
-                // permission, disappointed when the install failed.
+                // The mascot says what this dialog is about before a word is read.
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1870,119 +1802,58 @@ private fun UpdateDialog(
                 ) {
                     Text(title, style = MaterialTheme.typography.headlineSmall)
 
-                    when (state.phase) {
-                        MainViewModel.UpdatePhase.AVAILABLE -> {
-                            if (notes.isNotEmpty()) {
-                                Text(
-                                    stringResource(R.string.update_notes_title),
-                                    style = MaterialTheme.typography.titleSmall,
-                                )
-                                Box(modifier = Modifier.heightIn(max = 168.dp)) {
-                                    Column(
-                                        modifier = Modifier
-                                            .verticalScroll(rememberScrollState())
-                                            // Same height as the mask below: without it the mask would
-                                            // dim the last line of every release, for good.
-                                            .padding(bottom = 20.dp),
-                                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                                    ) {
-                                        notes.forEach { note -> ReleaseNoteLine(note) }
-                                    }
-                                    // The copy slides under the dialog's own surface: a mask, not a
-                                    // shadow, and the only thing saying "there is more below" —
-                                    // without it a long release ends on a half-cut line.
-                                    Box(
-                                        modifier = Modifier
-                                            .align(Alignment.BottomCenter)
-                                            .fillMaxWidth()
-                                            .height(20.dp)
-                                            .background(
-                                                Brush.verticalGradient(
-                                                    listOf(Color.Transparent, MaterialTheme.colorScheme.surface),
-                                                )
-                                            ),
-                                    )
-                                }
-                            }
-                            Text(
-                                stringResource(R.string.update_size, formatSize(state.sizeBytes)),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            // The one ask this dialog makes beyond updating. Below the release notes
-                            // and above the buttons, so that "Update" stays the obvious action and
-                            // the ask still reads as an aside rather than a second decision.
-                            TextButton(
-                                onClick = onStar,
-                                modifier = Modifier.align(Alignment.CenterHorizontally),
-                            ) {
-                                Text(stringResource(R.string.star_repo))
-                            }
-                        }
-
-                        MainViewModel.UpdatePhase.DOWNLOADING -> {
-                            Text(
-                                stringResource(R.string.update_downloading, state.progress),
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                            LinearProgressIndicator(
-                                progress = { state.progress / 100f },
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-
-                        MainViewModel.UpdatePhase.PERMISSION_REQUIRED -> Text(
-                            stringResource(R.string.update_permission_needed),
-                            style = MaterialTheme.typography.bodyMedium,
+                    if (notes.isNotEmpty()) {
+                        Text(
+                            stringResource(R.string.update_notes_title),
+                            style = MaterialTheme.typography.titleSmall,
                         )
-
-                        MainViewModel.UpdatePhase.ERROR -> {
-                            Text(
-                                stringResource(R.string.update_failed_body),
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                            // Retry is the primary action, but it cannot fix a wrong package or a
-                            // truncated file: without this the user is stuck on a failure that
-                            // repeats, which is exactly what happened on the device.
-                            TextButton(
-                                onClick = onOpenReleasePage,
-                                modifier = Modifier.align(Alignment.CenterHorizontally),
+                        Box(modifier = Modifier.heightIn(max = 168.dp)) {
+                            Column(
+                                modifier = Modifier
+                                    .verticalScroll(rememberScrollState())
+                                    // Same height as the mask below: without it the mask would
+                                    // dim the last line of every release, for good.
+                                    .padding(bottom = 20.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
-                                Text(stringResource(R.string.update_failed_manual))
+                                notes.forEach { note -> ReleaseNoteLine(note) }
                             }
+                            // The copy slides under the dialog's own surface: a mask, not a
+                            // shadow, and the only thing saying "there is more below" —
+                            // without it a long release ends on a half-cut line.
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .height(20.dp)
+                                    .background(
+                                        Brush.verticalGradient(
+                                            listOf(Color.Transparent, MaterialTheme.colorScheme.surface),
+                                        )
+                                    ),
+                            )
                         }
-
-                        MainViewModel.UpdatePhase.HIDDEN -> Unit
                     }
 
-                    // One obvious action per state; "later" is always the quieter of the two.
-                    when (state.phase) {
-                        MainViewModel.UpdatePhase.AVAILABLE -> Button(
-                            onClick = onUpdate,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(stringResource(R.string.update_install))
-                        }
-
-                        MainViewModel.UpdatePhase.ERROR -> Button(
-                            onClick = onUpdate,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(stringResource(R.string.update_retry))
-                        }
-
-                        MainViewModel.UpdatePhase.PERMISSION_REQUIRED -> Button(
-                            onClick = onOpenPermissionSettings,
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(stringResource(R.string.update_open_settings))
-                        }
-
-                        else -> Unit
+                    // The one ask this dialog makes beyond updating. Below the release notes and
+                    // above the buttons, so that "Download" stays the obvious action and the ask
+                    // still reads as an aside rather than a second decision.
+                    TextButton(
+                        onClick = onStar,
+                        modifier = Modifier.align(Alignment.CenterHorizontally),
+                    ) {
+                        Text(stringResource(R.string.star_repo))
                     }
 
-                    // There is always a way out, including mid-download: "Later" postpones the
-                    // decision while the download keeps running, "Hide" says exactly that.
+                    // One action, and it leaves the app: the browser downloads the APK and hands
+                    // it to Android, so there is no second step Aura could show here.
+                    Button(
+                        onClick = onUpdate,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(stringResource(R.string.update_download))
+                    }
+
                     TextButton(
                         onClick = onLater,
                         modifier = Modifier.align(Alignment.CenterHorizontally),
@@ -1992,7 +1863,7 @@ private fun UpdateDialog(
                                 // `later` and not `update_later`: the same word now dismisses the
                                 // support question on the app list too, and one copy for one action
                                 // is what the star ask taught (see `star_repo`).
-                                if (downloading) R.string.update_hide else R.string.later
+                                R.string.later
                             )
                         )
                     }
@@ -2027,11 +1898,6 @@ private fun ReleaseNoteLine(note: ReleaseNotes.Note) {
     }
 }
 
-private fun formatSize(bytes: Long): String = if (bytes <= 0L) {
-    "—"
-} else {
-    "%.1f MB".format(bytes / (1024.0 * 1024.0))
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

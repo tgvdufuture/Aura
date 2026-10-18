@@ -109,7 +109,7 @@
     <string name="consent_update_hint">Une requête par jour vers GitHub. Aucun identifiant envoyé.</string>
     <string name="consent_details_show">Que reçoit-on exactement ?</string>
     <string name="consent_details_hide">Masquer le détail</string>
-    <string name="consent_details">• Un identifiant d’installation anonyme (aléatoire, lié ni à votre compte ni à votre matériel)\n• Version de l’app, version d’Android, modèle, langue, thème\n• Fonctionnalités utilisées : apps activées, couleurs, règles par contact, animations, durée de la LED, rappel, options de soutien\n• Chaque étape de configuration et si elle a réussi\n• Vérifications de mise à jour et téléchargements\n\nJamais envoyé : le contenu des notifications, le nom d’un contact ou d’un groupe, le texte d’un message, le carnet d’adresses ou la liste de vos applications.</string>
+    <string name="consent_details">• Un identifiant d’installation anonyme (aléatoire, lié ni à votre compte ni à votre matériel)\n• Version de l’app, version d’Android, modèle, langue, thème\n• Fonctionnalités utilisées : apps activées, couleurs, règles par contact, animations, durée de la LED, rappel, options de soutien\n• Chaque étape de configuration et si elle a réussi\n• Vérifications de mise à jour\n\nJamais envoyé : le contenu des notifications, le nom d’un contact ou d’un groupe, le texte d’un message, le carnet d’adresses ou la liste de vos applications.</string>
     <string name="consent_accept">Partager les statistiques anonymes</string>
     <string name="consent_decline">Non merci</string>
     <string name="consent_close">Fermer</string>
@@ -125,22 +125,14 @@
     <!-- Mise à jour -->
     <string name="update_title">Aura %1$s est disponible</string>
     <string name="update_notification_title">Aura %1$s est disponible</string>
-    <string name="update_notification_text">Appuyez pour voir les nouveautés et installer.</string>
+    <string name="update_notification_text">Appuyez pour voir les nouveautés et télécharger la mise à jour.</string>
     <string name="update_channel_name">Nouvelles versions</string>
     <string name="update_channel_description">Vous prévient quand une nouvelle version d’Aura est publiée, sans ouvrir l’app. Un contrôle par jour.</string>
     <string name="update_notes_title">Nouveautés</string>
     <string name="star_repo">Ajouter une étoile sur GitHub</string>
-    <string name="update_size">Taille du téléchargement : %1$s</string>
-    <string name="update_downloading">Téléchargement… %1$d%%</string>
-    <string name="update_permission_needed">Android demande votre autorisation avant qu’Aura puisse installer la mise à jour. Autorisez « Installer des applis inconnues » pour Aura, puis relancez la mise à jour.</string>
-    <string name="update_open_settings">Ouvrir les réglages</string>
-    <string name="update_install">Mettre à jour</string>
-    <string name="update_retry">Réessayer</string>
+    <string name="update_download">Télécharger</string>
     <string name="later">Plus tard</string>
-    <string name="update_hide">Masquer</string>
     <string name="update_failed">Impossible d’ouvrir la page de téléchargement</string>
-    <string name="update_failed_body">Aura n’a pas pu installer la mise à jour automatiquement.</string>
-    <string name="update_failed_manual">La télécharger depuis la page des versions</string>
 
     <!-- Soutien : le don est la vraie voie aujourd’hui ; la version payante est listée, puis demandée une fois -->
     <string name="support_title">Garder Aura indépendant</string>

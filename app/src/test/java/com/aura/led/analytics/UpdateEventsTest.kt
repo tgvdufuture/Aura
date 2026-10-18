@@ -2,19 +2,20 @@ package com.aura.led.analytics
 
 import java.io.File
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Guards the update flow against the three mistakes that break it silently.
+ * Guards the update flow against the mistakes that break it silently.
  *
  * These events are only ever read in the PostHog dashboard, where a wrong property shows up as a
- * series that is simply missing: nothing crashes and nobody is told. Three of those have already
- * happened once — some steps naming the release `0.6.1` and others `v0.6.1`, the download result
- * naming no release at all, and the star ask having no event. `MainViewModel` cannot be unit-tested
- * in this project (no Robolectric), so the call sites are pinned as text, the way
+ * series that is simply missing: nothing crashes and nobody is told. One of those has already
+ * happened once — some steps naming the release `0.6.1` and others `v0.6.1`. `MainViewModel` cannot
+ * be unit-tested in this project (no Robolectric), so the call sites are pinned as text, the way
  * `StringResourceParityTest` pins the copy.
+ *
+ * The download and install events are gone with the in-app installer: the update action opens the
+ * release page, so nothing in Aura can observe what the browser does next.
  */
 class UpdateEventsTest {
 
@@ -46,51 +47,6 @@ class UpdateEventsTest {
     }
 
     /**
-     * A download that fails on a specific release is the only signal that separates a broken asset
-     * from broken networks; without the tag it cannot be attributed to anything.
-     */
-    @Test
-    fun `every download result names the release it downloaded`() {
-        val callSites = ui.readText().split("AnalyticsEvents.UPDATE_DOWNLOAD_RESULT").drop(1)
-
-        assertTrue("no update_download_result call site found", callSites.isNotEmpty())
-        for (callSite in callSites) {
-            assertTrue(
-                "an update_download_result without latest_tag cannot say which release failed: " +
-                    callSite.take(80),
-                callSite.take(220).contains("P_LATEST_TAG"),
-            )
-        }
-    }
-
-    /**
-     * A failure the dashboard cannot explain is a failure nobody can fix. On 2026-10-16 the only
-     * accepted update in the field failed at the download and the event said `result=error` and
-     * nothing else — the cause was on one phone's logcat and nowhere else, so nothing could be done
-     * about it before the next release. The failing call site now reports `reason`, and it has to be
-     * the classified vocabulary (`DownloadFailure.reasonOf`, unit-tested in `DownloadFailureTest`)
-     * rather than the exception's message: a message is free text, and free text is exactly what the
-     * sanitizer cannot make safe.
-     */
-    @Test
-    fun `a failed download reports why, from the fixed vocabulary`() {
-        val callSites = ui.readText().split("AnalyticsEvents.UPDATE_DOWNLOAD_RESULT").drop(1)
-        val failing = callSites.filter { it.take(400).contains("P_RESULT to \"error\"") }
-
-        assertEquals("no failing update_download_result call site found", 1, failing.size)
-        assertTrue(
-            "the failing download reports no reason, so the next field failure is undiagnosable " +
-                "again: " + failing.first().take(400),
-            failing.first().take(900).contains("P_REASON to DownloadFailure.reasonOf(error)"),
-        )
-        assertFalse(
-            "an exception message is free text (a package name, a URL) and must never be sent: " +
-                "it is on one device's logcat for a reason",
-            ui.readText().contains("to error.message"),
-        )
-    }
-
-    /**
      * The star ask is the only thing in the app that can move the repository's star count, so the
      * event has to survive the sanitizer and be read in the dashboard — otherwise it is sent and
      * never looked at.
@@ -110,23 +66,20 @@ class UpdateEventsTest {
     }
 
     /**
-     * The owner's requirement behind the in-app updater: it must keep feeding the GitHub download
-     * counter. That only holds while the URL handed to the downloader is the release asset's own
-     * `browser_download_url`, fetched from the GitHub API — a mirror or a bundled copy would work
-     * for the user and count nothing.
+     * The notice is only as good as the check behind it: it has to keep asking the project's own
+     * releases API and reading `tag_name`, or a release either goes unnoticed or is announced twice.
      */
     @Test
-    fun `the in-app download still goes through the GitHub release asset`() {
+    fun `the update check reads the GitHub releases API`() {
         val checker = source("app/src/main/java/com/aura/led/update/UpdateChecker.kt").readText()
 
         assertTrue(
-            "the APK URL must stay the asset's browser_download_url, or in-app updates stop " +
-                "counting on GitHub",
-            checker.contains("\"browser_download_url\""),
-        )
-        assertTrue(
             "the release must keep coming from the GitHub releases API",
             checker.contains("https://api.github.com/repos/"),
+        )
+        assertTrue(
+            "the check must keep reading tag_name, or it cannot tell a newer version from the same one",
+            checker.contains("\"tag_name\""),
         )
     }
 

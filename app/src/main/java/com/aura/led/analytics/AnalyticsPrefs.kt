@@ -22,8 +22,6 @@ object AnalyticsPrefs {
     private const val KEY_NOTIFIED_TAG = "notifiedVersion"
     private const val KEY_PENDING_TAG = "pendingUpdateTag"
     private const val KEY_PENDING_VERSION = "pendingUpdateVersion"
-    private const val KEY_PENDING_URL = "pendingUpdateUrl"
-    private const val KEY_PENDING_SIZE = "pendingUpdateSize"
     private const val KEY_PENDING_NOTES = "pendingUpdateNotes"
     private const val KEY_SUPPORT_ANSWER = "supportAnswer"
     private const val KEY_LAST_SEEN_VERSION_CODE = "lastSeenVersionCode"
@@ -90,11 +88,6 @@ object AnalyticsPrefs {
     fun pendingUpdateVersion(context: Context): String =
         prefs(context).getString(KEY_PENDING_VERSION, "").orEmpty()
 
-    fun pendingUpdateUrl(context: Context): String =
-        prefs(context).getString(KEY_PENDING_URL, "").orEmpty()
-
-    fun pendingUpdateSize(context: Context): Long = prefs(context).getLong(KEY_PENDING_SIZE, 0L)
-
     fun pendingUpdateNotes(context: Context): String =
         prefs(context).getString(KEY_PENDING_NOTES, "").orEmpty()
 
@@ -102,15 +95,11 @@ object AnalyticsPrefs {
         context: Context,
         tag: String,
         versionName: String,
-        apkUrl: String,
-        sizeBytes: Long,
         notes: String,
     ) {
         prefs(context).edit()
             .putString(KEY_PENDING_TAG, tag)
             .putString(KEY_PENDING_VERSION, versionName)
-            .putString(KEY_PENDING_URL, apkUrl)
-            .putLong(KEY_PENDING_SIZE, sizeBytes)
             .putString(KEY_PENDING_NOTES, notes)
             .apply()
     }
@@ -119,8 +108,6 @@ object AnalyticsPrefs {
         prefs(context).edit()
             .remove(KEY_PENDING_TAG)
             .remove(KEY_PENDING_VERSION)
-            .remove(KEY_PENDING_URL)
-            .remove(KEY_PENDING_SIZE)
             .remove(KEY_PENDING_NOTES)
             .apply()
     }

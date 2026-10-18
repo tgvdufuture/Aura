@@ -13,10 +13,6 @@
          GitHub Releases update check. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- Only used when the user taps "Update": downloads the new APK and hands it to
-         the system installer. Android still asks for the install confirmation. -->
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-
     <queries>
         <intent>
             <action android:name="android.intent.action.MAIN" />
@@ -52,16 +48,6 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
-
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.files"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
 
         <provider
             android:name="rikka.shizuku.ShizukuProvider"

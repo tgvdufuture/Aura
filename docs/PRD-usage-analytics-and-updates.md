@@ -641,6 +641,7 @@ Must all be true before shipping v0.6.0:
 - Decision: GitHub Releases check → dialog → in-app APK download → one-tap install through the system installer, with `REQUEST_INSTALL_PACKAGES`.
 - Rationale: manual re-download is the current bottleneck for both fixes and the data base; a browser redirect would keep the funnel loss.
 - Impact: Phase 3. Fallback: open the release page in the browser if the installer intent fails.
+- **Superseded 2026-10-18 — why:** Play Protect refuses the install of a self-signed APK on recent HyperOS builds and offers no "install anyway" (issue #3), so the in-app installer could not complete there at all; `REQUEST_INSTALL_PACKAGES` was also the one permission Play Protect could read as "this app can install other apps". The dialog now opens the GitHub release page: `ApkDownloader`, `ApkInstaller`, `DownloadFailure`, the FileProvider and the permission are gone, the update record no longer carries the APK URL or its size, and the browser that installed Aura owns the "install unknown apps" grant. Decided by the owner on 2026-10-18.
 
 ### D-05 — Secrets and update check independence
 - Decision: the PostHog project token is injected from `local.properties` into `BuildConfig.POSTHOG_PROJECT_TOKEN`; a blank token disables analytics silently (warning logged in debug). The update check is a separate toggle, enabled by default, sends no identifier, and works without analytics consent.
