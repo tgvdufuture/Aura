@@ -14,6 +14,16 @@ object AnalyticsEvents {
     const val CONSENT_GRANTED = "consent_granted"
     const val CONSENT_DECLINED = "consent_declined"
 
+    /**
+     * The notification listener bound or dropped, whatever screen is open.
+     *
+     * `app_opened` samples the binding at resume, where it is usually still being established (the
+     * app requests a rebind on every process start), so it cannot say whether HyperOS later killed
+     * the listener — the failure that silently costs a user every LED. This event is the transition
+     * itself; [ListenerStatePolicy] bounds it.
+     */
+    const val LISTENER_STATE = "listener_state"
+
     // ---- Setup funnel ----
     const val SETUP_LANGUAGE_SELECTED = "setup_language_selected"
     const val SETUP_NOTIFICATION_ACCESS_OPENED = "setup_notification_access_opened"
@@ -99,6 +109,12 @@ object AnalyticsEvents {
     const val P_IS_FIRST_RUN = "is_first_run"
     const val P_IS_UPDATE = "is_update"
     const val P_LISTENER_CONNECTED = "listener_connected"
+
+    /**
+     * Whether Aura is allowed to read notifications at all, as the system reports it — a different
+     * question from [P_LISTENER_CONNECTED], which is the binding right now.
+     */
+    const val P_LISTENER_ENABLED = "listener_enabled"
     const val P_PRIVILEGE = "privilege"
 
     /** Every property key a call site is allowed to send. */
@@ -106,7 +122,8 @@ object AnalyticsEvents {
         P_LANGUAGE, P_KIND, P_SUCCESS, P_TARGET_PACKAGE, P_ENABLED, P_IS_CUSTOM,
         P_ANIMATION_ID, P_SECONDS, P_DISABLED, P_RUNNING, P_MODE, P_INTERVAL_S,
         P_REASON, P_RESULT, P_LATEST_TAG, P_ANSWER, P_CHANNEL, P_SOURCE,
-        P_THEME, P_LOCALE, P_IS_FIRST_RUN, P_IS_UPDATE, P_LISTENER_CONNECTED, P_PRIVILEGE,
+        P_THEME, P_LOCALE, P_IS_FIRST_RUN, P_IS_UPDATE, P_LISTENER_CONNECTED, P_LISTENER_ENABLED,
+        P_PRIVILEGE,
     )
 
     // ---- Values reused on several call sites ----

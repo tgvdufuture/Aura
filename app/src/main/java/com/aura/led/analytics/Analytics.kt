@@ -2,7 +2,9 @@ package com.aura.led.analytics
 
 import android.content.Context
 import android.os.Build
+import android.os.SystemClock
 import android.util.Log
+import androidx.core.app.NotificationManagerCompat
 import com.aura.led.BuildConfig
 import com.aura.led.ThemeManager
 import com.aura.led.notification.NotificationListenerState
@@ -36,6 +38,10 @@ object Analytics {
 
     @Volatile
     private var foregroundTracked = false
+
+    /** Budget of the `listener_state` series, per process — see [ListenerStatePolicy]. */
+    @Volatile
+    private var listenerCounters = ListenerStatePolicy.Counters()
 
     /** Initialises the SDK when consent was granted. Safe to call repeatedly. */
     fun init(context: Context) {
@@ -142,6 +148,7 @@ object Analytics {
                 AnalyticsEvents.P_IS_FIRST_RUN to (lastSeen == 0),
                 AnalyticsEvents.P_IS_UPDATE to isUpdatedInPlace(context),
                 AnalyticsEvents.P_LISTENER_CONNECTED to NotificationListenerState.connected.value,
+                AnalyticsEvents.P_LISTENER_ENABLED to listenerEnabled(context),
                 AnalyticsEvents.P_PRIVILEGE to privilege(),
             ),
         )
@@ -163,8 +170,40 @@ object Analytics {
     }
 
     /**
+     * Reports the notification listener binding, for the transitions that happen while Aura is not
+     * in front of the user — the half [onForeground] cannot see.
+     *
+     * `app_opened` samples the binding at resume, where it is usually still being established (the
+     * app asks for a rebind on every process start), so a `listener_connected = false` there is not
+     * evidence that anything is broken. This is the transition itself, rate-limited by
+     * [ListenerStatePolicy] so a flapping binding cannot flood the project.
+     */
+    fun listenerStateChanged(context: Context, connected: Boolean) {
+        if (!active) return
+        val now = SystemClock.elapsedRealtime()
+        val counters = listenerCounters
+        if (!ListenerStatePolicy.allows(now, counters)) return
+        listenerCounters = ListenerStatePolicy.record(now, counters)
+        track(
+            AnalyticsEvents.LISTENER_STATE,
+            mapOf(
+                AnalyticsEvents.P_LISTENER_CONNECTED to connected,
+                AnalyticsEvents.P_LISTENER_ENABLED to listenerEnabled(context),
+            ),
+        )
+    }
+
+    /**
      * Reports a setup-funnel step at most once per install. [flag] defaults to the event name
      * and only needs to be given when one event covers several paths (Shizuku vs root).
+     *
+     * The flag is only spent once reporting is actually possible. On a fresh install the consent
+     * screen is the first thing shown, and the `MainViewModel` behind it already observes the
+     * listener, Shizuku and the battery exemption: consuming the flag there marked the step as
+     * reported while [track] was a no-op, so it was lost for good. That is the mistake
+     * [onForeground] made and no longer makes (D-12) — measured on the live project, 14 users had
+     * `setup_notification_access_granted` for 43 who opened the app. Now the observation is simply
+     * not recorded, and the next `StateFlow` replay — the next launch — sends it.
      */
     fun trackSetupOnce(
         context: Context,
@@ -172,6 +211,7 @@ object Analytics {
         properties: Map<String, Any?> = emptyMap(),
         flag: String = event,
     ) {
+        if (!active) return
         if (AnalyticsPrefs.isSetupFlagSet(context, flag)) return
         AnalyticsPrefs.setSetupFlag(context, flag)
         track(event, properties)
@@ -186,6 +226,15 @@ object Analytics {
     private fun isUpdatedInPlace(context: Context): Boolean = runCatching {
         val info = context.packageManager.getPackageInfo(context.packageName, 0)
         info.lastUpdateTime != info.firstInstallTime
+    }.getOrDefault(false)
+
+    /**
+     * Whether Aura is allowed to read notifications at all, as the system reports it. This is a
+     * different question from [NotificationListenerState]: the system setting can be on while the
+     * service is not bound yet, and the dashboard needs both to tell those apart.
+     */
+    private fun listenerEnabled(context: Context): Boolean = runCatching {
+        NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
     }.getOrDefault(false)
 
     /** Which privilege path is usable, without reporting whether the user rooted their phone beyond that. */

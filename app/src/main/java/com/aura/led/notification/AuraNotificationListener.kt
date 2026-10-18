@@ -227,12 +227,14 @@ class AuraNotificationListener : NotificationListenerService() {
         super.onListenerConnected()
         NotificationListenerState.connected.value = true
         Log.d(TAG, "listener connected")
+        Analytics.listenerStateChanged(this, connected = true)
     }
 
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
         NotificationListenerState.connected.value = false
         Log.w(TAG, "listener disconnected -> scheduling rebind in ${REBIND_DELAY_MS}ms")
+        Analytics.listenerStateChanged(this, connected = false)
         // Rebinding from inside onDestroy's scope would be cancelled with it, so schedule
         // the request on the main looper instead. The process stays alive thanks to the
         // foreground service, so the request will be sent even after the service is gone.

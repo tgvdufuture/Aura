@@ -160,13 +160,28 @@ private val ANIMATION_OPTIONS = listOf(
 private const val SETTLE_DEBOUNCE_MS = 300L
 
 
-private val MAIN_COLOR_SWATCHES = listOf(
+internal val MAIN_COLOR_SWATCHES = listOf(
     "#ef3030", "#f65d32", "#ff8818", "#ffc21d",
     "#acd21b", "#31b343", "#0e9951", "#47c7ad",
     "#2bb6db", "#318be7", "#555fe0", "#855de0",
     "#cf61d0", "#ef4e98", "#a9775b", "#8b6b5d",
     "#aaa39e", "#8997a7", "#4d5660", "#000000",
 )
+
+/**
+ * The colours Aura offers in its two palettes, lowercased once: the compact row on an app card
+ * ([PALETTE]) and the picker's palette (`MAIN_COLOR_SWATCHES`).
+ *
+ * `is_custom` used to compare `MAIN_COLOR_SWATCHES` alone, and the two lists share no colour at
+ * all, so every tap on the eight compact swatches was reported as a custom colour — 180 of the 183
+ * colour changes measured on the live project on 2026-10-18. The insight reads how often the
+ * palette is not enough, which is only true if both palettes are compared.
+ */
+private val OFFERED_COLORS: Set<String> =
+    (PALETTE + MAIN_COLOR_SWATCHES).map { it.lowercase() }.toSet()
+
+/** True when [color] is a colour neither palette offers. */
+internal fun isCustomColor(color: String): Boolean = color.lowercase() !in OFFERED_COLORS
 
 @Composable
 fun AuraTheme(
@@ -336,14 +351,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _ledSettings = MutableStateFlow(LedSettingsState(timeoutMs = ShizukuLEDController.ledTimeoutMs))
     val ledSettings: StateFlow<LedSettingsState> = _ledSettings
 
+    /** Last LED duration reported to analytics, so a tap that does not move the slider reports nothing. */
+    private var trackedTimeoutSeconds: Int? = null
+
     fun setLedTimeout(ms: Long) {
         val clamped = (ms / 1000).coerceIn(1, 30) * 1000L
         ShizukuLEDController.ledTimeoutMs = clamped
         _ledSettings.value = LedSettingsState(timeoutMs = clamped)
         viewModelScope.launch { repository.setSetting(SettingsKeys.LED_TIMEOUT_MS, clamped.toString()) }
+    }
+
+    /**
+     * Reports the LED duration the user settled on, once per finished gesture.
+     *
+     * The slider calls [setLedTimeout] for every step it passes — measured on the live project on
+     * 2026-10-15: 531 events for 9 users, 91 of them inside one minute — and a step crossed during
+     * a drag is not a decision. The dashboard reads which duration people keep, so the event is
+     * sent when the gesture ends, with the value that was kept.
+     */
+    fun commitLedTimeout() {
+        val seconds = (_ledSettings.value.timeoutMs / 1000).toInt()
+        if (seconds == trackedTimeoutSeconds) return
+        trackedTimeoutSeconds = seconds
         Analytics.track(
             AnalyticsEvents.LED_DURATION_CHANGED,
-            mapOf(AnalyticsEvents.P_SECONDS to (clamped / 1000).toInt()),
+            mapOf(AnalyticsEvents.P_SECONDS to seconds),
         )
     }
 
@@ -358,6 +390,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _reminder = MutableStateFlow(ReminderState())
     val reminder: StateFlow<ReminderState> = _reminder
+
+    /** Last reminder interval reported to analytics, so a tap that does not move the slider reports nothing. */
+    private var trackedIntervalSeconds: Int? = null
 
     /** Pushes the current settings to the in-process listener so changes apply immediately. */
     private fun pushReminderToListener(state: ReminderState) {
@@ -387,9 +422,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.setSetting(SettingsKeys.REMINDER_INTERVAL_MS, clamped.toString())
         }
+    }
+
+    /**
+     * Reports the reminder interval the user settled on, once per finished gesture — same defect,
+     * same fix as [commitLedTimeout]: this slider produced 520 events for 7 users, 328 of them in
+     * one minute, and a value crossed mid-drag is not the interval anybody chose.
+     */
+    fun commitReminderInterval() {
+        val seconds = (_reminder.value.intervalMs / 1000).toInt()
+        if (seconds == trackedIntervalSeconds) return
+        trackedIntervalSeconds = seconds
         Analytics.track(
             AnalyticsEvents.REMINDER_INTERVAL_CHANGED,
-            mapOf(AnalyticsEvents.P_INTERVAL_S to (clamped / 1000).toInt()),
+            mapOf(AnalyticsEvents.P_INTERVAL_S to seconds),
         )
     }
 
@@ -439,7 +485,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             AnalyticsEvents.APP_RULE_COLOR_CHANGED,
             mapOf(
                 AnalyticsEvents.P_TARGET_PACKAGE to pkg,
-                AnalyticsEvents.P_IS_CUSTOM to (color !in MAIN_COLOR_SWATCHES),
+                AnalyticsEvents.P_IS_CUSTOM to isCustomColor(color),
             ),
         )
     }
@@ -548,10 +594,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val persistent: Boolean = false,
     )
 
-    /** Persistent preview (custom picker / sender rules): tracks, then stays lit. */
+    /**
+     * Persistent preview (custom picker / sender rules): previews, then stays lit. The analytics
+     * event is sent by the preview worker once the colour settles, not from here.
+     */
     fun previewLed(colorHex: String, animationId: String? = null) {
         previewRequests.value = LedPreviewRequest(colorHex, animationId, persistent = true)
-        if (animationId == null) trackPreview(colorHex)
     }
 
     /** Transient preview (default swatches): brief flash, then auto-off. */
@@ -563,7 +611,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private fun trackPreview(colorHex: String) {
         Analytics.track(
             AnalyticsEvents.APP_RULE_PREVIEWED,
-            mapOf(AnalyticsEvents.P_IS_CUSTOM to (colorHex !in MAIN_COLOR_SWATCHES)),
+            mapOf(AnalyticsEvents.P_IS_CUSTOM to isCustomColor(colorHex)),
         )
     }
 
@@ -986,6 +1034,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     logPreviewResult(request, led.previewColor(request.color))
                     delay(SETTLE_DEBOUNCE_MS)
                     if (previewRequests.value == request) {
+                        // The colour the user stopped on is the one they chose; the picker previews
+                        // every step of a drag, and a step is not a choice (539 preview events for
+                        // 27 users, 101 of them in one day for one user). Emitting here reports the
+                        // settle, and `collectLatest` already guarantees one settle per gesture.
+                        trackPreview(request.color)
                         logPreviewResult(request, led.settleColor(request.color))
                     }
                 } else {
@@ -1325,6 +1378,7 @@ fun SettingsScreen(
                 onToggleService = viewModel::setServiceRunning,
                 onRequestBattery = viewModel::requestBatteryExemption,
                 onTimeoutChange = viewModel::setLedTimeout,
+                onTimeoutCommit = viewModel::commitLedTimeout,
                 onRefresh = viewModel::refreshHealth,
                 onReconnectListener = viewModel::reconnectListener,
                 onOpenAutostart = viewModel::openAutostartSettings,
@@ -1333,6 +1387,7 @@ fun SettingsScreen(
                 state = reminder,
                 onToggle = viewModel::setReminderEnabled,
                 onIntervalChange = viewModel::setReminderInterval,
+                onIntervalCommit = viewModel::commitReminderInterval,
                 onQuietHoursChange = viewModel::setQuietHours,
             ) }
             item {
@@ -1905,6 +1960,7 @@ private fun ReminderCard(
     state: MainViewModel.ReminderState,
     onToggle: (Boolean) -> Unit,
     onIntervalChange: (Long) -> Unit,
+    onIntervalCommit: () -> Unit,
     onQuietHoursChange: (String, String) -> Unit,
 ) {
     var editingField by remember { mutableStateOf<QuietField?>(null) }
@@ -1928,6 +1984,8 @@ private fun ReminderCard(
                 Slider(
                     value = state.intervalMs.toFloat(),
                     onValueChange = { onIntervalChange(it.toLong()) },
+                    // Applied per step (the label follows the thumb), reported once at the end.
+                    onValueChangeFinished = onIntervalCommit,
                     valueRange = 5_000f..120_000f,
                     steps = 22,
                 )
@@ -2102,6 +2160,7 @@ private fun HealthCard(
     onToggleService: (Boolean) -> Unit,
     onRequestBattery: () -> Unit,
     onTimeoutChange: (Long) -> Unit,
+    onTimeoutCommit: () -> Unit,
     onRefresh: () -> Unit,
     onReconnectListener: () -> Unit,
     onOpenAutostart: () -> Unit,
@@ -2190,6 +2249,8 @@ private fun HealthCard(
             Slider(
                 value = timeoutMs.toFloat(),
                 onValueChange = { onTimeoutChange(it.toLong()) },
+                // Applied per step (the LED follows the thumb), reported once at the end.
+                onValueChangeFinished = onTimeoutCommit,
                 valueRange = 1000f..30000f,
                 steps = 28,
             )

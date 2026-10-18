@@ -75,7 +75,18 @@ them on a single dashboard named **Aura**.
 | Autostart actually working | Trend | `setup_autostart_granted` — deduced from a boot broadcast that reached the app on its own, once per install, because HyperOS's autostart switch cannot be read: this is the only evidence the switch is on |
 | Robustness steps | Trend | `setup_autostart_opened`, `setup_battery_exemption_requested`, `setup_battery_exemption_granted` — read each "opened" against its "granted": a gap there is exactly where setup loses people |
 | Reload of the notification screen | Trend | `setup_notification_access_opened` — high volume means the listener keeps dropping (HyperOS) |
-| Listener bound over time | Trend, breakdown | `app_opened` broken down by `listener_connected` — while it is `false` Aura can light nothing at all, so a rising `false` share (not a one-off after a reboot) says HyperOS killed the listener again |
+| Listener allowed vs bound | Trend, breakdown | `app_opened` broken down by `listener_enabled`, then by `listener_connected` — **read the two as a pair**. `listener_enabled = false` is a user who never granted notification access; `true` + `connected = false` is the state at resume, where the binding is usually still being established (the app asks for a rebind on every process start), so it is not evidence that anything is broken. `listener_enabled` was added on 2026-10-18: before it, 187 of 354 `app_opened` carried `false` and could not be interpreted at all |
+| Listener transitions | Trend, breakdown | `listener_state` broken down by `listener_connected` — the half `app_opened` cannot see: the listener binding or dropping while the user is on another screen. A kill followed by the automatic rebind is a `false` then a `true` within seconds; a `false` with no `true` after it is the failure that costs the user every LED. `listener_enabled` is carried too, so a binding that drops because access was revoked is not read as a HyperOS bug. **Capped at 2 events per minute and 5 per process** (`ListenerStatePolicy`), so a flapping system cannot flood the project: a truncated series is "at least this many transitions", and the truncation is itself the signal |
+
+> **Every `setup_*` step before the first release with the fix is a floor, not a count.**
+> `trackSetupOnce` spent its once-per-install flag *before* checking that consent existed, and the
+> consent screen is the first screen of an install, with the `MainViewModel` behind it already
+> observing the listener, Shizuku and the battery exemption. A step observed there was marked as
+> reported and then dropped: measured on 2026-10-18, **14 users** carried
+> `setup_notification_access_granted` for 43 who opened the app and 25 who granted the privilege,
+> so the notification step read as a mass abandonment that never happened. From that release the
+> observation is not recorded until reporting is possible, and the next `StateFlow` replay — the
+> following launch at the latest — sends it. The historical series keep their gap.
 
 ### G3 — What do users actually use?
 

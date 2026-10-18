@@ -109,7 +109,7 @@
     <string name="consent_update_hint">Une requête par jour vers GitHub. Aucun identifiant envoyé.</string>
     <string name="consent_details_show">Que reçoit-on exactement ?</string>
     <string name="consent_details_hide">Masquer le détail</string>
-    <string name="consent_details">• Un identifiant d’installation anonyme (aléatoire, lié ni à votre compte ni à votre matériel)\n• Version de l’app, version d’Android, modèle, langue, thème\n• Fonctionnalités utilisées : apps activées, couleurs, règles par contact, animations, durée de la LED, rappel, options de soutien\n• Chaque étape de configuration et si elle a réussi\n• Vérifications de mise à jour\n\nJamais envoyé : le contenu des notifications, le nom d’un contact ou d’un groupe, le texte d’un message, le carnet d’adresses ou la liste de vos applications.</string>
+    <string name="consent_details">• Un identifiant d’installation anonyme (aléatoire, lié ni à votre compte ni à votre matériel)\n• Version de l’app, version d’Android, modèle, langue, thème\n• Fonctionnalités utilisées : apps activées, couleurs, règles par contact, animations, durée de la LED, rappel, options de soutien\n• Chaque étape de configuration et si elle a réussi, y compris si le listener de notifications est resté connecté\n• Vérifications de mise à jour\n\nJamais envoyé : le contenu des notifications, le nom d’un contact ou d’un groupe, le texte d’un message, le carnet d’adresses ou la liste de vos applications.</string>
     <string name="consent_accept">Partager les statistiques anonymes</string>
     <string name="consent_decline">Non merci</string>
     <string name="consent_close">Fermer</string>

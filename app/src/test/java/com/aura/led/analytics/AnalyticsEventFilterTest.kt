@@ -27,6 +27,7 @@ class AnalyticsEventFilterTest {
         "is_first_run" to false,
         "is_update" to true,
         "listener_connected" to false,
+        "listener_enabled" to true,
         "privilege" to "shizuku",
         // SDK context the promise covers
         "\$app_name" to "Aura",
@@ -72,7 +73,7 @@ class AnalyticsEventFilterTest {
     /** What the consent screen and the README promise, key by key. */
     private val promised = setOf(
         "aura_version", "aura_version_code", "android_sdk", "device_model", "theme", "locale",
-        "is_first_run", "is_update", "listener_connected", "privilege",
+        "is_first_run", "is_update", "listener_connected", "listener_enabled", "privilege",
         "\$app_name", "\$app_version", "\$app_build", "\$app_namespace", "\$device_model",
         "\$device_manufacturer", "\$os_name", "\$os_version", "\$locale", "\$lib", "\$lib_version",
         "\$session_id", "\$is_identified", "\$process_person_profile",
