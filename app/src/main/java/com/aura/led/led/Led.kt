@@ -58,9 +58,19 @@ class ShizukuLEDController : LEDController {
         @Volatile
         var ledTimeoutMs: Long = 10_000L
 
+        /** 10–100: Aura dims its own RGB values, leaving HyperOS's scenes at their brightness. */
+        @Volatile
+        var ledBrightnessPercent: Int = LedAppearance.DEFAULT_BRIGHTNESS_PERCENT
+
+        /** Steady colours fade in and out instead of switching on. Opt-in. */
+        @Volatile
+        var fadeEnabled: Boolean = false
+
         private const val SERVICE = "miui.lights.ILightsManager"
         const val DESCRIPTOR = "miui.lights.ILightsManager"
         const val TRANSACTION_setCustomLight = 4
+        const val TRANSACTION_setColorCommon = 2
+        const val STYLE_RHYTHM = 3
         const val PKG = "com.android.camera"
         const val STYLE_CAMERA = 12
         const val MODE_STEADY = 0
@@ -85,6 +95,9 @@ class ShizukuLEDController : LEDController {
          * both transactions by >=~0.4s makes the color stick reliably.
          */
         private const val CLEAR_SETTLE_MS = 350L
+
+        /** 20 frames over 500 ms: 25 ms per step, fast enough for `setColorCommon`. */
+        private const val FADE_STEPS = 20
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -92,11 +105,17 @@ class ShizukuLEDController : LEDController {
     @Volatile
     private var animationJob: Job? = null
 
+    /** Runs the fade-in/hold/fade-out frames; cancelled by every new command. */
+    @Volatile
+    private var fadeJob: Job? = null
+
     override fun setColor(colorHex: String): Result<Boolean> {
         val color = ColorMapper.hexToInt(colorHex)
             ?: return Result.failure(IllegalArgumentException("Bad color: $colorHex"))
-        cancelAnimation()
-        return setWithSpacedClear(color, MODE_STEADY, ledTimeoutMs.toInt(), 0)
+        cancelEffects()
+        val dimmed = LedAppearance.dim(color, ledBrightnessPercent)
+        if (fadeEnabled) return fade(dimmed)
+        return setWithSpacedClear(dimmed, MODE_STEADY, ledTimeoutMs.toInt(), 0)
     }
 
     /**
@@ -114,8 +133,8 @@ class ShizukuLEDController : LEDController {
     fun previewColor(colorHex: String): Result<Boolean> {
         val color = ColorMapper.hexToInt(colorHex)
             ?: return Result.failure(IllegalArgumentException("Bad color: $colorHex"))
-        cancelAnimation()
-        return setWithClear(color, MODE_STEADY, PREVIEW_DRAG_ON_MS)
+        cancelEffects()
+        return setWithClear(LedAppearance.dim(color, ledBrightnessPercent), MODE_STEADY, PREVIEW_DRAG_ON_MS)
     }
 
     /**
@@ -126,7 +145,7 @@ class ShizukuLEDController : LEDController {
     fun settleColor(colorHex: String): Result<Boolean> {
         val color = ColorMapper.hexToInt(colorHex)
             ?: return Result.failure(IllegalArgumentException("Bad color: $colorHex"))
-        return setWithClear(color, MODE_STEADY, PREVIEW_SETTLE_ON_MS)
+        return setWithClear(LedAppearance.dim(color, ledBrightnessPercent), MODE_STEADY, PREVIEW_SETTLE_ON_MS)
     }
 
     /**
@@ -136,8 +155,8 @@ class ShizukuLEDController : LEDController {
     fun flashColor(colorHex: String): Result<Boolean> {
         val color = ColorMapper.hexToInt(colorHex)
             ?: return Result.failure(IllegalArgumentException("Bad color: $colorHex"))
-        cancelAnimation()
-        return setWithClear(color, MODE_STEADY, PREVIEW_FLASH_ON_MS)
+        cancelEffects()
+        return setWithClear(LedAppearance.dim(color, ledBrightnessPercent), MODE_STEADY, PREVIEW_FLASH_ON_MS)
     }
 
     override fun startAnimation(animationId: String, colorHex: String): Result<Boolean> {
@@ -145,12 +164,22 @@ class ShizukuLEDController : LEDController {
             ?: return Result.failure(IllegalArgumentException("Bad color: $colorHex"))
         return when (animationId) {
             Animations.BREATHING -> {
-                cancelAnimation()
-                setWithSpacedClear(color, MODE_BREATH, 2000, 2000)
+                cancelEffects()
+                setWithSpacedClear(
+                    LedAppearance.dim(color, ledBrightnessPercent),
+                    MODE_BREATH,
+                    2000,
+                    2000,
+                )
             }
             Animations.CHARGING -> {
-                cancelAnimation()
-                setWithSpacedClear(color, MODE_FLASH, 1000, 1000)
+                cancelEffects()
+                setWithSpacedClear(
+                    LedAppearance.dim(color, ledBrightnessPercent),
+                    MODE_FLASH,
+                    1000,
+                    1000,
+                )
             }
             Animations.RAINBOW -> startEmulated(rainbowColors())
             Animations.POLICE -> startEmulated(listOf(0xFF0000, 0x0000FF))
@@ -159,19 +188,25 @@ class ShizukuLEDController : LEDController {
     }
 
     override fun stop(): Result<Boolean> {
-        cancelAnimation()
+        cancelEffects()
         return turnOffLight()
     }
 
     /** Extinguishes the camera ring after a preview. */
     fun stopPreview(): Result<Boolean> {
-        cancelAnimation()
+        cancelEffects()
         return turnOffLight()
     }
 
-    private fun cancelAnimation() {
+    private fun cancelEffects() {
         animationJob?.cancel()
         animationJob = null
+        val wasFading = fadeJob?.isActive == true
+        fadeJob?.cancel()
+        fadeJob = null
+        // A cancelled fade leaves its last frame on the rhythm strip. Clear that zone too: the next
+        // command drives the camera style, which would otherwise leave the old colour behind.
+        if (wasFading) transactColorCommon(0)
     }
 
     /**
@@ -185,14 +220,15 @@ class ShizukuLEDController : LEDController {
 
     /** Emulates a looping animation by sending stepped colors until the timeout expires. */
     private fun startEmulated(colors: List<Int>): Result<Boolean> {
-        cancelAnimation()
+        cancelEffects()
         if (colors.isEmpty()) return Result.failure(IllegalArgumentException("Empty animation"))
         val stepMs = 400L
+        val dimmed = colors.map { LedAppearance.dim(it, ledBrightnessPercent) }
         animationJob = scope.launch {
             val deadline = System.currentTimeMillis() + ledTimeoutMs
             var i = 0
             while (isActive && System.currentTimeMillis() < deadline) {
-                setCustomLight(colors[i % colors.size], MODE_STEADY, stepMs.toInt(), 0)
+                setCustomLight(dimmed[i % dimmed.size], MODE_STEADY, stepMs.toInt(), 0)
                 delay(stepMs)
                 i++
             }
@@ -250,6 +286,79 @@ class ShizukuLEDController : LEDController {
         val cleared = transactLight(0, MODE_STEADY, onMs, 0)
         if (cleared.isFailure) return cleared
         return transactLight(color, mode, onMs, 0)
+    }
+
+    /**
+     * Fades a steady colour in, holds it, then fades it out through `setColorCommon` (styleType 3).
+     *
+     * `setCustomLight` re-arms its auto-off timer on every call, which makes animation-speed frames
+     * flicker; `setColorCommon` has no timer at all. The price is that the final clear is ours to
+     * send, and that a cancelled fade must clear its own zone (see [cancelEffects]).
+     */
+    private fun fade(color: Int): Result<Boolean> {
+        if (!hasShizukuAccess() && !RootManager.isAvailable()) {
+            return Result.failure(IllegalStateException("Shizuku and root unavailable"))
+        }
+        val onMs = ledTimeoutMs
+        val fadeMs = LedAppearance.fadeMsFor(onMs)
+        val stepMs = (fadeMs / FADE_STEPS).coerceAtLeast(10L)
+        // Take the strip over before fading: a previous camera-style light (and its auto-off timer)
+        // would otherwise stay lit under the fade and clear the ring at its own deadline.
+        val cleared = transactLight(0, MODE_STEADY, onMs.toInt(), 0)
+        if (cleared.isFailure) return cleared
+        // First frame synchronously: the caller needs to know the command reached the service.
+        val first = transactColorCommon(LedAppearance.fadeColor(color, 1f / FADE_STEPS))
+        if (first.isFailure) return first
+        fadeJob = scope.launch {
+            for (step in 2..FADE_STEPS) {
+                delay(stepMs)
+                transactColorCommon(LedAppearance.fadeColor(color, step.toFloat() / FADE_STEPS))
+                    .onFailure { Log.e("AuraLed", "fade-in frame failed", it) }
+            }
+            delay((onMs - 2 * fadeMs).coerceAtLeast(0L))
+            for (step in FADE_STEPS - 1 downTo 0) {
+                delay(stepMs)
+                transactColorCommon(LedAppearance.fadeColor(color, step.toFloat() / FADE_STEPS))
+                    .onFailure { Log.e("AuraLed", "fade-out frame failed", it) }
+            }
+        }
+        return Result.success(true)
+    }
+
+    /** `setColorCommon` (transaction 2): the flicker-free path for animation-speed colour changes. */
+    private fun transactColorCommon(color: Int): Result<Boolean> {
+        if (!hasShizukuAccess()) return transactColorCommonAsRoot(color)
+        val service = serviceBinder()
+            ?: return Result.failure(IllegalStateException("miui.lights service unavailable"))
+        return runCatching {
+            val binder: IBinder = ShizukuBinderWrapper(service)
+            val data = Parcel.obtain()
+            val reply = Parcel.obtain()
+            try {
+                data.writeInterfaceToken(DESCRIPTOR)
+                data.writeInt(color)
+                data.writeString(PKG)
+                data.writeInt(STYLE_RHYTHM)
+                data.writeInt(0)
+                binder.transact(TRANSACTION_setColorCommon, data, reply, 0)
+                reply.readException()
+                true
+            } finally {
+                data.recycle()
+                reply.recycle()
+            }
+        }.onFailure { Log.e("AuraLed", "setColorCommon failed", it) }
+    }
+
+    private fun transactColorCommonAsRoot(color: Int): Result<Boolean> {
+        val command = "service call $SERVICE $TRANSACTION_setColorCommon " +
+            "i32 $color s16 $PKG i32 $STYLE_RHYTHM i32 0"
+        return RootManager.run(command).map { result ->
+            if (result.exitCode != 0) {
+                throw IllegalStateException("service call exited with ${result.exitCode}: ${result.stdout}")
+            }
+            true
+        }.onFailure { Log.e("AuraLed", "root setColorCommon failed", it) }
     }
 
     private fun transactLight(color: Int, mode: Int, onMs: Int, offMs: Int): Result<Boolean> {

@@ -28,68 +28,74 @@
 
     <!-- Shizuku -->
     <string name="shizuku">Shizuku</string>
-    <string name="shizuku_reactivate">Shizuku needs to be re-enabled (reboot?)</string>
-    <string name="shizuku_permission_required">Shizuku active — Aura authorization required</string>
-    <string name="shizuku_connected">Shizuku connected</string>
-    <string name="shizuku_help">Open the Shizuku app → “Start via computer connection” → “Show command”, then run it from the PC.</string>
-    <string name="shizuku_request_permission">Request authorization</string>
-    <string name="shizuku_test_led">Test the LED (red)</string>
-    <string name="shizuku_test_ok">Test passed — the ring lit up.</string>
-    <string name="shizuku_test_failed">The test failed. Check that Shizuku is running and authorized, then try once more.</string>
-    <string name="shizuku_test_unsupported">Three attempts in a row failed: the light service Aura drives is not available on this phone, so the ring cannot light up however many times you try.</string>
+    <string name="shizuku_reactivate">Shizuku offline</string>
+    <string name="shizuku_permission_required">Authorization required</string>
+    <string name="shizuku_connected">Connected</string>
+    <string name="shizuku_help">Start Shizuku, then try again.</string>
+    <string name="shizuku_request_permission">Authorize</string>
+    <string name="shizuku_test_led">Test LED</string>
+    <string name="shizuku_test_ok">Ring lit ✓</string>
+    <string name="shizuku_test_failed">Test failed. Check Shizuku and try again.</string>
+    <string name="shizuku_test_unsupported">This phone has no controllable light service.</string>
     <string name="shizuku_test_confirm">Did the ring light up?</string>
-    <string name="shizuku_test_confirm_yes">Yes, it lit up</string>
-    <string name="shizuku_test_confirm_no">No, it stayed dark</string>
-    <string name="shizuku_test_no_light">The ring stayed dark even though the command was sent. Check that HyperOS back light effects are enabled, then try again.</string>
-    <string name="shizuku_test_hyperos_hint">HyperOS\'s back light effects are what power the ring: Settings → Additional settings → Back light effects.</string>
-    <string name="shizuku_test_hyperos_off">The ring stayed dark and HyperOS\'s notification light is off. If you turned it off in HyperOS settings (not in Aura), turn it back on and try again.</string>
-    <string name="root_connected">Root access detected — Shizuku is not required</string>
+    <string name="shizuku_test_confirm_yes">Yes</string>
+    <string name="shizuku_test_confirm_no">No</string>
+    <string name="shizuku_test_no_light">Ring stayed dark. Check HyperOS back light effects.</string>
+    <string name="shizuku_test_hyperos_hint">Settings → Additional settings → Back light effects.</string>
+    <string name="shizuku_test_hyperos_off">Ring stayed dark and the HyperOS notification light is off. Turn it on in HyperOS.</string>
+    <string name="root_connected">Root detected</string>
     <string name="led_preview">Preview LED</string>
     <string name="led_preview_failed">Couldn\'t light the LED — is Shizuku active or is root access available?</string>
 
     <!-- System LED -->
-    <string name="system_led">HyperOS notification light</string>
-    <string name="system_led_shizuku_required">Shizuku or root access is required to change HyperOS\'s notification light.</string>
-    <string name="system_led_disable">Turn off the HyperOS notification pulse</string>
-    <string name="system_led_disabled">HyperOS notification pulse off ✓</string>
-    <string name="system_led_active">HyperOS notification pulse on (double lighting possible)</string>
-    <string name="system_led_scope">Only the notification pulse is turned off. Charging and call light effects are separate HyperOS scenes: Aura cannot disable those.</string>
+    <string name="system_led">LED HyperOS</string>
+    <string name="system_led_shizuku_required">Shizuku or root required.</string>
+    <string name="system_led_disable">Disable notification pulse</string>
+    <string name="system_led_disabled">Notification pulse off ✓</string>
+    <string name="system_led_active">Notification pulse on</string>
+    <string name="system_led_scope">Charging and calls are separate HyperOS scenes; Aura leaves them alone.</string>
 
     <!-- Robustness -->
-    <string name="robustness">Robustness</string>
+    <string name="robustness">Reliability</string>
     <string name="service_background">Background service</string>
-    <string name="service_running">Service active ✓ (persistent notification)</string>
-    <string name="service_stopped">Service stopped — notifications will no longer drive the LEDs in the background</string>
-    <string name="battery_optimization_warning">HyperOS battery optimization may kill Aura in the background.</string>
-    <string name="battery_exclude">Exclude from battery optimization</string>
-    <string name="battery_excluded">Battery optimization: excluded ✓</string>
-    <string name="listener_status">Notification listener</string>
-    <string name="listener_connected">Connected — notifications drive the LEDs ✓</string>
-    <string name="listener_disconnected">Disconnected — no LED until it reconnects</string>
-    <string name="listener_reconnect">Open notification settings</string>
-    <string name="autostart_title">Autostart (HyperOS)</string>
-    <string name="autostart_warning">HyperOS can block Aura from restarting in the background. Enable Autostart so the LED keeps working after a reboot.</string>
-    <string name="autostart_open">Open Autostart settings</string>
-    <string name="autostart_state_enabled">Verified: Aura came back after the last phone reboot, without you opening it.</string>
-    <string name="autostart_state_blocked">Aura did not come back after the last phone reboot. HyperOS can block background restarts: check the Autostart setting.</string>
-    <string name="autostart_state_unknown">Not verified yet: Aura has seen no phone reboot since it was installed.</string>
-    <string name="led_duration">LED light duration: %1$d s</string>
+    <string name="service_running">Service active ✓</string>
+    <string name="service_stopped">Background notifications are off.</string>
+    <string name="battery_title">Battery optimization</string>
+    <string name="battery_optimization_warning">Active — may stop Aura in the background.</string>
+    <string name="battery_exclude">Exclude</string>
+    <string name="battery_excluded">Excluded ✓</string>
+    <string name="listener_status">Notifications</string>
+    <string name="listener_connected">Connected ✓</string>
+    <string name="listener_disconnected">Disconnected</string>
+    <string name="listener_reconnect">Reconnect</string>
+    <string name="autostart_title">Autostart</string>
+    <string name="autostart_warning">HyperOS may block restart after a reboot.</string>
+    <string name="autostart_open">Open</string>
+    <string name="autostart_state_enabled">Verified ✓</string>
+    <string name="autostart_state_blocked">Blocked — allow autostart.</string>
+    <string name="autostart_state_unknown">Not verified — allow autostart.</string>
+    <string name="led_duration">Light duration: %1$d s</string>
+    <string name="led_appearance">Lighting</string>
+    <string name="led_brightness">Brightness: %1$d%%</string>
+    <string name="led_fade">Fade (0.5 s)</string>
+    <string name="led_fade_hint">Steady colours fade in and out over 0.5 s.</string>
+    <string name="led_scope">Applies to Aura\'s colours.</string>
 
     <!-- Persistent reminder -->
     <string name="reminder_title">Persistent reminder</string>
-    <string name="reminder_description">Keeps flashing the LED while a notification stays unread, so you don\'t miss it when away from the phone. Off by default.</string>
-    <string name="reminder_enable">Repeat until dismissed</string>
-    <string name="reminder_interval">Reminder every: %1$d s</string>
-    <string name="reminder_interval_limited">The LED stays on for %1$d s, so the next flash cannot start before that plus a short off gap.</string>
-    <string name="reminder_duration">Reminder duration: %1$s</string>
+    <string name="reminder_description">Keeps flashing the LED while a notification stays unread.</string>
+    <string name="reminder_enable">Remind until read</string>
+    <string name="reminder_interval">Interval: %1$d s</string>
+    <string name="reminder_interval_limited">Next flash after %1$d s on.</string>
+    <string name="reminder_duration">Duration: %1$s</string>
     <string name="reminder_duration_until_dismissed">Until dismissed</string>
     <string name="reminder_duration_minutes">%1$d min</string>
     <string name="reminder_duration_hours">%1$d h</string>
     <string name="reminder_quiet_hours">Quiet hours</string>
     <string name="reminder_quiet_start">Start</string>
     <string name="reminder_quiet_end">End</string>
-    <string name="reminder_quiet_hint">No reminder flashes during this window. Do Not Disturb always suppresses reminders too.</string>
-    <string name="reminder_quiet_disabled_hint">Same start and end: quiet hours are disabled.</string>
+    <string name="reminder_quiet_hint">No reminders during this window.</string>
+    <string name="reminder_quiet_disabled_hint">Off (start = end).</string>
 
     <!-- App rules -->
     <string name="default_color">Default color</string>
@@ -132,18 +138,19 @@
     <string name="consent_update_hint">One request a day to GitHub. No identifier is sent.</string>
     <string name="consent_details_show">What exactly is sent?</string>
     <string name="consent_details_hide">Hide details</string>
-    <string name="consent_details">• An anonymous install identifier (random, not linked to your account or hardware)\n• App version, Android version, device model, language, theme\n• Features you used: apps enabled, colours changed, sender rules, animations, light duration, reminder, support options\n• Each setup step and whether it worked, including whether the notification listener stayed connected\n• Update checks\n\nNever sent: notification content, sender or group names, message text, your contacts, or your list of installed apps.</string>
+    <string name="consent_details">• An anonymous install identifier (random, not linked to your account or hardware)\n• App version, Android version, device model, language, theme\n• Features you used: apps enabled, colours changed, sender rules, animations, light duration, brightness and fade, reminder, support options\n• Each setup step and whether it worked, including whether the notification listener stayed connected\n• Update checks\n\nNever sent: notification content, sender or group names, message text, your contacts, or your list of installed apps.</string>
     <string name="consent_accept">Share anonymous statistics</string>
     <string name="consent_decline">No thanks</string>
     <string name="consent_close">Close</string>
 
     <!-- Anonymous statistics settings -->
     <string name="analytics_title">Anonymous statistics</string>
-    <string name="analytics_description">Optional usage statistics that help prioritise what to build next. Off until you agree, revocable at any time.</string>
-    <string name="analytics_enable">Share anonymous statistics</string>
-    <string name="analytics_update_check">Check for new versions</string>
-    <string name="analytics_what_is_sent">Sent: app and Android version, device model, features used, setup steps. Never sent: notification content, contact names, message text.</string>
-    <string name="analytics_review_screen">Review the privacy screen</string>
+    <string name="analytics_description">Help prioritise what comes next. Off by default, revocable anytime.</string>
+    <string name="analytics_enable">Share statistics</string>
+    <string name="analytics_update_check">Check for updates</string>
+    <string name="analytics_what_is_sent">Never sent: notifications, contacts, messages.</string>
+    <string name="analytics_privacy_note">Anonymous install ID. PostHog Cloud (EU), 12-month retention.</string>
+    <string name="analytics_review_screen">Privacy screen</string>
 
     <!-- Update flow -->
     <string name="update_title">Aura %1$s is available</string>
@@ -152,25 +159,30 @@
     <string name="update_channel_name">New versions</string>
     <string name="update_channel_description">Tells you when a new version of Aura is out, without opening the app. One check a day.</string>
     <string name="update_notes_title">What\'s new</string>
-    <string name="star_repo">Star Aura on GitHub</string>
+    <string name="star_repo">Star on GitHub</string>
     <string name="update_download">Download</string>
     <string name="later">Later</string>
     <string name="update_failed">Couldn’t open the download page</string>
 
     <!-- Support: the donation is the real path today; the paid version is listed, then asked about.
          Every answer has to read on its own — "Neither" asked the user "neither of what?". -->
-    <string name="support_title">Keep Aura independent</string>
-    <string name="support_intro">No ads, no paid tier today. Donations pay for the time it takes, and they count whether or not you share statistics.</string>
-    <string name="support_donate">Donate on Ko-fi</string>
-    <string name="support_offer_title">What a paid version could add</string>
-    <string name="support_offer_items">• Community animation library: browse, preview and import animations shared by other users\n• Backup and restore of your rules\n• Time-based profiles: night, work, weekend\n• Automation through Tasker and shortcuts</string>
-    <string name="support_question">How would you prefer to support Aura?</string>
-    <string name="support_open_question">Answer the question</string>
-    <string name="support_answer_donation">Make a one-off donation</string>
-    <string name="support_answer_one_time">Buy the paid version once</string>
-    <string name="support_answer_subscription">Pay a monthly subscription</string>
-    <string name="support_answer_nothing">No payment, now or later</string>
-    <string name="support_answer_saved">Saved. Tap another answer to change it.</string>
+    <string name="support_title">Support Aura</string>
+    <string name="support_intro">No ads. Donations fund development.</string>
+    <string name="support_donate">Donate</string>
+    <string name="support_question">How would you like to support Aura?</string>
+    <string name="support_question_lead">Aura is free and ad-free. Donations are the only option available today; a paid version is being explored.</string>
+    <string name="support_funding_title">What donations fund</string>
+    <string name="support_funding_items">• Development time\n• Tools, hosting and on-device testing</string>
+    <string name="support_offer_title">Paid version under consideration</string>
+    <string name="support_offer_items">• Community animations: browse, preview, import\n• Rule backup and restore\n• Time profiles: night, work, weekend\n• Tasker and shortcut automation</string>
+    <string name="support_offer_hint">Nothing is for sale yet.</string>
+    <string name="support_choice_prompt">Which option would suit you?</string>
+    <string name="support_open_question">Answer</string>
+    <string name="support_answer_donation">One-time donation</string>
+    <string name="support_answer_one_time">Pay once</string>
+    <string name="support_answer_subscription">Monthly</string>
+    <string name="support_answer_nothing">No payment</string>
+    <string name="support_answer_saved">Saved. You can change it anytime.</string>
 
     <!-- Empty states: the firefly mascot's poses are on screen, the words carry the meaning -->
     <string name="empty_no_enabled_title">No app lights up yet</string>

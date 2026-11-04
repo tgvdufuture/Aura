@@ -115,6 +115,7 @@ import com.aura.led.data.SettingsKeys
 import com.aura.led.led.Animations
 import com.aura.led.led.ColorMapper
 import com.aura.led.led.DeviceSupport
+import com.aura.led.led.LedAppearance
 import com.aura.led.led.LedTestStreak
 import com.aura.led.led.ShizukuLEDController
 import com.aura.led.led.SystemLedManager
@@ -348,9 +349,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         Analytics.track(AnalyticsEvents.SERVICE_TOGGLED, mapOf(AnalyticsEvents.P_RUNNING to running))
     }
 
-    data class LedSettingsState(val timeoutMs: Long = 10_000L)
+    data class LedSettingsState(
+        val timeoutMs: Long = 10_000L,
+        val brightnessPercent: Int = LedAppearance.DEFAULT_BRIGHTNESS_PERCENT,
+        val fadeEnabled: Boolean = false,
+    )
 
-    private val _ledSettings = MutableStateFlow(LedSettingsState(timeoutMs = ShizukuLEDController.ledTimeoutMs))
+    private val _ledSettings = MutableStateFlow(
+        LedSettingsState(
+            timeoutMs = ShizukuLEDController.ledTimeoutMs,
+            brightnessPercent = ShizukuLEDController.ledBrightnessPercent,
+            fadeEnabled = ShizukuLEDController.fadeEnabled,
+        )
+    )
     val ledSettings: StateFlow<LedSettingsState> = _ledSettings
 
     /** Last LED duration reported to analytics, so a tap that does not move the slider reports nothing. */
@@ -359,7 +370,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setLedTimeout(ms: Long) {
         val clamped = (ms / 1000).coerceIn(1, 30) * 1000L
         ShizukuLEDController.ledTimeoutMs = clamped
-        _ledSettings.value = LedSettingsState(timeoutMs = clamped)
+        _ledSettings.value = _ledSettings.value.copy(timeoutMs = clamped)
         viewModelScope.launch { repository.setSetting(SettingsKeys.LED_TIMEOUT_MS, clamped.toString()) }
     }
 
@@ -379,6 +390,38 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             AnalyticsEvents.LED_DURATION_CHANGED,
             mapOf(AnalyticsEvents.P_SECONDS to seconds),
         )
+    }
+
+    /** Dims only the colours Aura sends; HyperOS's own scenes keep their brightness. */
+    fun setLedBrightness(percent: Int) {
+        val clamped = LedAppearance.clampBrightness(percent)
+        ShizukuLEDController.ledBrightnessPercent = clamped
+        _ledSettings.value = _ledSettings.value.copy(brightnessPercent = clamped)
+        viewModelScope.launch {
+            repository.setSetting(SettingsKeys.LED_BRIGHTNESS_PERCENT, clamped.toString())
+        }
+    }
+
+    /** Last brightness reported to analytics, so a drag sends one value, not every step. */
+    private var trackedBrightnessPercent: Int? = null
+
+    fun commitLedBrightness() {
+        val percent = _ledSettings.value.brightnessPercent
+        if (percent == trackedBrightnessPercent) return
+        trackedBrightnessPercent = percent
+        Analytics.track(
+            AnalyticsEvents.LED_BRIGHTNESS_CHANGED,
+            mapOf(AnalyticsEvents.P_PERCENT to percent),
+        )
+    }
+
+    fun setLedFade(enabled: Boolean) {
+        ShizukuLEDController.fadeEnabled = enabled
+        _ledSettings.value = _ledSettings.value.copy(fadeEnabled = enabled)
+        viewModelScope.launch {
+            repository.setBoolSetting(SettingsKeys.LED_FADE_ENABLED, enabled)
+        }
+        Analytics.track(AnalyticsEvents.LED_FADE_TOGGLED, mapOf(AnalyticsEvents.P_ENABLED to enabled))
     }
 
     // ---- Persistent reminder (PRD docs/PRD-persistent-reminder.md, Phase 1) ----
@@ -1089,8 +1132,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             val ms = repository.getSetting(SettingsKeys.LED_TIMEOUT_MS, "10000").toLongOrNull() ?: 10_000L
             val clamped = (ms / 1000).coerceIn(1, 30) * 1000L
+            val brightness = repository.getSetting(
+                SettingsKeys.LED_BRIGHTNESS_PERCENT,
+                LedAppearance.DEFAULT_BRIGHTNESS_PERCENT.toString(),
+            ).toIntOrNull() ?: LedAppearance.DEFAULT_BRIGHTNESS_PERCENT
+            val fade = repository.getBoolSetting(SettingsKeys.LED_FADE_ENABLED, false)
             ShizukuLEDController.ledTimeoutMs = clamped
-            _ledSettings.value = LedSettingsState(timeoutMs = clamped)
+            ShizukuLEDController.ledBrightnessPercent = LedAppearance.clampBrightness(brightness)
+            ShizukuLEDController.fadeEnabled = fade
+            _ledSettings.value = LedSettingsState(
+                timeoutMs = clamped,
+                brightnessPercent = LedAppearance.clampBrightness(brightness),
+                fadeEnabled = fade,
+            )
         }
         viewModelScope.launch(Dispatchers.IO) {
             val enabled = repository.getBoolSetting(SettingsKeys.REMINDER_ENABLED, false)
@@ -1452,8 +1506,14 @@ fun SettingsScreen(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item { LanguageToggle(currentLanguage, onLanguageChange) }
-            item { ThemeToggle(themeMode, onThemeChange) }
+            item {
+                AppearanceCard(
+                    currentLanguage = currentLanguage,
+                    onLanguageChange = onLanguageChange,
+                    themeMode = themeMode,
+                    onThemeChange = onThemeChange,
+                )
+            }
             item {
                 ShizukuCard(
                     shizuku,
@@ -1471,18 +1531,29 @@ fun SettingsScreen(
                     onRefresh = viewModel::refreshSystemLed,
                 )
             }
-            item { HealthCard(
-                state = health,
-                listenerConnected = listenerConnected,
-                timeoutMs = ledSettings.timeoutMs,
-                onToggleService = viewModel::setServiceRunning,
-                onRequestBattery = viewModel::requestBatteryExemption,
-                onTimeoutChange = viewModel::setLedTimeout,
-                onTimeoutCommit = viewModel::commitLedTimeout,
-                onRefresh = viewModel::refreshHealth,
-                onReconnectListener = viewModel::reconnectListener,
-                onOpenAutostart = viewModel::openAutostartSettings,
-            ) }
+            item {
+                LedCard(
+                    timeoutMs = ledSettings.timeoutMs,
+                    brightnessPercent = ledSettings.brightnessPercent,
+                    fadeEnabled = ledSettings.fadeEnabled,
+                    onTimeoutChange = viewModel::setLedTimeout,
+                    onTimeoutCommit = viewModel::commitLedTimeout,
+                    onBrightnessChange = viewModel::setLedBrightness,
+                    onBrightnessCommit = viewModel::commitLedBrightness,
+                    onFadeChange = viewModel::setLedFade,
+                )
+            }
+            item {
+                ReliabilityCard(
+                    state = health,
+                    listenerConnected = listenerConnected,
+                    onToggleService = viewModel::setServiceRunning,
+                    onRequestBattery = viewModel::requestBatteryExemption,
+                    onRefresh = viewModel::refreshHealth,
+                    onReconnectListener = viewModel::reconnectListener,
+                    onOpenAutostart = viewModel::openAutostartSettings,
+                )
+            }
             item { ReminderCard(
                 state = reminder,
                 timeoutMs = ledSettings.timeoutMs,
@@ -1694,7 +1765,11 @@ private fun AnalyticsCard(
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(R.string.analytics_title), style = MaterialTheme.typography.titleMedium)
-            Text(stringResource(R.string.analytics_description), style = MaterialTheme.typography.bodySmall)
+            Text(
+                stringResource(R.string.analytics_description),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.analytics_enable), modifier = Modifier.weight(1f))
                 Switch(checked = state.granted, onCheckedChange = onAnalyticsToggle)
@@ -1703,8 +1778,39 @@ private fun AnalyticsCard(
                 Text(stringResource(R.string.analytics_update_check), modifier = Modifier.weight(1f))
                 Switch(checked = state.updateCheckEnabled, onCheckedChange = onUpdateCheckToggle)
             }
-            Text(stringResource(R.string.analytics_what_is_sent), style = MaterialTheme.typography.bodySmall)
-            TextButton(onClick = onReviewPrivacy) { Text(stringResource(R.string.analytics_review_screen)) }
+            Text(
+                stringResource(R.string.consent_update_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Text(
+                stringResource(R.string.consent_point_sent_label),
+                style = MaterialTheme.typography.labelLarge,
+            )
+            Text(
+                stringResource(R.string.consent_point_sent_body),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                stringResource(R.string.consent_point_never_label),
+                style = MaterialTheme.typography.labelLarge,
+            )
+            Text(
+                stringResource(R.string.consent_point_never_body),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                stringResource(R.string.analytics_privacy_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TextButton(
+                onClick = onReviewPrivacy,
+                contentPadding = PaddingValues(0.dp),
+            ) { Text(stringResource(R.string.analytics_review_screen)) }
         }
     }
 }
@@ -1870,7 +1976,10 @@ private fun SupportCard(onDonate: () -> Unit, onStar: () -> Unit) {
             // pending update: only users who are a version behind ever see that dialog, and a star
             // is what the next visitor to the repository checks first. Quieter than the donation on
             // purpose — it costs nothing and buys nothing.
-            TextButton(onClick = onStar) { Text(stringResource(R.string.star_repo)) }
+            TextButton(
+                onClick = onStar,
+                contentPadding = PaddingValues(0.dp),
+            ) { Text(stringResource(R.string.star_repo)) }
         }
     }
 }
@@ -1890,10 +1999,32 @@ private fun SupportQuestionCard(
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(R.string.support_offer_title), style = MaterialTheme.typography.titleMedium)
-            Text(stringResource(R.string.support_offer_items), style = MaterialTheme.typography.bodyMedium)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(stringResource(R.string.support_question), style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.support_question), style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.support_question_lead),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Text(stringResource(R.string.support_funding_title), style = MaterialTheme.typography.labelLarge)
+            Text(
+                stringResource(R.string.support_funding_items),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(stringResource(R.string.support_offer_title), style = MaterialTheme.typography.labelLarge)
+            Text(
+                stringResource(R.string.support_offer_items),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                stringResource(R.string.support_offer_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Text(stringResource(R.string.support_choice_prompt), style = MaterialTheme.typography.titleSmall)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SupportQuestion.ANSWERS.forEach { (value, labelRes) ->
                     FilterChip(
@@ -2085,6 +2216,7 @@ private fun ReminderCard(
             Text(
                 stringResource(R.string.reminder_description),
                 style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.reminder_enable), modifier = Modifier.weight(1f))
@@ -2204,27 +2336,34 @@ private fun ShizukuCard(
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(R.string.shizuku), style = MaterialTheme.typography.titleMedium)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(statusColor))
-                Text(stringResource(statusTextRes), style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    stringResource(R.string.shizuku),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(statusColor))
+                Text(
+                    stringResource(statusTextRes),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             if (!state.alive && !root.available) {
                 Text(
                     stringResource(R.string.shizuku_help),
                     style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            if (state.alive && !state.hasPermission) {
+            if (state.alive && !state.hasPermission && !root.available) {
                 Button(onClick = onRequest) { Text(stringResource(R.string.shizuku_request_permission)) }
             }
             if (state.hasPermission || root.available) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(onClick = onTest) { Text(stringResource(R.string.shizuku_test_led)) }
-                }
+                OutlinedButton(onClick = onTest) { Text(stringResource(R.string.shizuku_test_led)) }
             }
             // What the test did, where the button is. The button used to answer with nothing at all,
             // which is how a phone that cannot work is asked eighty times (the field data, 2026-10-16).
@@ -2304,17 +2443,14 @@ private fun SystemLedCard(
             if (!state.canControl) {
                 Text(
                     stringResource(R.string.system_led_shizuku_required),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.system_led_disable), modifier = Modifier.weight(1f))
                     Switch(checked = state.disabled, onCheckedChange = onToggle)
                 }
-                Text(
-                    stringResource(if (state.disabled) R.string.system_led_disabled else R.string.system_led_active),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
                 Text(
                     stringResource(R.string.system_led_scope),
                     style = MaterialTheme.typography.bodySmall,
@@ -2326,14 +2462,63 @@ private fun SystemLedCard(
 }
 
 @Composable
-private fun HealthCard(
-    state: MainViewModel.HealthState,
-    listenerConnected: Boolean,
+private fun LedCard(
     timeoutMs: Long,
-    onToggleService: (Boolean) -> Unit,
-    onRequestBattery: () -> Unit,
+    brightnessPercent: Int,
+    fadeEnabled: Boolean,
     onTimeoutChange: (Long) -> Unit,
     onTimeoutCommit: () -> Unit,
+    onBrightnessChange: (Int) -> Unit,
+    onBrightnessCommit: () -> Unit,
+    onFadeChange: (Boolean) -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(stringResource(R.string.led_appearance), style = MaterialTheme.typography.titleMedium)
+            Text(
+                stringResource(R.string.led_duration, (timeoutMs / 1000).toInt()),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Slider(
+                value = timeoutMs.toFloat(),
+                onValueChange = { onTimeoutChange(it.toLong()) },
+                // Applied per step (the LED follows the thumb), reported once at the end.
+                onValueChangeFinished = onTimeoutCommit,
+                valueRange = 1000f..30000f,
+                steps = 28,
+            )
+            Text(
+                stringResource(R.string.led_brightness, brightnessPercent),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Slider(
+                value = brightnessPercent.toFloat(),
+                onValueChange = { onBrightnessChange(it.toInt()) },
+                // Applied per step so the preview follows the thumb; reported once at the end.
+                onValueChangeFinished = onBrightnessCommit,
+                valueRange = LedAppearance.MIN_BRIGHTNESS_PERCENT.toFloat()..
+                    LedAppearance.MAX_BRIGHTNESS_PERCENT.toFloat(),
+                steps = 8,
+            )
+            Text(
+                stringResource(R.string.led_scope),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.led_fade), modifier = Modifier.weight(1f))
+                Switch(checked = fadeEnabled, onCheckedChange = onFadeChange)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReliabilityCard(
+    state: MainViewModel.HealthState,
+    listenerConnected: Boolean,
+    onToggleService: (Boolean) -> Unit,
+    onRequestBattery: () -> Unit,
     onRefresh: () -> Unit,
     onReconnectListener: () -> Unit,
     onOpenAutostart: () -> Unit,
@@ -2355,78 +2540,81 @@ private fun HealthCard(
                 Text(stringResource(R.string.service_background), modifier = Modifier.weight(1f))
                 Switch(checked = state.serviceRunning, onCheckedChange = onToggleService)
             }
-            Text(
-                stringResource(if (state.serviceRunning) R.string.service_running else R.string.service_stopped),
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            if (!state.serviceRunning) {
+                Text(
+                    stringResource(R.string.service_stopped),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
 
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(stringResource(R.string.listener_status), style = MaterialTheme.typography.titleSmall)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Box(
                     modifier = Modifier
-                        .size(12.dp)
+                        .size(10.dp)
                         .clip(CircleShape)
                         .background(if (listenerConnected) Color(0xFF2E7D32) else Color(0xFFD32F2F)),
                 )
+                Text(stringResource(R.string.listener_status), modifier = Modifier.weight(1f))
                 Text(
                     stringResource(if (listenerConnected) R.string.listener_connected else R.string.listener_disconnected),
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             if (!listenerConnected) {
-                Button(onClick = onReconnectListener) { Text(stringResource(R.string.listener_reconnect)) }
+                TextButton(onClick = onReconnectListener) { Text(stringResource(R.string.listener_reconnect)) }
             }
 
             if (Build.MANUFACTURER.equals("Xiaomi", ignoreCase = true)) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(stringResource(R.string.autostart_title), style = MaterialTheme.typography.titleSmall)
-                // What Aura has actually seen the switch do, rather than the value of the switch:
-                // the value is unreadable, the effect is not (see AutostartWatch).
-                Text(
-                    stringResource(
-                        when (state.autostart) {
-                            AutostartWatch.State.ENABLED -> R.string.autostart_state_enabled
-                            AutostartWatch.State.BLOCKED -> R.string.autostart_state_blocked
-                            AutostartWatch.State.UNKNOWN -> R.string.autostart_state_unknown
-                        }
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                // This warning promises the LED stops working after a reboot; only say it while
-                // that has not been disproved.
-                if (state.autostart != AutostartWatch.State.ENABLED) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.autostart_title))
+                        // What Aura has actually seen the switch do, rather than the value of the
+                        // switch: the value is unreadable, the effect is not (see AutostartWatch).
+                        Text(
+                            stringResource(
+                                when (state.autostart) {
+                                    AutostartWatch.State.ENABLED -> R.string.autostart_state_enabled
+                                    AutostartWatch.State.BLOCKED -> R.string.autostart_state_blocked
+                                    AutostartWatch.State.UNKNOWN -> R.string.autostart_state_unknown
+                                }
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = when (state.autostart) {
+                                AutostartWatch.State.ENABLED -> Color(0xFF2E7D32)
+                                AutostartWatch.State.BLOCKED -> MaterialTheme.colorScheme.error
+                                AutostartWatch.State.UNKNOWN -> MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
+                    TextButton(onClick = onOpenAutostart) { Text(stringResource(R.string.autostart_open)) }
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.battery_title))
                     Text(
-                        stringResource(R.string.autostart_warning),
-                        style = MaterialTheme.typography.bodyMedium,
+                        stringResource(
+                            if (state.batteryExempt) R.string.battery_excluded
+                            else R.string.battery_optimization_warning
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (state.batteryExempt) Color(0xFF2E7D32)
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Button(onClick = onOpenAutostart) { Text(stringResource(R.string.autostart_open)) }
+                if (!state.batteryExempt) {
+                    TextButton(onClick = onRequestBattery) { Text(stringResource(R.string.battery_exclude)) }
+                }
             }
-
-            if (!state.batteryExempt) {
-                Text(
-                    stringResource(R.string.battery_optimization_warning),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Button(onClick = onRequestBattery) { Text(stringResource(R.string.battery_exclude)) }
-            } else {
-                Text(stringResource(R.string.battery_excluded), style = MaterialTheme.typography.bodyMedium)
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(stringResource(R.string.led_duration, (timeoutMs / 1000).toInt()), style = MaterialTheme.typography.bodyMedium)
-            Slider(
-                value = timeoutMs.toFloat(),
-                onValueChange = { onTimeoutChange(it.toLong()) },
-                // Applied per step (the LED follows the thumb), reported once at the end.
-                onValueChangeFinished = onTimeoutCommit,
-                valueRange = 1000f..30000f,
-                steps = 28,
-            )
         }
     }
 }
@@ -2903,54 +3091,49 @@ private val LANGUAGE_OPTIONS = listOf(
 )
 
 @Composable
-private fun LanguageToggle(currentLanguage: String, onLanguageChange: (String) -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(stringResource(R.string.language_label), modifier = Modifier.weight(1f))
-            FilterChip(
-                selected = currentLanguage == LanguageManager.LANG_EN,
-                onClick = { onLanguageChange(LanguageManager.LANG_EN) },
-                label = { Text("EN") },
-            )
-            FilterChip(
-                selected = currentLanguage == LanguageManager.LANG_FR,
-                onClick = { onLanguageChange(LanguageManager.LANG_FR) },
-                label = { Text("FR") },
-            )
-            FilterChip(
-                selected = currentLanguage == LanguageManager.LANG_RU,
-                onClick = { onLanguageChange(LanguageManager.LANG_RU) },
-                label = { Text("RU") },
-            )
-        }
-    }
-}
+private fun AppearanceCard(
+    currentLanguage: String,
+    onLanguageChange: (String) -> Unit,
+    themeMode: String,
+    onThemeChange: (String) -> Unit,
+) {
+    val languages = listOf(
+        LanguageManager.LANG_EN to "EN",
+        LanguageManager.LANG_FR to "FR",
+        LanguageManager.LANG_RU to "RU",
+    )
+    val themes = listOf(
+        ThemeManager.MODE_AUTO to R.string.theme_auto,
+        ThemeManager.MODE_LIGHT to R.string.theme_light,
+        ThemeManager.MODE_DARK to R.string.theme_dark,
+    )
 
-@Composable
-private fun ThemeToggle(themeMode: String, onThemeChange: (String) -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(R.string.theme), style = MaterialTheme.typography.titleMedium)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(
-                    selected = themeMode == ThemeManager.MODE_AUTO,
-                    onClick = { onThemeChange(ThemeManager.MODE_AUTO) },
-                    label = { Text(stringResource(R.string.theme_auto)) },
-                )
-                FilterChip(
-                    selected = themeMode == ThemeManager.MODE_LIGHT,
-                    onClick = { onThemeChange(ThemeManager.MODE_LIGHT) },
-                    label = { Text(stringResource(R.string.theme_light)) },
-                )
-                FilterChip(
-                    selected = themeMode == ThemeManager.MODE_DARK,
-                    onClick = { onThemeChange(ThemeManager.MODE_DARK) },
-                    label = { Text(stringResource(R.string.theme_dark)) },
-                )
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.language_label), modifier = Modifier.weight(1f))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    languages.forEach { (code, label) ->
+                        FilterChip(
+                            selected = currentLanguage == code,
+                            onClick = { onLanguageChange(code) },
+                            label = { Text(label) },
+                        )
+                    }
+                }
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.theme), modifier = Modifier.weight(1f))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    themes.forEach { (mode, label) ->
+                        FilterChip(
+                            selected = themeMode == mode,
+                            onClick = { onThemeChange(mode) },
+                            label = { Text(stringResource(label)) },
+                        )
+                    }
+                }
             }
         }
     }

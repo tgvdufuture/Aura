@@ -104,6 +104,8 @@ them on a single dashboard named **Aura**.
 | Colour previews | Trend, breakdown | `app_rule_previewed` broken down by `is_custom` — how often the palette is tried before someone reaches for a custom colour |
 | LED duration | Trend, breakdown | `led_duration_changed` broken down by `seconds` — a pile-up at the 30 s clamp means the limit is the wanted value, not the slider |
 | System LED switch | Trend, breakdown | `system_led_toggled` broken down by `disabled` — the HyperOS **notification pulse** only (`false` = the pulse is back). It says nothing about charging or call light effects, which are separate HyperOS scenes and were never under this key |
+| LED brightness | Trend, breakdown | `led_brightness_changed` broken down by `percent` — how many users dim the ring, and how far; a pile-up at the 10 % floor means the default is too bright for night use |
+| LED fade | Trend, breakdown | `led_fade_toggled` broken down by `enabled` — whether steady notifications are asked to fade instead of switching on |
 | Background service | Trend, breakdown | `service_toggled` (`running = true`) — how many keep the always-on service, i.e. who accepts the battery trade-off once it is spelled out |
 | Quiet hours edited | Trend | `reminder_quiet_hours_changed` — the reminder adopted and then tuned; edits right after `reminder_toggled` mean the default window is wrong |
 | Reminder lifetime | Trend, breakdown | `reminder_duration_changed` broken down by `seconds` (`0` = until dismissed) — whether users cap the loop, and at what lifetime; a pile-up at 5 min says the default (no cap) is too long for the field |

@@ -22,6 +22,7 @@ import com.aura.led.data.RuleRepository
 import com.aura.led.data.SettingsKeys
 import com.aura.led.engine.RuleEngine
 import com.aura.led.led.LEDController
+import com.aura.led.led.LedAppearance
 import com.aura.led.led.LedCommand
 import com.aura.led.led.ShizukuLEDController
 import kotlinx.coroutines.CoroutineScope
@@ -237,6 +238,13 @@ class AuraNotificationListener : NotificationListenerService() {
         scope.launch {
             val ms = repository.getSetting(SettingsKeys.LED_TIMEOUT_MS, "10000").toLongOrNull() ?: 10_000L
             ShizukuLEDController.ledTimeoutMs = ms.coerceIn(1_000L, 30_000L)
+            val brightness = repository.getSetting(
+                SettingsKeys.LED_BRIGHTNESS_PERCENT,
+                LedAppearance.DEFAULT_BRIGHTNESS_PERCENT.toString(),
+            ).toIntOrNull() ?: LedAppearance.DEFAULT_BRIGHTNESS_PERCENT
+            ShizukuLEDController.ledBrightnessPercent = LedAppearance.clampBrightness(brightness)
+            ShizukuLEDController.fadeEnabled =
+                repository.getBoolSetting(SettingsKeys.LED_FADE_ENABLED, false)
             // A UI-driven config update may arrive before onCreate finishes loading;
             // the pending value mirrors the latest UI state, which Room also holds.
             reminderConfig = pendingConfig ?: loadReminderConfig()

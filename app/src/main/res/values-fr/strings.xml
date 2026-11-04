@@ -22,66 +22,72 @@
     <string name="no_apps_found">Aucune app trouvée</string>
 
     <string name="shizuku">Shizuku</string>
-    <string name="shizuku_reactivate">Shizuku à réactiver (redémarrage ?)</string>
-    <string name="shizuku_permission_required">Shizuku actif — autorisation Aura requise</string>
-    <string name="shizuku_connected">Shizuku connecté</string>
-    <string name="shizuku_help">Ouvre l\'app Shizuku → « Démarrer par connexion à un ordinateur » → « Voir la commande », puis exécute-la depuis le PC.</string>
-    <string name="shizuku_request_permission">Demander l\'autorisation</string>
-    <string name="shizuku_test_led">Tester la LED (rouge)</string>
-    <string name="shizuku_test_ok">Test réussi — l’anneau s’est allumé.</string>
-    <string name="shizuku_test_failed">Le test a échoué. Vérifiez que Shizuku est actif et autorisé, puis réessayez une fois.</string>
-    <string name="shizuku_test_unsupported">Trois échecs d’affilée : le service d’éclairage qu’Aura pilote n’est pas disponible sur ce téléphone — l’anneau ne peut pas s’allumer, quel que soit le nombre d’essais.</string>
+    <string name="shizuku_reactivate">Shizuku à relancer</string>
+    <string name="shizuku_permission_required">Autorisation requise</string>
+    <string name="shizuku_connected">Connecté</string>
+    <string name="shizuku_help">Ouvrez Shizuku, démarrez-le, puis réessayez.</string>
+    <string name="shizuku_request_permission">Autoriser</string>
+    <string name="shizuku_test_led">Tester la LED</string>
+    <string name="shizuku_test_ok">Anneau allumé ✓</string>
+    <string name="shizuku_test_failed">Échec. Vérifiez Shizuku et réessayez.</string>
+    <string name="shizuku_test_unsupported">Service d\'éclairage indisponible sur ce téléphone.</string>
     <string name="shizuku_test_confirm">L\'anneau s\'est-il allumé ?</string>
-    <string name="shizuku_test_confirm_yes">Oui, il s\'est allumé</string>
-    <string name="shizuku_test_confirm_no">Non, il est resté éteint</string>
-    <string name="shizuku_test_no_light">L\'anneau est resté éteint alors que la commande a été envoyée. Vérifiez que les effets de lumière arrière d\'HyperOS sont activés, puis réessayez.</string>
-    <string name="shizuku_test_hyperos_hint">Ce sont les effets de lumière arrière d\'HyperOS qui alimentent l\'anneau : Paramètres → Paramètres supplémentaires → Effets de lumière arrière.</string>
-    <string name="shizuku_test_hyperos_off">L\'anneau est resté éteint et la LED de notification d\'HyperOS est désactivée. Si vous l\'avez désactivée dans les réglages HyperOS (et non dans Aura), réactivez-la puis réessayez.</string>
-    <string name="root_connected">Accès root détecté — Shizuku n’est pas requis</string>
+    <string name="shizuku_test_confirm_yes">Oui</string>
+    <string name="shizuku_test_confirm_no">Non</string>
+    <string name="shizuku_test_no_light">Anneau éteint. Vérifiez les effets de lumière HyperOS.</string>
+    <string name="shizuku_test_hyperos_hint">HyperOS : Paramètres → Paramètres supplémentaires → Effets de lumière arrière.</string>
+    <string name="shizuku_test_hyperos_off">Anneau éteint et LED HyperOS désactivée. Réactivez-la dans HyperOS.</string>
+    <string name="root_connected">Root détecté</string>
     <string name="led_preview">Aperçu LED</string>
     <string name="led_preview_failed">Impossible d\'allumer la LED — Shizuku actif ou accès root disponible ?</string>
 
-    <string name="system_led">LED de notification HyperOS</string>
-    <string name="system_led_shizuku_required">Shizuku ou l\'accès root est requis pour modifier la LED de notification d\'HyperOS.</string>
-    <string name="system_led_disable">Couper la pulsation de notification HyperOS</string>
-    <string name="system_led_disabled">Pulsation de notification HyperOS coupée ✓</string>
-    <string name="system_led_active">Pulsation de notification HyperOS active (double allumage possible)</string>
-    <string name="system_led_scope">Seule la pulsation de notification est coupée. La charge et les appels sont des scènes HyperOS distinctes : Aura ne peut pas les désactiver.</string>
+    <string name="system_led">LED HyperOS</string>
+    <string name="system_led_shizuku_required">Shizuku ou root requis.</string>
+    <string name="system_led_disable">Couper la pulsation</string>
+    <string name="system_led_disabled">Pulsation coupée ✓</string>
+    <string name="system_led_active">Pulsation active</string>
+    <string name="system_led_scope">La charge et les appels sont des scènes HyperOS distinctes : Aura n\'y touche pas.</string>
 
-    <string name="robustness">Robustesse</string>
+    <string name="robustness">Fiabilité</string>
     <string name="service_background">Service en arrière-plan</string>
-    <string name="service_running">Service actif ✓ (notification persistante)</string>
-    <string name="service_stopped">Service arrêté — les notifications ne piloteront plus les LED en arrière-plan</string>
-    <string name="battery_optimization_warning">L\'optimisation batterie d\'HyperOS peut tuer Aura en arrière-plan.</string>
-    <string name="battery_exclude">Exclure de l\'optimisation batterie</string>
-    <string name="battery_excluded">Optimisation batterie : exclu ✓</string>
-    <string name="listener_status">Listener de notifications</string>
-    <string name="listener_connected">Connecté — les notifications pilotent les LED ✓</string>
-    <string name="listener_disconnected">Déconnecté — aucune LED tant qu\'il n\'est pas reconnecté</string>
-    <string name="listener_reconnect">Ouvrir les réglages d\'accès aux notifications</string>
-    <string name="autostart_title">Démarrage auto (HyperOS)</string>
-    <string name="autostart_warning">HyperOS peut empêcher Aura de redémarrer en arrière-plan. Autorisez le démarrage auto pour que la LED continue après un redémarrage.</string>
-    <string name="autostart_open">Ouvrir les réglages de démarrage auto</string>
-    <string name="autostart_state_enabled">Vérifié : Aura est revenue après le dernier redémarrage du téléphone, sans que vous l’ouvriez.</string>
-    <string name="autostart_state_blocked">Aura n’est pas revenue après le dernier redémarrage du téléphone. HyperOS peut bloquer les redémarrages en arrière-plan : vérifiez le démarrage auto.</string>
-    <string name="autostart_state_unknown">Pas encore vérifié : Aura n’a vu aucun redémarrage du téléphone depuis son installation.</string>
-    <string name="led_duration">Durée d\'allumage LED : %1$d s</string>
+    <string name="service_running">Service actif ✓</string>
+    <string name="service_stopped">Notifications en arrière-plan désactivées.</string>
+    <string name="battery_title">Optimisation batterie</string>
+    <string name="battery_optimization_warning">Active — peut arrêter Aura en arrière-plan.</string>
+    <string name="battery_exclude">Exclure</string>
+    <string name="battery_excluded">Exclue ✓</string>
+    <string name="listener_status">Notifications</string>
+    <string name="listener_connected">Connecté ✓</string>
+    <string name="listener_disconnected">Déconnecté</string>
+    <string name="listener_reconnect">Reconnecter</string>
+    <string name="autostart_title">Démarrage auto</string>
+    <string name="autostart_warning">HyperOS peut bloquer le redémarrage après un reboot.</string>
+    <string name="autostart_open">Ouvrir</string>
+    <string name="autostart_state_enabled">Vérifié ✓</string>
+    <string name="autostart_state_blocked">Bloqué — autorisez le démarrage auto.</string>
+    <string name="autostart_state_unknown">Non vérifié — autorisez le démarrage auto.</string>
+    <string name="led_duration">Durée d\'allumage : %1$d s</string>
+    <string name="led_appearance">Éclairage</string>
+    <string name="led_brightness">Luminosité : %1$d %%</string>
+    <string name="led_fade">Fondu (0,5 s)</string>
+    <string name="led_fade_hint">Les couleurs fixes s\'allument et s\'éteignent en fondu sur 0,5 s.</string>
+    <string name="led_scope">S\'applique aux couleurs d\'Aura.</string>
 
     <!-- Rappel persistant -->
     <string name="reminder_title">Rappel persistant</string>
-    <string name="reminder_description">Continue de faire clignoter la LED tant qu\'une notification reste non lue, pour ne pas la manquer en s\'éloignant du téléphone. Désactivé par défaut.</string>
-    <string name="reminder_enable">Répéter jusqu\'au renvoi</string>
-    <string name="reminder_interval">Rappel toutes les : %1$d s</string>
-    <string name="reminder_interval_limited">La LED reste allumée %1$d s : le prochain flash ne peut pas démarrer avant, avec une courte pause.</string>
-    <string name="reminder_duration">Durée du rappel : %1$s</string>
+    <string name="reminder_description">Fait clignoter la LED tant qu\'une notification reste non lue.</string>
+    <string name="reminder_enable">Rappel tant que non lu</string>
+    <string name="reminder_interval">Intervalle : %1$d s</string>
+    <string name="reminder_interval_limited">Prochain flash après %1$d s d\'allumage.</string>
+    <string name="reminder_duration">Durée : %1$s</string>
     <string name="reminder_duration_until_dismissed">Jusqu\'au renvoi</string>
     <string name="reminder_duration_minutes">%1$d min</string>
     <string name="reminder_duration_hours">%1$d h</string>
     <string name="reminder_quiet_hours">Heures silencieuses</string>
     <string name="reminder_quiet_start">Début</string>
     <string name="reminder_quiet_end">Fin</string>
-    <string name="reminder_quiet_hint">Aucun rappel pendant cette plage. Le mode Ne pas déranger coupe aussi les rappels.</string>
-    <string name="reminder_quiet_disabled_hint">Début et fin identiques : heures silencieuses désactivées.</string>
+    <string name="reminder_quiet_hint">Aucun rappel pendant cette plage.</string>
+    <string name="reminder_quiet_disabled_hint">Désactivées (début = fin).</string>
 
     <string name="default_color">Couleur par défaut</string>
     <string name="identify_sender">Identifier l\'expéditeur</string>
@@ -121,18 +127,19 @@
     <string name="consent_update_hint">Une requête par jour vers GitHub. Aucun identifiant envoyé.</string>
     <string name="consent_details_show">Que reçoit-on exactement ?</string>
     <string name="consent_details_hide">Masquer le détail</string>
-    <string name="consent_details">• Un identifiant d’installation anonyme (aléatoire, lié ni à votre compte ni à votre matériel)\n• Version de l’app, version d’Android, modèle, langue, thème\n• Fonctionnalités utilisées : apps activées, couleurs, règles par contact, animations, durée de la LED, rappel, options de soutien\n• Chaque étape de configuration et si elle a réussi, y compris si le listener de notifications est resté connecté\n• Vérifications de mise à jour\n\nJamais envoyé : le contenu des notifications, le nom d’un contact ou d’un groupe, le texte d’un message, le carnet d’adresses ou la liste de vos applications.</string>
+    <string name="consent_details">• Un identifiant d’installation anonyme (aléatoire, lié ni à votre compte ni à votre matériel)\n• Version de l’app, version d’Android, modèle, langue, thème\n• Fonctionnalités utilisées : apps activées, couleurs, règles par contact, animations, durée, luminosité et fondu de la LED, rappel, options de soutien\n• Chaque étape de configuration et si elle a réussi, y compris si le listener de notifications est resté connecté\n• Vérifications de mise à jour\n\nJamais envoyé : le contenu des notifications, le nom d’un contact ou d’un groupe, le texte d’un message, le carnet d’adresses ou la liste de vos applications.</string>
     <string name="consent_accept">Partager les statistiques anonymes</string>
     <string name="consent_decline">Non merci</string>
     <string name="consent_close">Fermer</string>
 
     <!-- Statistiques anonymes -->
     <string name="analytics_title">Statistiques anonymes</string>
-    <string name="analytics_description">Statistiques d’usage facultatives, pour prioriser les prochaines fonctionnalités. Désactivées jusqu’à votre accord, révocables à tout moment.</string>
-    <string name="analytics_enable">Partager les statistiques anonymes</string>
-    <string name="analytics_update_check">Vérifier les nouvelles versions</string>
-    <string name="analytics_what_is_sent">Envoyé : version de l’app et d’Android, modèle, fonctionnalités utilisées, étapes de configuration. Jamais envoyé : contenu des notifications, noms de contacts, textes de messages.</string>
-    <string name="analytics_review_screen">Revoir l’écran de confidentialité</string>
+    <string name="analytics_description">Aidez à prioriser les prochaines fonctions. Désactivé par défaut, révocable à tout moment.</string>
+    <string name="analytics_enable">Partager les statistiques</string>
+    <string name="analytics_update_check">Vérifier les mises à jour</string>
+    <string name="analytics_what_is_sent">Jamais envoyé : notifications, contacts, messages.</string>
+    <string name="analytics_privacy_note">Identifiant d\'installation anonyme. PostHog Cloud (UE), conservation 12 mois.</string>
+    <string name="analytics_review_screen">Écran de confidentialité</string>
 
     <!-- Mise à jour -->
     <string name="update_title">Aura %1$s est disponible</string>
@@ -141,24 +148,29 @@
     <string name="update_channel_name">Nouvelles versions</string>
     <string name="update_channel_description">Vous prévient quand une nouvelle version d’Aura est publiée, sans ouvrir l’app. Un contrôle par jour.</string>
     <string name="update_notes_title">Nouveautés</string>
-    <string name="star_repo">Ajouter une étoile sur GitHub</string>
+    <string name="star_repo">Étoile sur GitHub</string>
     <string name="update_download">Télécharger</string>
     <string name="later">Plus tard</string>
     <string name="update_failed">Impossible d’ouvrir la page de téléchargement</string>
 
     <!-- Soutien : le don est la vraie voie aujourd’hui ; la version payante est listée, puis demandée une fois -->
-    <string name="support_title">Garder Aura indépendant</string>
-    <string name="support_intro">Aucune publicité, aucune version payante aujourd’hui. Les dons financent le temps que ça demande, et ils comptent que vous partagiez ou non les statistiques.</string>
-    <string name="support_donate">Faire un don sur Ko-fi</string>
-    <string name="support_offer_title">Ce qu’une version payante pourrait ajouter</string>
-    <string name="support_offer_items">• Bibliothèque d’animations communautaire : parcourir, prévisualiser et importer les animations partagées par d’autres utilisateurs\n• Sauvegarde et restauration de vos règles\n• Profils horaires : nuit, travail, week-end\n• Automatisation via Tasker et raccourcis</string>
-    <string name="support_question">Comment préféreriez-vous soutenir Aura ?</string>
-    <string name="support_open_question">Répondre à la question</string>
-    <string name="support_answer_donation">Faire un don ponctuel</string>
-    <string name="support_answer_one_time">Acheter la version payante une fois</string>
-    <string name="support_answer_subscription">Payer un abonnement mensuel</string>
-    <string name="support_answer_nothing">Aucun paiement, ni maintenant ni plus tard</string>
-    <string name="support_answer_saved">Enregistré. Appuyez sur une autre réponse pour changer.</string>
+    <string name="support_title">Soutenir Aura</string>
+    <string name="support_intro">Sans publicité. Les dons financent le développement.</string>
+    <string name="support_donate">Faire un don</string>
+    <string name="support_question">Comment soutenir Aura ?</string>
+    <string name="support_question_lead">Aura est gratuite et sans publicité. Les dons sont la seule voie disponible aujourd\'hui ; une version payante est à l\'étude.</string>
+    <string name="support_funding_title">Les dons financent</string>
+    <string name="support_funding_items">• Le temps de développement\n• Les outils, l\'hébergement et les tests sur appareil</string>
+    <string name="support_offer_title">Version payante à l\'étude</string>
+    <string name="support_offer_items">• Animations communautaires : parcourir, prévisualiser, importer\n• Sauvegarde et restauration des règles\n• Profils horaires : nuit, travail, week-end\n• Automatisation Tasker et raccourcis</string>
+    <string name="support_offer_hint">Rien n\'est encore à vendre.</string>
+    <string name="support_choice_prompt">Quelle option vous conviendrait ?</string>
+    <string name="support_open_question">Répondre</string>
+    <string name="support_answer_donation">Don ponctuel</string>
+    <string name="support_answer_one_time">Achat unique</string>
+    <string name="support_answer_subscription">Abonnement</string>
+    <string name="support_answer_nothing">Aucun paiement</string>
+    <string name="support_answer_saved">Enregistré. Modifiable à tout moment.</string>
 
     <!-- Choix de la langue (premier lancement) -->
     <!-- Empty states: the firefly mascot's poses are on screen, the words carry the meaning -->

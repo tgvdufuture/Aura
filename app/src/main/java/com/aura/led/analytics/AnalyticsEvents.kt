@@ -47,6 +47,8 @@ object AnalyticsEvents {
     const val SENDER_RULE_DELETED = "sender_rule_deleted"
     const val ANIMATION_SELECTED = "animation_selected"
     const val LED_DURATION_CHANGED = "led_duration_changed"
+    const val LED_BRIGHTNESS_CHANGED = "led_brightness_changed"
+    const val LED_FADE_TOGGLED = "led_fade_toggled"
     const val SYSTEM_LED_TOGGLED = "system_led_toggled"
     const val SERVICE_TOGGLED = "service_toggled"
     const val THEME_CHANGED = "theme_changed"
@@ -87,6 +89,7 @@ object AnalyticsEvents {
     const val P_IS_CUSTOM = "is_custom"
     const val P_ANIMATION_ID = "animation_id"
     const val P_SECONDS = "seconds"
+    const val P_PERCENT = "percent"
     const val P_DISABLED = "disabled"
     const val P_RUNNING = "running"
     const val P_MODE = "mode"
@@ -123,7 +126,7 @@ object AnalyticsEvents {
     /** Every property key a call site is allowed to send. */
     val PROPERTY_KEYS: Set<String> = setOf(
         P_LANGUAGE, P_KIND, P_SUCCESS, P_TARGET_PACKAGE, P_ENABLED, P_IS_CUSTOM,
-        P_ANIMATION_ID, P_SECONDS, P_DISABLED, P_RUNNING, P_MODE, P_INTERVAL_S,
+        P_ANIMATION_ID, P_SECONDS, P_PERCENT, P_DISABLED, P_RUNNING, P_MODE, P_INTERVAL_S,
         P_REASON, P_RESULT, P_LATEST_TAG, P_ANSWER, P_CHANNEL, P_SOURCE,
         P_THEME, P_LOCALE, P_IS_FIRST_RUN, P_IS_UPDATE, P_LISTENER_CONNECTED, P_LISTENER_ENABLED,
         P_PRIVILEGE,

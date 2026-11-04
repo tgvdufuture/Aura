@@ -18,6 +18,8 @@ object SenderKind {
 
 object SettingsKeys {
     const val LED_TIMEOUT_MS = "ledTimeoutMs"
+    const val LED_BRIGHTNESS_PERCENT = "ledBrightnessPercent"
+    const val LED_FADE_ENABLED = "ledFadeEnabled"
     const val SCREEN_OFF_ONLY = "screenOffOnly"
     const val SYSTEM_LED_DISABLED = "systemLedDisabled"
 

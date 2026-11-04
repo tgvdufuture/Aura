@@ -70,6 +70,18 @@ class StringResourceParityTest {
         "reminder_duration_minutes",
         "reminder_duration_hours",
         "reminder_interval_limited",
+        "led_appearance",
+        "led_brightness",
+        "led_fade",
+        "led_fade_hint",
+        "led_scope",
+        "battery_title",
+        "support_question_lead",
+        "support_funding_title",
+        "support_funding_items",
+        "support_offer_hint",
+        "support_choice_prompt",
+        "analytics_privacy_note",
     )
 
     /** The labels of the support question: the copy a user reads before answering. */
