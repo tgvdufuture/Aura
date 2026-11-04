@@ -58,6 +58,18 @@ class StringResourceParityTest {
         "shizuku_test_ok",
         "shizuku_test_failed",
         "shizuku_test_unsupported",
+        "shizuku_test_confirm",
+        "shizuku_test_confirm_yes",
+        "shizuku_test_confirm_no",
+        "shizuku_test_no_light",
+        "shizuku_test_hyperos_hint",
+        "shizuku_test_hyperos_off",
+        "system_led_scope",
+        "reminder_duration",
+        "reminder_duration_until_dismissed",
+        "reminder_duration_minutes",
+        "reminder_duration_hours",
+        "reminder_interval_limited",
     )
 
     /** The labels of the support question: the copy a user reads before answering. */

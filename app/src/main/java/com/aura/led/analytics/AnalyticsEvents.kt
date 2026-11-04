@@ -52,6 +52,9 @@ object AnalyticsEvents {
     const val THEME_CHANGED = "theme_changed"
     const val REMINDER_TOGGLED = "reminder_toggled"
     const val REMINDER_INTERVAL_CHANGED = "reminder_interval_changed"
+
+    /** Seconds the loop is allowed to run; 0 means until the notification is dismissed. */
+    const val REMINDER_DURATION_CHANGED = "reminder_duration_changed"
     const val REMINDER_QUIET_HOURS_CHANGED = "reminder_quiet_hours_changed"
     const val LED_EMITTED = "led_emitted"
 

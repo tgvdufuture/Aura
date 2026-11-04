@@ -24,6 +24,7 @@ object SettingsKeys {
     // Persistent reminder loop (PRD docs/PRD-persistent-reminder.md, Phase 1).
     const val REMINDER_ENABLED = "reminderEnabled"
     const val REMINDER_INTERVAL_MS = "reminderIntervalMs"
+    const val REMINDER_DURATION_MS = "reminderDurationMs"
     const val REMINDER_QUIET_START = "reminderQuietStart"
     const val REMINDER_QUIET_END = "reminderQuietEnd"
 }

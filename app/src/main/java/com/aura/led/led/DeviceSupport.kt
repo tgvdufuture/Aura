@@ -83,6 +83,16 @@ object DeviceSupport {
     fun failuresAreConclusive(failuresInARow: Int): Boolean = failuresInARow >= CONCLUSIVE_FAILURES
 
     /**
+     * Whether one answer about the ring says something about the phone itself.
+     *
+     * A lit ring always does: that is the hardware working. A dark one only when HyperOS was not a
+     * suspect — with its notification light off, the OS may be refusing to light the hardware, so a
+     * "no" says nothing about whether `miui.lights` exists.
+     */
+    fun answerIsConclusive(observed: Boolean, hyperOsLightOff: Boolean): Boolean =
+        observed || !hyperOsLightOff
+
+    /**
      * True when the app should tell the user this device cannot drive the light.
      *
      * Two ways in, and they are different in kind: [verdict] knows the family before any setup, while

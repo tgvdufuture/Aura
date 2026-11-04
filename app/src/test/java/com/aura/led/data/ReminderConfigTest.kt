@@ -35,8 +35,40 @@ class ReminderConfigTest {
     fun `defaults match the frozen PRD decisions`() {
         assertEquals(false, ReminderConfig().enabled)
         assertEquals(15_000L, ReminderConfig().intervalMs)
+        // The loop used to run until dismissed; the cap is opt-in, so the default keeps that.
+        assertEquals(ReminderDuration.UNTIL_DISMISSED, ReminderConfig().durationMs)
         assertEquals("23:00", ReminderConfig().quietStart)
         assertEquals("07:00", ReminderConfig().quietEnd)
+    }
+
+    // ---- ReminderDuration.clamp ----
+
+    @Test
+    fun `duration keeps zero and bounds a stored value`() {
+        assertEquals(0L, ReminderDuration.clamp(-5L))
+        assertEquals(0L, ReminderDuration.clamp(0L))
+        assertEquals(60_000L, ReminderDuration.clamp(1L))
+        assertEquals(5 * 60_000L, ReminderDuration.clamp(5 * 60_000L))
+        assertEquals(24 * 60 * 60_000L, ReminderDuration.clamp(Long.MAX_VALUE))
+    }
+
+    @Test
+    fun `every offered duration is usable as stored`() {
+        for (option in ReminderDuration.OPTIONS_MS) {
+            assertEquals(option, ReminderDuration.clamp(option))
+        }
+    }
+
+    // ---- ReminderTiming.effectiveIntervalMs ----
+
+    @Test
+    fun `the effective interval always leaves the ring dark between flashes`() {
+        // The reported example: a flash every 5 s, 3 s on.
+        assertEquals(5_000L, ReminderTiming.effectiveIntervalMs(5_000L, 3_000L))
+        // A light left on longer than the interval used to keep the ring lit across ticks.
+        assertEquals(10_500L, ReminderTiming.effectiveIntervalMs(5_000L, 10_000L))
+        // Equal values still need the off gap.
+        assertEquals(5_500L, ReminderTiming.effectiveIntervalMs(5_000L, 5_000L))
     }
 
     // ---- QuietHours.parseHHmm ----

@@ -15,7 +15,9 @@ import com.aura.led.analytics.AnalyticsEvents
 import com.aura.led.data.AppDatabase
 import com.aura.led.data.QuietHours
 import com.aura.led.data.ReminderConfig
+import com.aura.led.data.ReminderDuration
 import com.aura.led.data.ReminderInterval
+import com.aura.led.data.ReminderTiming
 import com.aura.led.data.RuleRepository
 import com.aura.led.data.SettingsKeys
 import com.aura.led.engine.RuleEngine
@@ -90,17 +92,25 @@ class AuraNotificationListener : NotificationListenerService() {
     /** Round-robin position over the most-recent-first [active] list. */
     private var reminderRotationIndex = 0
 
+    /** When the current loop started; a configured duration is counted from here (wall clock). */
+    private var reminderStartedAtMs = 0L
+
     private suspend fun loadReminderConfig(): ReminderConfig {
         val enabled = repository.getBoolSetting(SettingsKeys.REMINDER_ENABLED, false)
         val intervalMs = repository.getSetting(
             SettingsKeys.REMINDER_INTERVAL_MS,
             ReminderConfig.DEFAULT_INTERVAL_MS.toString(),
         ).toLongOrNull() ?: ReminderConfig.DEFAULT_INTERVAL_MS
+        val durationMs = repository.getSetting(
+            SettingsKeys.REMINDER_DURATION_MS,
+            ReminderConfig.DEFAULT_DURATION_MS.toString(),
+        ).toLongOrNull() ?: ReminderConfig.DEFAULT_DURATION_MS
         val start = repository.getSetting(SettingsKeys.REMINDER_QUIET_START, ReminderConfig.DEFAULT_QUIET_START)
         val end = repository.getSetting(SettingsKeys.REMINDER_QUIET_END, ReminderConfig.DEFAULT_QUIET_END)
         return ReminderConfig(
             enabled = enabled,
             intervalMs = ReminderInterval.clamp(intervalMs),
+            durationMs = ReminderDuration.clamp(durationMs),
             quietStart = start,
             quietEnd = end,
         )
@@ -114,6 +124,7 @@ class AuraNotificationListener : NotificationListenerService() {
         if (!reminderConfig.enabled) return
         if (reminderJob?.isActive == true) return
         reminderRotationIndex = 0
+        reminderStartedAtMs = System.currentTimeMillis()
         reminderJob = scope.launch { reminderLoop() }
         Log.d(TAG, "reminder loop started")
     }
@@ -136,6 +147,14 @@ class AuraNotificationListener : NotificationListenerService() {
         while (true) {
             val config = currentReminderConfig()
             if (!config.enabled) return
+            // Wall-clock lifetime, not time spent flashing: a duration caps how long the reminder
+            // exists, so a loop paused by the screen or quiet hours does not get a second life.
+            if (config.durationMs > 0 &&
+                System.currentTimeMillis() - reminderStartedAtMs >= config.durationMs
+            ) {
+                Log.d(TAG, "reminder loop stopped: duration ${config.durationMs}ms elapsed")
+                return
+            }
             // Pause while the screen is on (PRD: no flash during use) or night suppression applies.
             if (isScreenOn() || isSuppressedAtNight()) {
                 Log.d(TAG, "reminder tick skipped (screen on=${isScreenOn()} night=${isSuppressedAtNight()})")
@@ -146,7 +165,13 @@ class AuraNotificationListener : NotificationListenerService() {
                 Log.d(TAG, "reminder flash for key=${entry.key}")
                 emit(entry.command)
             }
-            delay(config.intervalMs.coerceAtLeast(MIN_REMINDER_INTERVAL_MS))
+            // The ring must go dark between two flashes: when the LED stays on longer than the
+            // configured interval, the reminder used to keep it lit across ticks.
+            val pauseMs = ReminderTiming.effectiveIntervalMs(
+                config.intervalMs,
+                ShizukuLEDController.ledTimeoutMs,
+            )
+            delay(pauseMs.coerceAtLeast(MIN_REMINDER_INTERVAL_MS))
         }
     }
 

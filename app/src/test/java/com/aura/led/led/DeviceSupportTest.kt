@@ -90,6 +90,20 @@ class DeviceSupportTest {
         assertEquals(2, DeviceSupport.nextFailureStreak(1, success = false))
     }
 
+    /**
+     * The second kind of inconclusive answer: a dark ring says nothing about the phone while
+     * HyperOS's own notification light is off, because the OS may be refusing to light the hardware.
+     * Measured on a POCO X8 Pro on HyperOS 3.0.303: the command is accepted and nothing happens.
+     */
+    @Test
+    fun `a dark ring under an off hyperos light is not a verdict on the phone`() {
+        assertTrue(DeviceSupport.answerIsConclusive(observed = true, hyperOsLightOff = false))
+        assertTrue(DeviceSupport.answerIsConclusive(observed = true, hyperOsLightOff = true))
+        assertFalse(DeviceSupport.answerIsConclusive(observed = false, hyperOsLightOff = true))
+        // With the HyperOS light on, a dark ring is the phone's answer.
+        assertTrue(DeviceSupport.answerIsConclusive(observed = false, hyperOsLightOff = false))
+    }
+
     @Test
     fun `three is the threshold, and the smallest number the data allows`() {
         assertEquals(3, DeviceSupport.CONCLUSIVE_FAILURES)

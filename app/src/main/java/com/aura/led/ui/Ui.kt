@@ -106,7 +106,9 @@ import com.aura.led.analytics.AnalyticsPrefs
 import com.aura.led.data.AppRule
 import com.aura.led.data.QuietHours
 import com.aura.led.data.ReminderConfig
+import com.aura.led.data.ReminderDuration
 import com.aura.led.data.ReminderInterval
+import com.aura.led.data.ReminderTiming
 import com.aura.led.data.SenderKind
 import com.aura.led.data.SenderRule
 import com.aura.led.data.SettingsKeys
@@ -384,6 +386,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     data class ReminderState(
         val enabled: Boolean = false,
         val intervalMs: Long = ReminderConfig.DEFAULT_INTERVAL_MS,
+        val durationMs: Long = ReminderConfig.DEFAULT_DURATION_MS,
         val quietStart: String = ReminderConfig.DEFAULT_QUIET_START,
         val quietEnd: String = ReminderConfig.DEFAULT_QUIET_END,
     )
@@ -400,6 +403,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             ReminderConfig(
                 enabled = state.enabled,
                 intervalMs = state.intervalMs,
+                durationMs = state.durationMs,
                 quietStart = state.quietStart,
                 quietEnd = state.quietEnd,
             )
@@ -436,6 +440,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         Analytics.track(
             AnalyticsEvents.REMINDER_INTERVAL_CHANGED,
             mapOf(AnalyticsEvents.P_INTERVAL_S to seconds),
+        )
+    }
+
+    /**
+     * Caps how long one reminder loop may run. 0 means "until dismissed", the historical behaviour;
+     * the chips are discrete, so each accepted value is one decision and one event.
+     */
+    fun setReminderDuration(ms: Long) {
+        val clamped = ReminderDuration.clamp(ms)
+        if (_reminder.value.durationMs == clamped) return
+        _reminder.value = _reminder.value.copy(durationMs = clamped)
+        pushReminderToListener(_reminder.value)
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.setSetting(SettingsKeys.REMINDER_DURATION_MS, clamped.toString())
+        }
+        Analytics.track(
+            AnalyticsEvents.REMINDER_DURATION_CHANGED,
+            mapOf(AnalyticsEvents.P_SECONDS to (clamped / 1000).toInt()),
         )
     }
 
@@ -552,7 +574,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * [lastResult] is `null` until the first test; the streak survives the process (see
      * [LedTestStreak]) because the phone does not change between launches.
      */
-    data class LedTestState(val streak: Int = 0, val lastResult: Boolean? = null) {
+    data class LedTestState(
+        val streak: Int = 0,
+        /**
+         * What the user saw, not what the binder replied: `null` until they answer the confirmation
+         * prompt. A command the service accepts is not a lit ring (see [testLed]).
+         */
+        val lastResult: Boolean? = null,
+        /** The command was accepted and the card is waiting for "did the ring light up?". */
+        val awaitingConfirmation: Boolean = false,
+        /** The command never reached the service: a setup failure, not a dark ring to confirm. */
+        val commandFailed: Boolean = false,
+        /** HyperOS's notification light (`notification_light_pulse`) was off when the test ran. */
+        val hyperOsLightOff: Boolean = false,
+    ) {
         /** The phone has already answered the question, not the user: see [DeviceSupport]. */
         val conclusive: Boolean get() = DeviceSupport.failuresAreConclusive(streak)
     }
@@ -565,21 +600,72 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // Read before the attempt: holding the privilege is what makes a failure say something about
         // the phone instead of saying the user has not granted Shizuku yet.
         val privileged = ShizukuManager.state.value.hasPermission || RootManager.state.value.available
-        val success = led.setColor("#ff0000").getOrDefault(false)
-        Analytics.track(
-            AnalyticsEvents.SETUP_LED_TEST_RUN,
-            mapOf(AnalyticsEvents.P_SUCCESS to success),
-        )
-        // The card answers either way — a button that says nothing is how a user reaches eighty
-        // attempts — but only an attempt that ran is counted against the phone: counting the others
-        // is how a working phone, tested before its grant, would be told it is broken.
-        _ledTest.value = LedTestState(
-            streak = if (privileged) {
-                LedTestStreak.record(getApplication(), success)
+        // HyperOS's back light effects gate the ring itself, and the one key Aura can read is the
+        // notification pulse it also writes. Captured now so a "no" can name the cause it was tested
+        // under instead of guessing at it.
+        val hyperOsLightOff = SystemLedManager.isDisabled(getApplication())
+        val sent = led.setColor("#ff0000").getOrDefault(false)
+
+        if (!sent) {
+            // The command never reached the service: nothing lit up, so there is nothing to confirm.
+            // Only an attempt that ran is counted against the phone — counting a test made before the
+            // grant is how a working phone would be told it is broken.
+            val streak = if (privileged) {
+                LedTestStreak.record(getApplication(), success = false)
             } else {
                 _ledTest.value.streak
-            },
-            lastResult = success,
+            }
+            Analytics.track(
+                AnalyticsEvents.SETUP_LED_TEST_RUN,
+                mapOf(AnalyticsEvents.P_SUCCESS to false),
+            )
+            _ledTest.value = LedTestState(
+                streak = streak,
+                lastResult = false,
+                commandFailed = true,
+                hyperOsLightOff = hyperOsLightOff,
+            )
+            return@launch
+        }
+
+        // The service accepted the command — that is all a binder reply can say. Whether the ring
+        // actually lit is visible only to the person holding the phone, so ask instead of claiming:
+        // the old flow turned this reply into "the ring lit up", which is what a user whose HyperOS
+        // back light is off saw while nothing happened.
+        _ledTest.value = LedTestState(
+            streak = _ledTest.value.streak,
+            awaitingConfirmation = true,
+            hyperOsLightOff = hyperOsLightOff,
+        )
+    }
+
+    /**
+     * The user's answer to the confirmation prompt. The answer *is* the test result: a lit ring
+     * resets the failure streak, a dark one adds to it, and neither is inferred from the binder.
+     *
+     * A dark ring while HyperOS's own notification light is off is not counted against the phone:
+     * the OS may simply be refusing to light the hardware, so the attempt says nothing about whether
+     * the light service exists.
+     */
+    fun confirmTestLed(observed: Boolean) {
+        val state = _ledTest.value
+        if (!state.awaitingConfirmation) return
+        // The prompt only exists for a command the service accepted, i.e. an attempt that ran; no
+        // second privilege read, which could ignore a real answer if the grant was revoked meanwhile.
+        val streak = if (DeviceSupport.answerIsConclusive(observed, state.hyperOsLightOff)) {
+            LedTestStreak.record(getApplication(), observed)
+        } else {
+            state.streak
+        }
+        _ledTest.value = state.copy(
+            streak = streak,
+            lastResult = observed,
+            awaitingConfirmation = false,
+            commandFailed = false,
+        )
+        Analytics.track(
+            AnalyticsEvents.SETUP_LED_TEST_RUN,
+            mapOf(AnalyticsEvents.P_SUCCESS to observed),
         )
     }
 
@@ -1012,11 +1098,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 SettingsKeys.REMINDER_INTERVAL_MS,
                 ReminderConfig.DEFAULT_INTERVAL_MS.toString(),
             ).toLongOrNull() ?: ReminderConfig.DEFAULT_INTERVAL_MS
+            val durationMs = repository.getSetting(
+                SettingsKeys.REMINDER_DURATION_MS,
+                ReminderConfig.DEFAULT_DURATION_MS.toString(),
+            ).toLongOrNull() ?: ReminderConfig.DEFAULT_DURATION_MS
             val quietStart = repository.getSetting(SettingsKeys.REMINDER_QUIET_START, ReminderConfig.DEFAULT_QUIET_START)
             val quietEnd = repository.getSetting(SettingsKeys.REMINDER_QUIET_END, ReminderConfig.DEFAULT_QUIET_END)
             _reminder.value = ReminderState(
                 enabled = enabled,
                 intervalMs = ReminderInterval.clamp(intervalMs),
+                durationMs = ReminderDuration.clamp(durationMs),
                 quietStart = quietStart,
                 quietEnd = quietEnd,
             )
@@ -1363,7 +1454,16 @@ fun SettingsScreen(
         ) {
             item { LanguageToggle(currentLanguage, onLanguageChange) }
             item { ThemeToggle(themeMode, onThemeChange) }
-            item { ShizukuCard(shizuku, root, ledTest, onRequest = viewModel::requestShizuku, onTest = viewModel::testLed) }
+            item {
+                ShizukuCard(
+                    shizuku,
+                    root,
+                    ledTest,
+                    onRequest = viewModel::requestShizuku,
+                    onTest = viewModel::testLed,
+                    onConfirm = viewModel::confirmTestLed,
+                )
+            }
             item {
                 SystemLedCard(
                     state = systemLed,
@@ -1385,9 +1485,11 @@ fun SettingsScreen(
             ) }
             item { ReminderCard(
                 state = reminder,
+                timeoutMs = ledSettings.timeoutMs,
                 onToggle = viewModel::setReminderEnabled,
                 onIntervalChange = viewModel::setReminderInterval,
                 onIntervalCommit = viewModel::commitReminderInterval,
+                onDurationChange = viewModel::setReminderDuration,
                 onQuietHoursChange = viewModel::setQuietHours,
             ) }
             item {
@@ -1954,13 +2056,25 @@ private fun ReleaseNoteLine(note: ReleaseNotes.Note) {
 }
 
 
-@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun reminderDurationLabel(ms: Long): String = when {
+    ms == ReminderDuration.UNTIL_DISMISSED ->
+        stringResource(R.string.reminder_duration_until_dismissed)
+    ms < 60 * 60_000L ->
+        stringResource(R.string.reminder_duration_minutes, (ms / 60_000L).toInt())
+    else ->
+        stringResource(R.string.reminder_duration_hours, (ms / 3_600_000L).toInt())
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun ReminderCard(
     state: MainViewModel.ReminderState,
+    timeoutMs: Long,
     onToggle: (Boolean) -> Unit,
     onIntervalChange: (Long) -> Unit,
     onIntervalCommit: () -> Unit,
+    onDurationChange: (Long) -> Unit,
     onQuietHoursChange: (String, String) -> Unit,
 ) {
     var editingField by remember { mutableStateOf<QuietField?>(null) }
@@ -1989,6 +2103,27 @@ private fun ReminderCard(
                     valueRange = 5_000f..120_000f,
                     steps = 22,
                 )
+                // Honest about the interaction the loop enforces: the LED must go dark before the
+                // next flash, so a long light duration slows the reminder down.
+                if (timeoutMs + ReminderTiming.MIN_OFF_GAP_MS > state.intervalMs) {
+                    Text(
+                        stringResource(R.string.reminder_interval_limited, (timeoutMs / 1000).toInt()),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Text(
+                    stringResource(R.string.reminder_duration, reminderDurationLabel(state.durationMs)),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ReminderDuration.OPTIONS_MS.forEach { option ->
+                        FilterChip(
+                            selected = state.durationMs == option,
+                            onClick = { onDurationChange(option) },
+                            label = { Text(reminderDurationLabel(option)) },
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(stringResource(R.string.reminder_quiet_hours), style = MaterialTheme.typography.titleSmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -2058,6 +2193,7 @@ private fun ShizukuCard(
     test: MainViewModel.LedTestState,
     onRequest: () -> Unit,
     onTest: () -> Unit,
+    onConfirm: (Boolean) -> Unit,
 ) {
     val (statusColor, statusTextRes) = when {
         root.available && !state.hasPermission -> Color(0xFF2E7D32) to R.string.root_connected
@@ -2096,20 +2232,52 @@ private fun ShizukuCard(
             // before — and the conclusive line wins over a fresh failure, because the phone's answer
             // does not change with the number of attempts.
             when {
+                test.awaitingConfirmation -> {
+                    Text(
+                        stringResource(R.string.shizuku_test_confirm),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { onConfirm(true) }) {
+                            Text(stringResource(R.string.shizuku_test_confirm_yes))
+                        }
+                        OutlinedButton(onClick = { onConfirm(false) }) {
+                            Text(stringResource(R.string.shizuku_test_confirm_no))
+                        }
+                    }
+                }
                 test.lastResult == true -> Text(
                     stringResource(R.string.shizuku_test_ok),
                     style = MaterialTheme.typography.bodySmall,
+                )
+                // A dark ring under an off HyperOS light is ambiguous, not the phone's verdict: the
+                // OS may be refusing to light the hardware. Say that instead of "unsupported".
+                test.lastResult == false && test.hyperOsLightOff && !test.commandFailed -> Text(
+                    stringResource(R.string.shizuku_test_hyperos_off),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 test.conclusive -> Text(
                     stringResource(R.string.shizuku_test_unsupported),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
-                test.lastResult == false -> Text(
-                    stringResource(R.string.shizuku_test_failed),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                test.lastResult == false -> {
+                    Text(
+                        stringResource(
+                            if (test.commandFailed) R.string.shizuku_test_failed
+                            else R.string.shizuku_test_no_light
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (!test.commandFailed) {
+                        Text(
+                            stringResource(R.string.shizuku_test_hyperos_hint),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
             }
         }
     }
@@ -2146,6 +2314,11 @@ private fun SystemLedCard(
                 Text(
                     stringResource(if (state.disabled) R.string.system_led_disabled else R.string.system_led_active),
                     style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    stringResource(R.string.system_led_scope),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

@@ -39,6 +39,11 @@ class LedTestWarningTest {
             ui.contains("test.conclusive"),
         )
         assertTrue(
+            "a command the service accepted is not a result until the user has looked at the ring",
+            ui.contains("test.awaitingConfirmation") &&
+                ui.contains("R.string.shizuku_test_confirm"),
+        )
+        assertTrue(
             "a phone that lit up once is a phone that works: the success line has to be able to win",
             ui.indexOf("test.lastResult == true") < ui.indexOf("test.conclusive"),
         )
@@ -76,13 +81,42 @@ class LedTestWarningTest {
             testLed.contains("ShizukuManager.state.value.hasPermission || RootManager.state.value.available"),
         )
         assertTrue(
-            "the streak must be recorded only under that privilege",
-            testLed.contains("if (privileged)") && testLed.contains("LedTestStreak.record(getApplication(), success)"),
+            "the streak must be recorded only under that privilege, from what the user saw",
+            testLed.contains("if (privileged)") &&
+                testLed.contains("LedTestStreak.record(getApplication(), success = false)") &&
+                testLed.contains("LedTestStreak.record(getApplication(), observed)"),
         )
         assertTrue(
             "the count has to survive the process: a user who closes the app on the message must not " +
                 "have to fail three more times to see it again",
             ui.contains("LedTestStreak.failuresInARow(application)"),
+        )
+    }
+
+    /**
+     * The binder reply says the service accepted the command, never that the ring lit up. On a phone
+     * whose HyperOS back light is off the transaction succeeds and nothing happens (field report on a
+     * POCO X8 Pro, HyperOS 3.0.303), so the test asks the only witness that can see the ring.
+     */
+    @Test
+    fun `a delivered command is confirmed by the user before it counts as a success`() {
+        assertTrue(
+            "the accepted command is being turned into a lit ring without asking",
+            testLed.contains("awaitingConfirmation = true"),
+        )
+        assertTrue(
+            "the answer has to come back through a confirmation entry point",
+            testLed.contains("fun confirmTestLed(observed: Boolean)"),
+        )
+        assertTrue(
+            "the card does not offer both answers",
+            ui.contains("R.string.shizuku_test_confirm_yes") &&
+                ui.contains("R.string.shizuku_test_confirm_no"),
+        )
+        assertTrue(
+            "a dark ring under an off HyperOS light must not become the phone's verdict",
+            ui.contains("test.hyperOsLightOff") &&
+                ui.contains("R.string.shizuku_test_hyperos_off"),
         )
     }
 

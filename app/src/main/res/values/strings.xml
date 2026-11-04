@@ -37,16 +37,23 @@
     <string name="shizuku_test_ok">Test passed — the ring lit up.</string>
     <string name="shizuku_test_failed">The test failed. Check that Shizuku is running and authorized, then try once more.</string>
     <string name="shizuku_test_unsupported">Three attempts in a row failed: the light service Aura drives is not available on this phone, so the ring cannot light up however many times you try.</string>
+    <string name="shizuku_test_confirm">Did the ring light up?</string>
+    <string name="shizuku_test_confirm_yes">Yes, it lit up</string>
+    <string name="shizuku_test_confirm_no">No, it stayed dark</string>
+    <string name="shizuku_test_no_light">The ring stayed dark even though the command was sent. Check that HyperOS back light effects are enabled, then try again.</string>
+    <string name="shizuku_test_hyperos_hint">HyperOS\'s back light effects are what power the ring: Settings → Additional settings → Back light effects.</string>
+    <string name="shizuku_test_hyperos_off">The ring stayed dark and HyperOS\'s notification light is off. If you turned it off in HyperOS settings (not in Aura), turn it back on and try again.</string>
     <string name="root_connected">Root access detected — Shizuku is not required</string>
     <string name="led_preview">Preview LED</string>
     <string name="led_preview_failed">Couldn\'t light the LED — is Shizuku active or is root access available?</string>
 
     <!-- System LED -->
-    <string name="system_led">System LED</string>
-    <string name="system_led_shizuku_required">Shizuku or root access is required to disable the HyperOS notification LED.</string>
-    <string name="system_led_disable">Disable the HyperOS LED</string>
-    <string name="system_led_disabled">System LED disabled ✓</string>
-    <string name="system_led_active">System LED active (double lighting possible)</string>
+    <string name="system_led">HyperOS notification light</string>
+    <string name="system_led_shizuku_required">Shizuku or root access is required to change HyperOS\'s notification light.</string>
+    <string name="system_led_disable">Turn off the HyperOS notification pulse</string>
+    <string name="system_led_disabled">HyperOS notification pulse off ✓</string>
+    <string name="system_led_active">HyperOS notification pulse on (double lighting possible)</string>
+    <string name="system_led_scope">Only the notification pulse is turned off. Charging and call light effects are separate HyperOS scenes: Aura cannot disable those.</string>
 
     <!-- Robustness -->
     <string name="robustness">Robustness</string>
@@ -73,6 +80,11 @@
     <string name="reminder_description">Keeps flashing the LED while a notification stays unread, so you don\'t miss it when away from the phone. Off by default.</string>
     <string name="reminder_enable">Repeat until dismissed</string>
     <string name="reminder_interval">Reminder every: %1$d s</string>
+    <string name="reminder_interval_limited">The LED stays on for %1$d s, so the next flash cannot start before that plus a short off gap.</string>
+    <string name="reminder_duration">Reminder duration: %1$s</string>
+    <string name="reminder_duration_until_dismissed">Until dismissed</string>
+    <string name="reminder_duration_minutes">%1$d min</string>
+    <string name="reminder_duration_hours">%1$d h</string>
     <string name="reminder_quiet_hours">Quiet hours</string>
     <string name="reminder_quiet_start">Start</string>
     <string name="reminder_quiet_end">End</string>

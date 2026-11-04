@@ -31,15 +31,22 @@
     <string name="shizuku_test_ok">Test réussi — l’anneau s’est allumé.</string>
     <string name="shizuku_test_failed">Le test a échoué. Vérifiez que Shizuku est actif et autorisé, puis réessayez une fois.</string>
     <string name="shizuku_test_unsupported">Trois échecs d’affilée : le service d’éclairage qu’Aura pilote n’est pas disponible sur ce téléphone — l’anneau ne peut pas s’allumer, quel que soit le nombre d’essais.</string>
+    <string name="shizuku_test_confirm">L\'anneau s\'est-il allumé ?</string>
+    <string name="shizuku_test_confirm_yes">Oui, il s\'est allumé</string>
+    <string name="shizuku_test_confirm_no">Non, il est resté éteint</string>
+    <string name="shizuku_test_no_light">L\'anneau est resté éteint alors que la commande a été envoyée. Vérifiez que les effets de lumière arrière d\'HyperOS sont activés, puis réessayez.</string>
+    <string name="shizuku_test_hyperos_hint">Ce sont les effets de lumière arrière d\'HyperOS qui alimentent l\'anneau : Paramètres → Paramètres supplémentaires → Effets de lumière arrière.</string>
+    <string name="shizuku_test_hyperos_off">L\'anneau est resté éteint et la LED de notification d\'HyperOS est désactivée. Si vous l\'avez désactivée dans les réglages HyperOS (et non dans Aura), réactivez-la puis réessayez.</string>
     <string name="root_connected">Accès root détecté — Shizuku n’est pas requis</string>
     <string name="led_preview">Aperçu LED</string>
     <string name="led_preview_failed">Impossible d\'allumer la LED — Shizuku actif ou accès root disponible ?</string>
 
-    <string name="system_led">LED système</string>
-    <string name="system_led_shizuku_required">Shizuku ou l\'accès root est requis pour désactiver la LED de notification d\'HyperOS.</string>
-    <string name="system_led_disable">Désactiver la LED HyperOS</string>
-    <string name="system_led_disabled">LED système désactivée ✓</string>
-    <string name="system_led_active">LED système active (double allumage possible)</string>
+    <string name="system_led">LED de notification HyperOS</string>
+    <string name="system_led_shizuku_required">Shizuku ou l\'accès root est requis pour modifier la LED de notification d\'HyperOS.</string>
+    <string name="system_led_disable">Couper la pulsation de notification HyperOS</string>
+    <string name="system_led_disabled">Pulsation de notification HyperOS coupée ✓</string>
+    <string name="system_led_active">Pulsation de notification HyperOS active (double allumage possible)</string>
+    <string name="system_led_scope">Seule la pulsation de notification est coupée. La charge et les appels sont des scènes HyperOS distinctes : Aura ne peut pas les désactiver.</string>
 
     <string name="robustness">Robustesse</string>
     <string name="service_background">Service en arrière-plan</string>
@@ -65,6 +72,11 @@
     <string name="reminder_description">Continue de faire clignoter la LED tant qu\'une notification reste non lue, pour ne pas la manquer en s\'éloignant du téléphone. Désactivé par défaut.</string>
     <string name="reminder_enable">Répéter jusqu\'au renvoi</string>
     <string name="reminder_interval">Rappel toutes les : %1$d s</string>
+    <string name="reminder_interval_limited">La LED reste allumée %1$d s : le prochain flash ne peut pas démarrer avant, avec une courte pause.</string>
+    <string name="reminder_duration">Durée du rappel : %1$s</string>
+    <string name="reminder_duration_until_dismissed">Jusqu\'au renvoi</string>
+    <string name="reminder_duration_minutes">%1$d min</string>
+    <string name="reminder_duration_hours">%1$d h</string>
     <string name="reminder_quiet_hours">Heures silencieuses</string>
     <string name="reminder_quiet_start">Début</string>
     <string name="reminder_quiet_end">Fin</string>

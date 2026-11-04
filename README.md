@@ -24,7 +24,7 @@ En français : Aura permet de personnaliser la **LED arrière**, la **lumière d
 - **"Last one wins" with smart fallback**: a new notification replaces the previous state, and dismissing it falls back to the previous one.
 - **Auto-restart on boot**: the service and notification listener reconnect automatically after a reboot.
 - **Light / dark / auto theme**: manual toggle in Settings (follows the system by default).
-- **System LED disabled** on HyperOS to avoid double lighting (single driver).
+- **HyperOS notification pulse turned off** to avoid double lighting. Charging and call light effects are separate HyperOS scenes and stay; that key cannot disable them.
 - **Configurable light duration** (1–30 s, default 10 s).
 - **English / French / Russian UI**: language picker on first launch (choice persisted, switchable from Settings).
 - Works even when **notification content is hidden on the lock screen** (content recovered via Shizuku — see *How it works*).
@@ -39,7 +39,7 @@ En français : Aura permet de personnaliser la **LED arrière**, la **lumière d
 
 Get the latest signed APK from the [releases page](https://github.com/tgvdufuture/Aura/releases/latest):
 
-- **[v0.6.5](https://github.com/tgvdufuture/Aura/releases/tag/v0.6.5)** — `app-release.apk`
+- **[v0.7.0](https://github.com/tgvdufuture/Aura/releases/tag/v0.7.0)** — `app-release.apk`
 
 > **POCO X8 Pro and X8 Pro Max (Redmi Turbo 5 Max) only.** Aura drives the rear RGB ring, which only
 > the Xiaomi/HyperOS family exposes. On any other phone no notification lights anything up, with or
@@ -143,7 +143,7 @@ HyperOS aggressively kills background apps, so do both of these in **Settings �
 
 ### 6. (Optional) Avoid double lighting
 
-HyperOS lights the ring itself too. In **Settings**, disable **"System LED"** so only Aura drives the ring.
+HyperOS lights the ring itself too. In **Settings**, turn off the **HyperOS notification pulse** so notifications are not lit twice. Charging and call light effects are separate HyperOS scenes and remain under the system.
 
 ## How it works
 
@@ -170,7 +170,7 @@ The POCO X8 Pro Max, also called Redmi Turbo 5 Max, shares the same RGB ring har
 
 ### Which HyperOS notification light settings should I use?
 
-Enable the phone's back light effects first, then disable HyperOS's System LED in Aura so that only Aura controls the notification ring and double lighting is avoided.
+Enable the phone's back light effects first, then turn off HyperOS's notification pulse in Aura so notifications are not lit twice. Charging and call light effects stay with HyperOS: Aura cannot disable those.
 
 ### Recherches en français
 

@@ -9,8 +9,12 @@ import rikka.shizuku.Shizuku
 import com.aura.led.root.RootManager
 
 /**
- * Disables the HyperOS default notification LED (`notification_light_pulse`, system namespace)
- * so Aura is the single LED driver (US-05 / F1.5).
+ * Turns off the HyperOS notification pulse (`notification_light_pulse`, system namespace) so a
+ * notification is not lit twice (US-05 / F1.5).
+ *
+ * This key covers the notification pulse only: charging and call light effects are separate
+ * HyperOS scenes and stay under the system's control. The card and the README say so, because
+ * "system LED disabled" used to promise more than this write can do.
  *
  * HyperOS rejects a plain WRITE_SETTINGS write ("You cannot change private secure settings"),
  * so the write goes through Shizuku (`IShizukuService.newProcess`) or a root shell, both of
@@ -23,7 +27,7 @@ object SystemLedManager {
     fun isDisabled(context: Context): Boolean =
         Settings.System.getInt(context.contentResolver, KEY, 1) == 0
 
-    /** Whether we can drive the system LED (Shizuku or root). */
+    /** Whether we can change the HyperOS notification pulse (Shizuku or root). */
     fun canControl(): Boolean = runCatching {
         hasShizukuAccess() || RootManager.state.value.available
     }.getOrDefault(false)
