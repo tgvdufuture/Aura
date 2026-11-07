@@ -1,5 +1,8 @@
 package com.aura.led.led
 
+import kotlin.math.PI
+import kotlin.math.cos
+
 /**
  * How a colour is presented, kept pure so the arithmetic is testable without Android.
  *
@@ -9,7 +12,9 @@ package com.aura.led.led
  * without moving the system's.
  *
  * A fade is a short series of dark-to-full frames through `setColorCommon`, the only lights
- * transaction without an auto-off timer (see [ShizukuLEDController.fade]).
+ * transaction without an auto-off timer (see [ShizukuLEDController.fade]). A breath uses the same
+ * transaction, one frame per [BREATH_FRAME_MS], so it never re-arms the camera auto-off that made
+ * it cut.
  */
 object LedAppearance {
     const val MIN_BRIGHTNESS_PERCENT = 10
@@ -19,6 +24,23 @@ object LedAppearance {
     /** A fade long enough to read as a fade, short enough to leave the light visibly on. */
     const val FADE_MS = 500L
     private const val MIN_FADE_MS = 100L
+
+    /**
+     * One slow inhale + exhale, and the interval between two frames of the emulated breath.
+     *
+     * Frames go through `setColorCommon`, which has no auto-off timer: one frame every 150 ms makes
+     * a calm 3 s breath without the cuts a camera-style call per tick caused.
+     */
+    const val BREATH_CYCLE_MS = 3_000L
+    const val BREATH_FRAME_MS = 150L
+    private const val BREATH_FRAMES = (BREATH_CYCLE_MS / BREATH_FRAME_MS).toInt()
+
+    /**
+     * The ring never goes fully dark inside a breath: a black trough reads as a cut, not a pause.
+     * 5 % keeps a trace of colour at the bottom without flattening the dip (owner feedback: 15 %
+     * did not fall far enough).
+     */
+    const val BREATH_MIN_LEVEL = 0.05f
 
     fun clampBrightness(percent: Int): Int =
         percent.coerceIn(MIN_BRIGHTNESS_PERCENT, MAX_BRIGHTNESS_PERCENT)
@@ -33,6 +55,20 @@ object LedAppearance {
     /** Dims the RGB channels, leaving alpha alone; the lights service overwrites alpha anyway. */
     fun dim(color: Int, percent: Int): Int =
         scale(color, clampBrightness(percent) / 100f)
+
+    /**
+     * Level of an emulated breath at [frame]: 0 at the trough, 1 at the peak, sine-shaped so the
+     * change reads as a breath instead of a step. The camera ring ignores its own breath mode on
+     * HyperOS, which is why the pulse is drawn frame by frame (see `ShizukuLEDController`).
+     */
+    fun breathLevel(frame: Int): Float {
+        val phase = ((frame % BREATH_FRAMES) + BREATH_FRAMES) % BREATH_FRAMES
+        return ((1 - cos(2 * PI * phase / BREATH_FRAMES)) / 2).toFloat()
+    }
+
+    /** The colour of one breath frame: the sine envelope, lifted off black by [BREATH_MIN_LEVEL]. */
+    fun breathColor(color: Int, level: Float): Int =
+        fadeColor(color, BREATH_MIN_LEVEL + (1f - BREATH_MIN_LEVEL) * level.coerceIn(0f, 1f))
 
     /** Colour at [progress] through a fade. Zero is a real clear, not "black with alpha". */
     fun fadeColor(color: Int, progress: Float): Int {

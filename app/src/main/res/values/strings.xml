@@ -95,10 +95,13 @@
     <string name="reminder_quiet_start">Start</string>
     <string name="reminder_quiet_end">End</string>
     <string name="reminder_quiet_hint">No reminders during this window.</string>
+    <string name="reminder_quiet_all_lights">Silence all lights</string>
+    <string name="reminder_quiet_all_lights_hint">No light at all during this window.</string>
     <string name="reminder_quiet_disabled_hint">Off (start = end).</string>
 
     <!-- App rules -->
     <string name="default_color">Default color</string>
+    <string name="lighting_mode">Lighting mode</string>
     <string name="identify_sender">Identify sender</string>
     <string name="sender_rules">Sender rules</string>
     <string name="no_rules">No rules.</string>

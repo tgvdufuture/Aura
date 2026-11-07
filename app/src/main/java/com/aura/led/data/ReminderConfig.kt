@@ -12,12 +12,28 @@ data class ReminderConfig(
     val durationMs: Long = DEFAULT_DURATION_MS,
     val quietStart: String = DEFAULT_QUIET_START,
     val quietEnd: String = DEFAULT_QUIET_END,
+    /** Silence the arrival light too, not only the reminder loop, inside the window. */
+    val quietAllLights: Boolean = DEFAULT_QUIET_ALL_LIGHTS,
 ) {
+    /**
+     * True when the quiet-hours window should keep the ring dark for every light Aura drives.
+     * [QuietHours.isInRange] already treats `start == end` as "quiet hours off".
+     */
+    fun silencesAllLightsAt(nowMinutes: Int): Boolean {
+        if (!quietAllLights) return false
+        val start = QuietHours.parseHHmm(quietStart) ?: return false
+        val end = QuietHours.parseHHmm(quietEnd) ?: return false
+        return QuietHours.isInRange(nowMinutes, start, end)
+    }
+
     companion object {
         const val DEFAULT_INTERVAL_MS = 15_000L
         const val DEFAULT_DURATION_MS = 0L
         const val DEFAULT_QUIET_START = "23:00"
         const val DEFAULT_QUIET_END = "07:00"
+
+        /** On by default: a quiet window that still flashes is the defect users report. */
+        const val DEFAULT_QUIET_ALL_LIGHTS = true
     }
 }
 

@@ -67,6 +67,23 @@ class RuleEngineTest {
     }
 
     @Test
+    fun `app-level animation applies when no sender rule matches`() = runTest {
+        val app = enabledApp.copy(defaultAnimationId = "breathing")
+        val senders = listOf(sender(SenderKind.CONTACT, "papa", "#ff0000", "rainbow"))
+        val result = engine(app = app, senders = senders).resolve("com.whatsapp", "Maman", null, true)
+        assertEquals("#111111", result?.colorHex)
+        assertEquals("breathing", result?.animationId)
+    }
+
+    @Test
+    fun `a sender rule still overrides the app animation`() = runTest {
+        val app = enabledApp.copy(defaultAnimationId = "breathing")
+        val senders = listOf(sender(SenderKind.CONTACT, "maman", "#ff0000", "rainbow"))
+        val result = engine(app = app, senders = senders).resolve("com.whatsapp", "Maman", null, true)
+        assertEquals("rainbow", result?.animationId)
+    }
+
+    @Test
     fun `matches contact exactly`() = runTest {
         val senders = listOf(sender(SenderKind.CONTACT, "maman", "#ff0000", "breathing"))
         val result = engine(senders = senders).resolve("com.whatsapp", "maman", null, true)

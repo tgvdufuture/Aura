@@ -73,9 +73,9 @@ class ShizukuLEDController : LEDController {
         const val STYLE_RHYTHM = 3
         const val PKG = "com.android.camera"
         const val STYLE_CAMERA = 12
+
         const val MODE_STEADY = 0
         const val MODE_FLASH = 1
-        const val MODE_BREATH = 2
 
         // miui.lights schedules an auto-off timer at onMs on every call. A large onMs
         // while updating quickly makes the ring appear stuck on the first color (see the
@@ -108,6 +108,10 @@ class ShizukuLEDController : LEDController {
     /** Runs the fade-in/hold/fade-out frames; cancelled by every new command. */
     @Volatile
     private var fadeJob: Job? = null
+
+    /** True while a breath lights the rhythm strip, which has no timer and must be cleared by us. */
+    @Volatile
+    private var breathOnRhythmStrip = false
 
     override fun setColor(colorHex: String): Result<Boolean> {
         val color = ColorMapper.hexToInt(colorHex)
@@ -163,15 +167,7 @@ class ShizukuLEDController : LEDController {
         val color = ColorMapper.hexToInt(colorHex)
             ?: return Result.failure(IllegalArgumentException("Bad color: $colorHex"))
         return when (animationId) {
-            Animations.BREATHING -> {
-                cancelEffects()
-                setWithSpacedClear(
-                    LedAppearance.dim(color, ledBrightnessPercent),
-                    MODE_BREATH,
-                    2000,
-                    2000,
-                )
-            }
+            Animations.BREATHING -> startBreathing(color)
             Animations.CHARGING -> {
                 cancelEffects()
                 setWithSpacedClear(
@@ -204,9 +200,62 @@ class ShizukuLEDController : LEDController {
         val wasFading = fadeJob?.isActive == true
         fadeJob?.cancel()
         fadeJob = null
-        // A cancelled fade leaves its last frame on the rhythm strip. Clear that zone too: the next
-        // command drives the camera style, which would otherwise leave the old colour behind.
-        if (wasFading) transactColorCommon(0)
+        val wasBreathing = breathOnRhythmStrip
+        breathOnRhythmStrip = false
+        // A cancelled effect leaves its last frame on the rhythm strip. Clear that zone too: the
+        // next command drives the camera style, which would otherwise leave the old colour behind.
+        if (wasFading || wasBreathing) transactColorCommon(0)
+    }
+
+    /**
+     * Draws a breath by recolouring an already-claimed strip, one frame at a time.
+     *
+     * `setCustomLight` schedules an auto-off timer on every call (see the timing note above), so
+     * animation-speed frames through it flicker — and the marker call that carried `onMs = 0`
+     * extinguished the strip outright, which is the cut users still saw (report 2026-11-07).
+     * `setColorCommon` has no timer at all: one camera-style call takes the strip over for the
+     * whole breath, then each frame only changes its colour. That is the same two steps as [fade],
+     * which is why the fade stays smooth at 25 ms per step.
+     *
+     * `flashMode = MODE_BREATH` is still not used: the camera scene ignores it and the effect is
+     * identical to Flashing (report 2026-11-06).
+     */
+    private fun startBreathing(color: Int): Result<Boolean> {
+        val useShizuku = hasShizukuAccess()
+        if (!useShizuku && !RootManager.isAvailable()) {
+            return Result.failure(IllegalStateException("Shizuku and root unavailable"))
+        }
+        cancelEffects()
+        val dimmed = LedAppearance.dim(color, ledBrightnessPercent)
+        val onMs = ledTimeoutMs
+        // Resolve the backend once: the Shizuku permission check is two IPC round-trips, and
+        // running it between two frames would make the breath stutter.
+        fun sendFrame(frameColor: Int): Result<Boolean> =
+            if (useShizuku) transactColorCommonBinder(frameColor) else transactColorCommonAsRoot(frameColor)
+        // Take the strip over for the whole breath: the rhythm transaction has no timer, so the
+        // camera auto-off would otherwise extinguish the breath at its own deadline.
+        val claimed =
+            if (useShizuku) transactLightBinder(0, MODE_STEADY, onMs.toInt(), 0, STYLE_CAMERA)
+            else transactLightAsRoot(0, MODE_STEADY, onMs.toInt(), 0, STYLE_CAMERA)
+        if (claimed.isFailure) return claimed
+        breathOnRhythmStrip = true
+        animationJob = scope.launch {
+            val deadline = System.currentTimeMillis() + onMs
+            var frame = 0
+            while (isActive && System.currentTimeMillis() < deadline) {
+                sendFrame(LedAppearance.breathColor(dimmed, LedAppearance.breathLevel(frame)))
+                    .onFailure { Log.e("AuraLed", "breath frame failed", it) }
+                delay(LedAppearance.BREATH_FRAME_MS)
+                frame++
+            }
+            if (isActive) {
+                breathOnRhythmStrip = false
+                // The rhythm strip has no timer: the last frame stays lit until we clear it.
+                sendFrame(0)
+                turnOffLight()
+            }
+        }
+        return Result.success(true)
     }
 
     /**
@@ -326,8 +375,11 @@ class ShizukuLEDController : LEDController {
     }
 
     /** `setColorCommon` (transaction 2): the flicker-free path for animation-speed colour changes. */
-    private fun transactColorCommon(color: Int): Result<Boolean> {
-        if (!hasShizukuAccess()) return transactColorCommonAsRoot(color)
+    private fun transactColorCommon(color: Int): Result<Boolean> =
+        if (hasShizukuAccess()) transactColorCommonBinder(color) else transactColorCommonAsRoot(color)
+
+    /** Binder path without the permission re-check, used for the back-to-back breath frames. */
+    private fun transactColorCommonBinder(color: Int): Result<Boolean> {
         val service = serviceBinder()
             ?: return Result.failure(IllegalStateException("miui.lights service unavailable"))
         return runCatching {
@@ -361,8 +413,27 @@ class ShizukuLEDController : LEDController {
         }.onFailure { Log.e("AuraLed", "root setColorCommon failed", it) }
     }
 
-    private fun transactLight(color: Int, mode: Int, onMs: Int, offMs: Int): Result<Boolean> {
-        if (!hasShizukuAccess()) return transactLightAsRoot(color, mode, onMs, offMs)
+    private fun transactLight(
+        color: Int,
+        mode: Int,
+        onMs: Int,
+        offMs: Int,
+        styleType: Int = STYLE_CAMERA,
+    ): Result<Boolean> =
+        if (hasShizukuAccess()) {
+            transactLightBinder(color, mode, onMs, offMs, styleType)
+        } else {
+            transactLightAsRoot(color, mode, onMs, offMs, styleType)
+        }
+
+    /** Binder path without the permission re-check, used for the back-to-back breath frames. */
+    private fun transactLightBinder(
+        color: Int,
+        mode: Int,
+        onMs: Int,
+        offMs: Int,
+        styleType: Int = STYLE_CAMERA,
+    ): Result<Boolean> {
         val service = serviceBinder()
             ?: return Result.failure(IllegalStateException("miui.lights service unavailable"))
         return runCatching {
@@ -378,7 +449,7 @@ class ShizukuLEDController : LEDController {
                 data.writeInt(offMs)          // off duration
                 data.writeInt(0)              // brightnessMode
                 data.writeString(PKG)         // must be com.android.camera
-                data.writeInt(STYLE_CAMERA)   // styleType 12 = camera
+                data.writeInt(styleType)      // 12 = camera (force); -1 = marker reset
                 data.writeInt(0)              // userId
                 binder.transact(TRANSACTION_setCustomLight, data, reply, 0)
                 reply.readException()
@@ -395,10 +466,16 @@ class ShizukuLEDController : LEDController {
             Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED
     }.getOrDefault(false)
 
-    private fun transactLightAsRoot(color: Int, mode: Int, onMs: Int, offMs: Int): Result<Boolean> {
+    private fun transactLightAsRoot(
+        color: Int,
+        mode: Int,
+        onMs: Int,
+        offMs: Int,
+        styleType: Int = STYLE_CAMERA,
+    ): Result<Boolean> {
         val command = "service call $SERVICE $TRANSACTION_setCustomLight " +
             "i32 $color i32 $mode i32 $onMs i32 $offMs i32 0 " +
-            "s16 $PKG i32 $STYLE_CAMERA i32 0"
+            "s16 $PKG i32 $styleType i32 0"
         return RootManager.run(command).map { result ->
             if (result.exitCode != 0) {
                 throw IllegalStateException("service call exited with ${result.exitCode}: ${result.stdout}")

@@ -32,7 +32,7 @@ class RuleEngine(private val repository: RuleRepository) {
             }
         }
 
-        return LedCommand(appRule.defaultColorHex, null)
+        return LedCommand(appRule.defaultColorHex, appRule.defaultAnimationId)
     }
 
     /**

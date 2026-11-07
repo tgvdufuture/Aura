@@ -9,6 +9,8 @@ import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Upsert
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
 
 object SenderKind {
@@ -29,6 +31,7 @@ object SettingsKeys {
     const val REMINDER_DURATION_MS = "reminderDurationMs"
     const val REMINDER_QUIET_START = "reminderQuietStart"
     const val REMINDER_QUIET_END = "reminderQuietEnd"
+    const val REMINDER_QUIET_ALL_LIGHTS = "reminderQuietAllLights"
 }
 
 @Entity(tableName = "app_rules")
@@ -37,6 +40,8 @@ data class AppRule(
     val displayName: String,
     val enabled: Boolean = false,
     val defaultColorHex: String = "#0aff10",
+    /** Animation for this app's own light, before any sender rule is considered. */
+    val defaultAnimationId: String? = null,
     val senderParsingEnabled: Boolean = false,
 )
 
@@ -97,7 +102,7 @@ interface RuleDao {
 
 @Database(
     entities = [AppRule::class, SenderRule::class, Setting::class],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -114,9 +119,17 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "aura.db",
                 )
+                    .addMigrations(MIGRATION_1_2)
                     .fallbackToDestructiveMigration()
                     .build()
                     .also { instance = it }
             }
+
+        /** v0.8.0 databases keep their app rules and gain the per-app animation column. */
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE app_rules ADD COLUMN defaultAnimationId TEXT")
+            }
+        }
     }
 }

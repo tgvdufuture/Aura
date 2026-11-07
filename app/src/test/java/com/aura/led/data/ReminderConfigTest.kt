@@ -91,6 +91,30 @@ class ReminderConfigTest {
         assertNull(QuietHours.parseHHmm("-1:00"))
     }
 
+    // ---- ReminderConfig.silencesAllLightsAt ----
+
+    @Test
+    fun `quiet hours silence every light only when the switch is on`() {
+        val on = ReminderConfig(quietAllLights = true)
+        assertTrue(on.silencesAllLightsAt(2 * 60))
+        assertFalse(on.silencesAllLightsAt(12 * 60))
+
+        val off = ReminderConfig(quietAllLights = false)
+        assertFalse(off.silencesAllLightsAt(2 * 60))
+    }
+
+    @Test
+    fun `quiet hours disabled means the switch silences nothing`() {
+        val config = ReminderConfig(quietStart = "23:00", quietEnd = "23:00", quietAllLights = true)
+        assertFalse(config.silencesAllLightsAt(23 * 60))
+    }
+
+    @Test
+    fun `malformed quiet hours never silence the ring`() {
+        val config = ReminderConfig(quietStart = "nope", quietEnd = "07:00", quietAllLights = true)
+        assertFalse(config.silencesAllLightsAt(2 * 60))
+    }
+
     // ---- QuietHours.isInRange ----
 
     @Test

@@ -432,6 +432,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val durationMs: Long = ReminderConfig.DEFAULT_DURATION_MS,
         val quietStart: String = ReminderConfig.DEFAULT_QUIET_START,
         val quietEnd: String = ReminderConfig.DEFAULT_QUIET_END,
+        val quietAllLights: Boolean = ReminderConfig.DEFAULT_QUIET_ALL_LIGHTS,
     )
 
     private val _reminder = MutableStateFlow(ReminderState())
@@ -449,6 +450,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 durationMs = state.durationMs,
                 quietStart = state.quietStart,
                 quietEnd = state.quietEnd,
+                quietAllLights = state.quietAllLights,
             )
         )
     }
@@ -519,6 +521,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         Analytics.track(AnalyticsEvents.REMINDER_QUIET_HOURS_CHANGED)
     }
 
+    /** Whether the quiet-hours window also mutes the arrival light, not only the reminder loop. */
+    fun setQuietAllLights(enabled: Boolean) {
+        if (_reminder.value.quietAllLights == enabled) return
+        _reminder.value = _reminder.value.copy(quietAllLights = enabled)
+        pushReminderToListener(_reminder.value)
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.setBoolSetting(SettingsKeys.REMINDER_QUIET_ALL_LIGHTS, enabled)
+        }
+        Analytics.track(AnalyticsEvents.REMINDER_QUIET_HOURS_CHANGED)
+    }
+
     data class AppInfo(val packageName: String, val label: String)
 
     val installedApps: List<AppInfo> = run {
@@ -553,6 +566,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 AnalyticsEvents.P_IS_CUSTOM to isCustomColor(color),
             ),
         )
+    }
+
+    fun setAnimation(pkg: String, label: String, animationId: String?) = viewModelScope.launch {
+        val existing = repository.getAppRule(pkg)
+        repository.upsertAppRule(
+            existing?.copy(defaultAnimationId = animationId) ?: AppRule(pkg, label, defaultAnimationId = animationId)
+        )
+        if (animationId != null) {
+            Analytics.track(
+                AnalyticsEvents.ANIMATION_SELECTED,
+                mapOf(
+                    AnalyticsEvents.P_ANIMATION_ID to animationId,
+                    AnalyticsEvents.P_TARGET_PACKAGE to pkg,
+                ),
+            )
+        }
     }
 
     fun setSenderParsing(pkg: String, label: String, enabled: Boolean) = viewModelScope.launch {
@@ -1158,12 +1187,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             ).toLongOrNull() ?: ReminderConfig.DEFAULT_DURATION_MS
             val quietStart = repository.getSetting(SettingsKeys.REMINDER_QUIET_START, ReminderConfig.DEFAULT_QUIET_START)
             val quietEnd = repository.getSetting(SettingsKeys.REMINDER_QUIET_END, ReminderConfig.DEFAULT_QUIET_END)
+            val quietAllLights = repository.getBoolSetting(
+                SettingsKeys.REMINDER_QUIET_ALL_LIGHTS,
+                ReminderConfig.DEFAULT_QUIET_ALL_LIGHTS,
+            )
             _reminder.value = ReminderState(
                 enabled = enabled,
                 intervalMs = ReminderInterval.clamp(intervalMs),
                 durationMs = ReminderDuration.clamp(durationMs),
                 quietStart = quietStart,
                 quietEnd = quietEnd,
+                quietAllLights = quietAllLights,
             )
         }
         // Single serialized worker for previews. collectLatest cancels the pending settle
@@ -1409,6 +1443,8 @@ fun MainScreen(
                     senderRules = rulesByApp[app.packageName].orEmpty(),
                     onToggle = { viewModel.setEnabled(app.packageName, app.label, it) },
                     onColor = { viewModel.setColor(app.packageName, app.label, it) },
+                    onAnimation = { viewModel.setAnimation(app.packageName, app.label, it) },
+                    onPreviewAnimation = { color, anim -> viewModel.previewLed(color, anim) },
                     onFlashColor = { viewModel.flashLed(it) },
                     onPreviewColor = { viewModel.previewLed(it) },
                     onStopPreview = viewModel::stopLedPreview,
@@ -1562,6 +1598,7 @@ fun SettingsScreen(
                 onIntervalCommit = viewModel::commitReminderInterval,
                 onDurationChange = viewModel::setReminderDuration,
                 onQuietHoursChange = viewModel::setQuietHours,
+                onQuietAllLightsChange = viewModel::setQuietAllLights,
             ) }
             item {
                 AnalyticsCard(
@@ -2207,6 +2244,7 @@ private fun ReminderCard(
     onIntervalCommit: () -> Unit,
     onDurationChange: (Long) -> Unit,
     onQuietHoursChange: (String, String) -> Unit,
+    onQuietAllLightsChange: (Boolean) -> Unit,
 ) {
     var editingField by remember { mutableStateOf<QuietField?>(null) }
 
@@ -2267,11 +2305,17 @@ private fun ReminderCard(
                         Text(stringResource(R.string.reminder_quiet_end) + " · " + state.quietEnd)
                     }
                 }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.reminder_quiet_all_lights), modifier = Modifier.weight(1f))
+                    Switch(checked = state.quietAllLights, onCheckedChange = onQuietAllLightsChange)
+                }
                 Text(
-                    if (state.quietStart == state.quietEnd) {
-                        stringResource(R.string.reminder_quiet_disabled_hint)
-                    } else {
-                        stringResource(R.string.reminder_quiet_hint)
+                    when {
+                        state.quietStart == state.quietEnd ->
+                            stringResource(R.string.reminder_quiet_disabled_hint)
+                        state.quietAllLights ->
+                            stringResource(R.string.reminder_quiet_all_lights_hint)
+                        else -> stringResource(R.string.reminder_quiet_hint)
                     },
                     style = MaterialTheme.typography.bodySmall,
                 )
@@ -2619,6 +2663,7 @@ private fun ReliabilityCard(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun AppRuleCard(
     app: MainViewModel.AppInfo,
@@ -2626,6 +2671,8 @@ private fun AppRuleCard(
     senderRules: List<SenderRule>,
     onToggle: (Boolean) -> Unit,
     onColor: (String) -> Unit,
+    onAnimation: (String?) -> Unit,
+    onPreviewAnimation: (String, String?) -> Unit,
     onFlashColor: (String) -> Unit,
     onPreviewColor: (String) -> Unit,
     onStopPreview: () -> Unit,
@@ -2647,6 +2694,19 @@ private fun AppRuleCard(
             if (rule?.enabled == true) {
                 Text(stringResource(R.string.default_color), style = MaterialTheme.typography.bodySmall)
                 ColorRow(selected = rule.defaultColorHex, onSelect = onColor, onFlash = onFlashColor, onPreview = onPreviewColor, onStopPreview = onStopPreview)
+                Text(stringResource(R.string.lighting_mode), style = MaterialTheme.typography.bodySmall)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ANIMATION_OPTIONS.forEach { (id, labelRes) ->
+                        FilterChip(
+                            selected = rule.defaultAnimationId == id,
+                            onClick = {
+                                onAnimation(id)
+                                onPreviewAnimation(rule.defaultColorHex, id)
+                            },
+                            label = { Text(stringResource(labelRes)) },
+                        )
+                    }
+                }
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.identify_sender), modifier = Modifier.weight(1f))

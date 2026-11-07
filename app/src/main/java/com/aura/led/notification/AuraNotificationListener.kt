@@ -108,12 +108,17 @@ class AuraNotificationListener : NotificationListenerService() {
         ).toLongOrNull() ?: ReminderConfig.DEFAULT_DURATION_MS
         val start = repository.getSetting(SettingsKeys.REMINDER_QUIET_START, ReminderConfig.DEFAULT_QUIET_START)
         val end = repository.getSetting(SettingsKeys.REMINDER_QUIET_END, ReminderConfig.DEFAULT_QUIET_END)
+        val quietAllLights = repository.getBoolSetting(
+            SettingsKeys.REMINDER_QUIET_ALL_LIGHTS,
+            ReminderConfig.DEFAULT_QUIET_ALL_LIGHTS,
+        )
         return ReminderConfig(
             enabled = enabled,
             intervalMs = ReminderInterval.clamp(intervalMs),
             durationMs = ReminderDuration.clamp(durationMs),
             quietStart = start,
             quietEnd = end,
+            quietAllLights = quietAllLights,
         )
     }
 
@@ -222,10 +227,9 @@ class AuraNotificationListener : NotificationListenerService() {
         val start = QuietHours.parseHHmm(config.quietStart) ?: QuietHours.parseHHmm(ReminderConfig.DEFAULT_QUIET_START) ?: return false
         val end = QuietHours.parseHHmm(config.quietEnd) ?: QuietHours.parseHHmm(ReminderConfig.DEFAULT_QUIET_END) ?: return false
         if (start == end) return false
-        val cal = Calendar.getInstance()
-        val nowMinutes = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
-        val inRange = QuietHours.isInRange(nowMinutes, start, end)
-        if (inRange) Log.d(TAG, "reminder suppressed: quiet hours $start-$end (now=$nowMinutes)")
+        val now = nowMinutes()
+        val inRange = QuietHours.isInRange(now, start, end)
+        if (inRange) Log.d(TAG, "reminder suppressed: quiet hours $start-$end (now=$now)")
         return inRange
     }
 
@@ -286,6 +290,9 @@ class AuraNotificationListener : NotificationListenerService() {
         // Only skip when the user is actively using the phone (screen on AND unlocked).
         if (screenOn && !locked) return
         scope.launch {
+            // The arrival light is part of quiet hours too: a notification at 02:00 must not flash
+            // just because the reminder loop's own gate only runs between two flashes.
+            val config = currentReminderConfig()
             val appRule = repository.getAppRule(pkg)
             if (appRule == null) {
                 Log.d(TAG, "no rule for $pkg -> ignore")
@@ -316,6 +323,11 @@ class AuraNotificationListener : NotificationListenerService() {
             val command = engine.resolve(pkg, info.senderName, info.groupName, appRule.senderParsingEnabled)
             if (command == null) {
                 Log.d(TAG, "no command resolved for $pkg -> ignore")
+                return@launch
+            }
+
+            if (config.silencesAllLightsAt(nowMinutes())) {
+                Log.d(TAG, "quiet hours -> no light for $pkg")
                 return@launch
             }
 
@@ -375,8 +387,13 @@ class AuraNotificationListener : NotificationListenerService() {
                 maybeStopReminderLoop()
             } else {
                 Log.d(TAG, "current notification removed -> falling back to previous")
-                emit(next.command)
-                noteEmission(next.command)
+                val config = currentReminderConfig()
+                if (config.silencesAllLightsAt(nowMinutes())) {
+                    Log.d(TAG, "quiet hours -> no fallback light")
+                } else {
+                    emit(next.command)
+                    noteEmission(next.command)
+                }
             }
         }
     }
@@ -438,6 +455,12 @@ class AuraNotificationListener : NotificationListenerService() {
 
     private fun isScreenOn(): Boolean =
         getSystemService(PowerManager::class.java)?.isInteractive ?: false
+
+    /** Current local time as minutes since midnight, the unit quiet hours are expressed in. */
+    private fun nowMinutes(): Int {
+        val cal = Calendar.getInstance()
+        return cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
+    }
 
     /** True while the lock screen is up (secured or swipe), including when the screen is off. */
     private fun isLocked(): Boolean = runCatching {

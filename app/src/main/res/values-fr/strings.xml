@@ -87,9 +87,12 @@
     <string name="reminder_quiet_start">Début</string>
     <string name="reminder_quiet_end">Fin</string>
     <string name="reminder_quiet_hint">Aucun rappel pendant cette plage.</string>
+    <string name="reminder_quiet_all_lights">Couper toutes les lumières</string>
+    <string name="reminder_quiet_all_lights_hint">Aucune lumière pendant cette plage.</string>
     <string name="reminder_quiet_disabled_hint">Désactivées (début = fin).</string>
 
     <string name="default_color">Couleur par défaut</string>
+    <string name="lighting_mode">Mode d\'éclairage</string>
     <string name="identify_sender">Identifier l\'expéditeur</string>
     <string name="sender_rules">Règles expéditeur</string>
     <string name="no_rules">Aucune règle.</string>

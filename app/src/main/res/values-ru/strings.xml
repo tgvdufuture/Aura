@@ -93,10 +93,13 @@
     <string name="reminder_quiet_start">Начало</string>
     <string name="reminder_quiet_end">Конец</string>
     <string name="reminder_quiet_hint">В это время напоминаний нет.</string>
+    <string name="reminder_quiet_all_lights">Не зажигать свет</string>
+    <string name="reminder_quiet_all_lights_hint">В это время свет не включается.</string>
     <string name="reminder_quiet_disabled_hint">Выключены (начало = конец).</string>
 
     <!-- App rules -->
     <string name="default_color">Цвет по умолчанию</string>
+    <string name="lighting_mode">Режим подсветки</string>
     <string name="identify_sender">Определять отправителя</string>
     <string name="sender_rules">Правила для отправителей</string>
     <string name="no_rules">Правил нет.</string>
