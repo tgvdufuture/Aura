@@ -13,6 +13,7 @@ import android.service.notification.StatusBarNotification
 import com.aura.led.analytics.Analytics
 import com.aura.led.analytics.AnalyticsEvents
 import com.aura.led.data.AppDatabase
+import com.aura.led.data.AppRule
 import com.aura.led.data.QuietHours
 import com.aura.led.data.ReminderConfig
 import com.aura.led.data.ReminderDuration
@@ -303,24 +304,8 @@ class AuraNotificationListener : NotificationListenerService() {
                 return@launch
             }
 
-            var info = if (appRule.senderParsingEnabled) extractSender(sbn) else SenderParser.Result(null, null)
-
-            // When the lock screen hides notification content, Android hands us a
-            // redacted notification (title/text stripped) and contact/group rules
-            // can't resolve. Recover the real content through Shizuku so the
-            // sender-specific animations still play while the screen is off.
-            if (appRule.senderParsingEnabled && isRedacted(info, appRule.displayName)) {
-                Log.d(TAG, "content looks redacted for $pkg -> reading full content via Shizuku")
-                val full = FullNotificationReader.readLatest(pkg)
-                if (full != null && (full.title != null || full.text != null)) {
-                    Log.d(TAG, "recovered redacted content for $pkg")
-                    info = SenderParser.parse(pkg, full.title.orEmpty().trim(), full.text.orEmpty().trim())
-                } else {
-                    Log.d(TAG, "could not recover content for $pkg -> falling back to app color")
-                }
-            }
-
-            val command = engine.resolve(pkg, info.senderName, info.groupName, appRule.senderParsingEnabled)
+            val resolution = resolveCommand(sbn, appRule)
+            val command = resolution.command
             if (command == null) {
                 Log.d(TAG, "no command resolved for $pkg -> ignore")
                 return@launch
@@ -349,11 +334,7 @@ class AuraNotificationListener : NotificationListenerService() {
             Analytics.track(
                 AnalyticsEvents.LED_EMITTED,
                 mapOf(
-                    AnalyticsEvents.P_REASON to when {
-                        appRule.senderParsingEnabled && info.senderName != null -> AnalyticsEvents.REASON_CONTACT
-                        appRule.senderParsingEnabled && info.groupName != null -> AnalyticsEvents.REASON_GROUP
-                        else -> AnalyticsEvents.REASON_APP
-                    },
+                    AnalyticsEvents.P_REASON to resolution.reason,
                     AnalyticsEvents.P_TARGET_PACKAGE to pkg,
                 ),
             )
@@ -391,11 +372,79 @@ class AuraNotificationListener : NotificationListenerService() {
                 if (config.silencesAllLightsAt(nowMinutes())) {
                     Log.d(TAG, "quiet hours -> no fallback light")
                 } else {
-                    emit(next.command)
-                    noteEmission(next.command)
+                    // Light what is still in the shade, resolved against the rules as they are now:
+                    // the command captured at post time can carry a colour the user has since
+                    // edited, and replaying it is how an old colour came back (report 2026-11-11).
+                    val posted = runCatching { activeNotifications }
+                        .onFailure { Log.w(TAG, "activeNotifications unavailable -> keep stored command", it) }
+                        .getOrNull()
+                    val live = posted?.firstOrNull { it.key == next.key }?.let { postedSbn ->
+                        repository.getAppRule(postedSbn.packageName)
+                            ?.takeIf { rule -> rule.enabled }
+                            ?.let { rule -> resolveCommand(postedSbn, rule).command }
+                    }
+                    val command = FallbackLight.command(
+                        live = live,
+                        statusBarReadable = posted != null,
+                        stored = next.command,
+                    )
+                    if (command == null) {
+                        Log.d(TAG, "previous notification is gone from the shade -> no fallback light")
+                        active.removeAll { it.key == next.key }
+                        if (active.isEmpty()) {
+                            lastEmission = null
+                            led.stop()
+                            maybeStopReminderLoop()
+                        }
+                    } else {
+                        // Same shape as the arrival line, so a report of "the wrong colour came
+                        // back" can be read from the log instead of guessed from the ring.
+                        Log.d(TAG, "fallback -> emitting ${command.animationId ?: "static"} ${command.colorHex} for ${next.key}")
+                        emit(command)
+                        noteEmission(command)
+                        // Refresh the tracked command so later fallbacks and the reminder loop flash
+                        // what the rules say now, not what they said when the notification arrived.
+                        recordActive(ActiveNotification(next.key, command))
+                    }
                 }
             }
         }
+    }
+
+    /** One notification's light and why it was chosen; the reason is what analytics reports. */
+    private data class Resolution(val command: LedCommand?, val reason: String)
+
+    /**
+     * Resolves a notification against the rules as they are now. The arrival path and the removal
+     * fallback share it, so a light re-lit for a notification that is still in the shade never
+     * replays a command captured earlier (report 2026-11-11: an app set to green that lit yellow).
+     */
+    private suspend fun resolveCommand(sbn: StatusBarNotification, appRule: AppRule): Resolution {
+        val pkg = sbn.packageName
+        var info = if (appRule.senderParsingEnabled) extractSender(sbn) else SenderParser.Result(null, null)
+
+        // When the lock screen hides notification content, Android hands us a
+        // redacted notification (title/text stripped) and contact/group rules
+        // can't resolve. Recover the real content through Shizuku so the
+        // sender-specific animations still play while the screen is off.
+        if (appRule.senderParsingEnabled && isRedacted(info, appRule.displayName)) {
+            Log.d(TAG, "content looks redacted for $pkg -> reading full content via Shizuku")
+            val full = FullNotificationReader.readLatest(pkg)
+            if (full != null && (full.title != null || full.text != null)) {
+                Log.d(TAG, "recovered redacted content for $pkg")
+                info = SenderParser.parse(pkg, full.title.orEmpty().trim(), full.text.orEmpty().trim())
+            } else {
+                Log.d(TAG, "could not recover content for $pkg -> falling back to app color")
+            }
+        }
+
+        val command = engine.resolve(pkg, info.senderName, info.groupName, appRule.senderParsingEnabled)
+        val reason = when {
+            appRule.senderParsingEnabled && info.senderName != null -> AnalyticsEvents.REASON_CONTACT
+            appRule.senderParsingEnabled && info.groupName != null -> AnalyticsEvents.REASON_GROUP
+            else -> AnalyticsEvents.REASON_APP
+        }
+        return Resolution(command, reason)
     }
 
     private fun recordActive(entry: ActiveNotification) {
