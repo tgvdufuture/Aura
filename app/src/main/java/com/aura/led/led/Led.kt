@@ -405,7 +405,9 @@ class ShizukuLEDController : LEDController {
     private fun transactColorCommonAsRoot(color: Int): Result<Boolean> {
         val command = "service call $SERVICE $TRANSACTION_setColorCommon " +
             "i32 $color s16 $PKG i32 $STYLE_RHYTHM i32 0"
-        return RootManager.run(command).map { result ->
+        // mapCatching, not map: a throw inside `map` escapes the Result and reaches the caller
+        // unwrapped, which crashed the app on devices without the service (issue #5).
+        return RootManager.run(command).mapCatching { result ->
             if (result.exitCode != 0) {
                 throw IllegalStateException("service call exited with ${result.exitCode}: ${result.stdout}")
             }
@@ -476,7 +478,9 @@ class ShizukuLEDController : LEDController {
         val command = "service call $SERVICE $TRANSACTION_setCustomLight " +
             "i32 $color i32 $mode i32 $onMs i32 $offMs i32 0 " +
             "s16 $PKG i32 $styleType i32 0"
-        return RootManager.run(command).map { result ->
+        // mapCatching, not map: a throw inside `map` escapes the Result and reaches the caller
+        // unwrapped, which crashed the app on devices without the service (issue #5).
+        return RootManager.run(command).mapCatching { result ->
             if (result.exitCode != 0) {
                 throw IllegalStateException("service call exited with ${result.exitCode}: ${result.stdout}")
             }
