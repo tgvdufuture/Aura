@@ -24,8 +24,8 @@ android {
         applicationId = "com.aura.led"
         minSdk = 26
         targetSdk = 36
-        versionCode = 20
-        versionName = "0.8.3"
+        versionCode = 21
+        versionName = "0.8.4"
 
         buildConfigField("String", "POSTHOG_PROJECT_TOKEN", "\"$postHogProjectToken\"")
     }
