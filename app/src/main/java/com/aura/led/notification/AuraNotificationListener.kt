@@ -48,6 +48,9 @@ class AuraNotificationListener : NotificationListenerService() {
     /** Schedules the rebind after a disconnect; kept on the main looper so it survives service teardown. */
     private val rebindHandler = Handler(Looper.getMainLooper())
 
+    /** Rebinds asked for since the listener last connected; drives [RebindBackoff]. */
+    private var rebindAttempt = 0
+
     private val rebindRunnable = Runnable {
         Log.d(TAG, "requesting rebind")
         runCatching {
@@ -162,9 +165,14 @@ class AuraNotificationListener : NotificationListenerService() {
                 Log.d(TAG, "reminder loop stopped: duration ${config.durationMs}ms elapsed")
                 return
             }
-            // Pause while the screen is on (PRD: no flash during use) or night suppression applies.
-            if (isScreenOn() || isSuppressedAtNight()) {
-                Log.d(TAG, "reminder tick skipped (screen on=${isScreenOn()} night=${isSuppressedAtNight()})")
+            // Pause while the user is using the phone or night suppression applies. The gate is the
+            // arrival light's, not `isScreenOn()` alone: a lock screen (and the Always-On Display that
+            // keeps it interactive on HyperOS) is not the user using the phone, and gating on it here
+            // is what let the ring flash once and never repeat (discussion #1, 2026-11-12).
+            val screenOn = isScreenOn()
+            val locked = isLocked()
+            if (ReminderGate.userIsActive(screenOn, locked) || isSuppressedAtNight()) {
+                Log.d(TAG, "reminder tick skipped (screen on=$screenOn locked=$locked night=${isSuppressedAtNight()})")
             } else {
                 if (!pruneTrackedAgainstStatusBar()) return
                 val entry = nextReminderEntry()
@@ -264,6 +272,7 @@ class AuraNotificationListener : NotificationListenerService() {
     override fun onListenerConnected() {
         super.onListenerConnected()
         NotificationListenerState.connected.value = true
+        rebindAttempt = 0
         Log.d(TAG, "listener connected")
         Analytics.listenerStateChanged(this, connected = true)
     }
@@ -271,13 +280,17 @@ class AuraNotificationListener : NotificationListenerService() {
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
         NotificationListenerState.connected.value = false
-        Log.w(TAG, "listener disconnected -> scheduling rebind in ${REBIND_DELAY_MS}ms")
+        // Backed off, not fixed: a listener that connects and drops again used to ask for a rebind
+        // every two seconds for as long as the phone was on (issue #4).
+        val delayMs = RebindBackoff.delayMs(rebindAttempt)
+        rebindAttempt++
+        Log.w(TAG, "listener disconnected -> scheduling rebind in ${delayMs}ms")
         Analytics.listenerStateChanged(this, connected = false)
         // Rebinding from inside onDestroy's scope would be cancelled with it, so schedule
         // the request on the main looper instead. The process stays alive thanks to the
         // foreground service, so the request will be sent even after the service is gone.
         rebindHandler.removeCallbacks(rebindRunnable)
-        rebindHandler.postDelayed(rebindRunnable, REBIND_DELAY_MS)
+        rebindHandler.postDelayed(rebindRunnable, delayMs)
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -288,8 +301,9 @@ class AuraNotificationListener : NotificationListenerService() {
         val rawTitle = extras?.getCharSequence(Notification.EXTRA_TITLE)?.toString()
         val rawText = extras?.getCharSequence(Notification.EXTRA_TEXT)?.toString()
         Log.d(TAG, "onNotificationPosted pkg=$pkg screenOn=$screenOn locked=$locked rawTitle='$rawTitle' rawText='${rawText?.take(80)}'")
-        // Only skip when the user is actively using the phone (screen on AND unlocked).
-        if (screenOn && !locked) return
+        // Only skip when the user is actively using the phone (screen on AND unlocked). Same rule as
+        // the reminder loop: see [ReminderGate].
+        if (ReminderGate.userIsActive(screenOn, locked)) return
         scope.launch {
             // The arrival light is part of quiet hours too: a notification at 02:00 must not flash
             // just because the reminder loop's own gate only runs between two flashes.
@@ -488,9 +502,6 @@ class AuraNotificationListener : NotificationListenerService() {
 
         const val TAG = "AuraNLS"
         const val MAX_TRACKED = 50
-
-        /** Delay before re-requesting a bind after a disconnect, to let the system settle. */
-        const val REBIND_DELAY_MS = 2_000L
 
         /** Window inside which a consecutive, strictly identical command is not re-sent. */
         const val DUPLICATE_EMISSION_WINDOW_MS = 2_000L

@@ -669,6 +669,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val ledTest: StateFlow<LedTestState> = _ledTest
 
     fun testLed() = viewModelScope.launch(Dispatchers.IO) {
+        // A grant completed after launch — the root manager's prompt can arrive later than the
+        // launch-time probe — has to be seen here, or the button blames a setup the user just
+        // finished (issue #5: root enabled on KernelSU Next and the test still answered nothing).
+        if (!ShizukuManager.state.value.hasPermission && !RootManager.state.value.available) {
+            RootManager.refresh()
+        }
         // Read before the attempt: holding the privilege is what makes a failure say something about
         // the phone instead of saying the user has not granted Shizuku yet.
         val privileged = ShizukuManager.state.value.hasPermission || RootManager.state.value.available

@@ -1,5 +1,6 @@
 package com.aura.led.root
 
+import android.os.SystemClock
 import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,23 +14,37 @@ object RootManager {
     private const val TAG = "AuraRoot"
     private const val CHECK_TIMEOUT_MS = 1_000L
 
+    /** How long a probe that never answered stays un-retried (see [refresh]). */
+    private const val UNKNOWN_RETRY_MS = 30_000L
+
     private val _state = MutableStateFlow(RootState())
     val state: StateFlow<RootState> = _state
 
+    /** A probe answered, and that answer is still the current one. */
     @Volatile
     private var checked = false
 
+    /** Elapsed time of the last probe, whether it answered or not. */
+    @Volatile
+    private var lastCheckMs = 0L
+
     fun refresh() {
-        val available = run("id", CHECK_TIMEOUT_MS).getOrNull()?.let { result ->
-            result.exitCode == 0 && Regex("\\buid=0(?:\\(|\\s|$)").containsMatchIn(result.stdout)
-        } == true
-        checked = true
+        val result = run("id", CHECK_TIMEOUT_MS).getOrNull()
+        val available = result != null &&
+            result.exitCode == 0 &&
+            Regex("\\buid=0(?:\\(|\\s|$)").containsMatchIn(result.stdout)
+        // Only a probe that answered is remembered. `su` waiting for the root manager's prompt, or a
+        // command that never started, says nothing about the phone — caching that as "no root" is
+        // what kept a grant completed a second later invisible until the next launch.
+        if (result != null) checked = true
+        lastCheckMs = SystemClock.elapsedRealtime()
         _state.value = RootState(available)
     }
 
     /** Checks lazily so notification-only use also benefits from root access. */
     fun isAvailable(): Boolean {
-        if (!checked) refresh()
+        val ageMs = SystemClock.elapsedRealtime() - lastCheckMs
+        if (!checked && (lastCheckMs == 0L || ageMs > UNKNOWN_RETRY_MS)) refresh()
         return _state.value.available
     }
 

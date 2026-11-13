@@ -40,7 +40,18 @@ class AuraForegroundService : Service() {
             .setSmallIcon(R.drawable.ic_led)
             .setOngoing(true)
             .build()
-        startForeground(NOTIFICATION_ID, notification)
+        // A refused start must not take the app down with it. On a ROM that does not accept the
+        // `specialUse` foreground type the exception escaped Service.onCreate, killed the process,
+        // and the sticky service restarted it in a loop: Aura was unopenable until uninstalled
+        // (issue #5, InfinityX on KernelSU Next). Without the notification the listener still runs
+        // while the process lives; only the keep-alive is lost.
+        val started = runCatching { startForeground(NOTIFICATION_ID, notification) }
+            .onFailure { Log.e(TAG, "foreground notification refused; continuing without it", it) }
+            .isSuccess
+        if (!started) {
+            stopSelf()
+            return
+        }
         running = true
     }
 
