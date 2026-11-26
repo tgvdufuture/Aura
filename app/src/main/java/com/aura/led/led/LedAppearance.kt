@@ -11,10 +11,9 @@ import kotlin.math.cos
  * changing it makes the ring flash white. Dimming our own colours keeps Aura's light quieter
  * without moving the system's.
  *
- * A fade is a short series of dark-to-full frames through `setColorCommon`, the only lights
- * transaction without an auto-off timer (see [ShizukuLEDController.fade]). A breath uses the same
- * transaction, one frame per [BREATH_FRAME_MS], so it never re-arms the camera auto-off that made
- * it cut.
+ * A fade is a short series of dark-to-full frames, one per [ShizukuLEDController] frame (see
+ * `canDrawFrames`: on a ROM that applies no frame, the colour is lit steady instead). A breath uses
+ * the same frames, one per [BREATH_FRAME_MS].
  */
 object LedAppearance {
     const val MIN_BRIGHTNESS_PERCENT = 10
@@ -28,8 +27,7 @@ object LedAppearance {
     /**
      * One slow inhale + exhale, and the interval between two frames of the emulated breath.
      *
-     * Frames go through `setColorCommon`, which has no auto-off timer: one frame every 150 ms makes
-     * a calm 3 s breath without the cuts a camera-style call per tick caused.
+     * One frame every 150 ms makes a calm 3 s breath.
      */
     const val BREATH_CYCLE_MS = 3_000L
     const val BREATH_FRAME_MS = 150L

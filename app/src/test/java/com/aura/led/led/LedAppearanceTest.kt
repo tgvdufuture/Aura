@@ -10,9 +10,9 @@ import org.junit.Test
  * phone is here: the clamp the settings UI relies on, the scaling, and the two limits a fade must
  * respect (it always ends exactly on the target, and it never takes a short light entirely).
  *
- * The wiring test reads [Led.kt] as text: this project has no instrumented source set, and the one
- * fact that matters — the fade uses the transaction without an auto-off timer — would otherwise be
- * unverifiable off-device.
+ * The wiring tests read [Led.kt] as text: this project has no instrumented source set, and the fact
+ * that matters — which lights transaction an animation frame uses on a given HyperOS version —
+ * would otherwise be unverifiable off-device.
  */
 class LedAppearanceTest {
 
@@ -61,7 +61,7 @@ class LedAppearanceTest {
     }
 
     @Test
-    fun `the breath recolours a claimed strip instead of re-arming the camera timer`() {
+    fun `the breath draws frames and clears them when cancelled`() {
         val led = source("app/src/main/java/com/aura/led/led/Led.kt").readText()
         val breathing = led.substringAfter("private fun startBreathing")
             .substringBefore("private fun turnOffLight")
@@ -72,15 +72,21 @@ class LedAppearanceTest {
                 !led.contains("MODE_BREATH,"),
         )
         assertTrue(
-            "a camera-style call per frame re-arms the auto-off timer, which is the documented cause of the cuts",
-            breathing.contains("transactColorCommonBinder(") &&
+            "every breath frame goes through the primitive that this HyperOS version still applies",
+            breathing.contains("sendColourFrame(") &&
                 !breathing.contains("STYLE_MARKER_RESET") &&
                 !led.contains("STYLE_MARKER_RESET"),
         )
         assertTrue(
-            "the strip must be claimed once, for the whole breath, before the frames",
+            "the strip is claimed before the frames, so no earlier auto-off can cut the breath",
             breathing.indexOf("transactLightBinder(0, MODE_STEADY, onMs.toInt(), 0, STYLE_CAMERA)") in
                 0 until breathing.indexOf("animationJob"),
+        )
+        assertTrue(
+            "a breath that cannot draw frames still lights the ring, steady, for the whole duration",
+            breathing.contains("if (!canDrawFrames)") &&
+                breathing.substringAfter("if (!canDrawFrames) {").substringBefore("}")
+                    .contains("setWithSpacedClear("),
         )
         assertTrue(
             "the envelope runs at the frame interval, with a trough that keeps the ring lit",
@@ -89,9 +95,14 @@ class LedAppearanceTest {
                 breathing.contains("LedAppearance.breathLevel"),
         )
         assertTrue(
-            "a cancelled breath leaves its last frame on the timer-free strip",
-            led.contains("breathOnRhythmStrip") &&
-                led.contains("if (wasFading || wasBreathing) transactColorCommon(0)"),
+            "a cancelled breath must be cleared, not left mid-envelope",
+            led.contains("breathOnRing") &&
+                led.contains("if (wasFading || wasBreathing) clearFrames()"),
+        )
+        assertTrue(
+            "on a version that draws frames the black frame is the clear that sticks, the ring's own off comes on top",
+            led.substringAfter("private fun clearFrames").substringBefore("private fun startBreathing")
+                .let { it.contains("if (canDrawFrames) sendColourFrame(hasShizukuAccess(), 0)") && it.contains("turnOffLight()") },
         )
         assertTrue(
             "the permission check must run once, not between two frames",
@@ -110,13 +121,31 @@ class LedAppearanceTest {
     }
 
     @Test
-    fun `the fade uses the transaction without an auto-off timer`() {
+    fun `no fade is drawn on a HyperOS version that drops the frames`() {
         val led = source("app/src/main/java/com/aura/led/led/Led.kt").readText()
+        val frame = led.substringAfter("private fun sendColourFrame")
+            .substringBefore("private fun transactColorCommonBinder")
+
         assertTrue(
-            "fading through setCustomLight would re-arm a timer on every frame and flicker",
-            led.contains("TRANSACTION_setColorCommon = 2") &&
-                led.contains("STYLE_RHYTHM = 3") &&
-                led.contains("transactColorCommon("),
+            "HyperOS 4 drops every frame at the strip's priority and only a ring-extinguishing clear resets that, so no frame sequence survives there",
+            led.contains("SDK_INT < 37") &&
+                led.contains("if (fadeEnabled && canDrawFrames) return fade(dimmed)"),
+        )
+        assertTrue(
+            "the fallback on such a version is one steady set, not a dark ring for the whole hold",
+            led.substringAfter("private fun fade(").substringBefore("private fun sendColourFrame")
+                .contains("transactLight(0, MODE_STEADY, onMs.toInt(), 0)"),
+        )
+        assertTrue(
+            "a frame goes through the transaction the ROM still recolours",
+            frame.contains("transactColorCommonBinder(color)") &&
+                frame.contains("transactColorCommonAsRoot(color)") &&
+                !frame.contains("setWithClear"),
+        )
+        assertTrue(
+            "the fade draws frames through the same primitive as the breath",
+            led.substringAfter("private fun fade(").substringBefore("private fun sendColourFrame")
+                .contains("sendColourFrame("),
         )
         assertTrue(
             "a fade command must still be dimmed and cancelled like every other effect",

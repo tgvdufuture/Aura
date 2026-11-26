@@ -77,6 +77,27 @@ class ShizukuLEDController : LEDController {
         const val MODE_STEADY = 0
         const val MODE_FLASH = 1
 
+        /**
+         * Whether an effect can still be drawn frame by frame at all.
+         *
+         * HyperOS 3 (Android 16) recolours the active strip through `setColorCommon`, which has no
+         * timer and no priority bookkeeping: the strip is claimed once and the frames only change
+         * its colour.
+         *
+         * HyperOS 4 (Android 17) restricts that transaction to the music-rhythm strip — with no
+         * rhythm running it returns before touching anything and lights nothing — and the one
+         * transaction that still drives the ring, `setCustomLight`, drops every frame sent while the
+         * strip is active at the same priority ("SKIP due to compare=0 PRIORITY same=1
+         * lastStyle=12 style=12"), whatever the colour or the flash mode. Resetting that state needs
+         * a clear, which extinguishes the ring for [CLEAR_SETTLE_MS], so no frame sequence survives:
+         * measured on the POCO X8 Pro (OS4.0.8.0.XPJEUXM, 2026-11-26), the ring blinked through the
+         * frames and stayed dark for the whole hold.
+         *
+         * Such a version gets the colour itself instead — lit for the full duration, no animation.
+         */
+        private val canDrawFrames: Boolean
+            get() = android.os.Build.VERSION.SDK_INT < 37
+
         // miui.lights schedules an auto-off timer at onMs on every call. A large onMs
         // while updating quickly makes the ring appear stuck on the first color (see the
         // miui.lights timing note), so the live drag preview uses a short onMs that matches
@@ -96,7 +117,7 @@ class ShizukuLEDController : LEDController {
          */
         private const val CLEAR_SETTLE_MS = 350L
 
-        /** 20 frames over 500 ms: 25 ms per step, fast enough for `setColorCommon`. */
+        /** 20 frames over the 500 ms fade: 25 ms per step, the rate HyperOS 3 has always drawn. */
         private const val FADE_STEPS = 20
     }
 
@@ -109,16 +130,16 @@ class ShizukuLEDController : LEDController {
     @Volatile
     private var fadeJob: Job? = null
 
-    /** True while a breath lights the rhythm strip, which has no timer and must be cleared by us. */
+    /** True while a breath is drawing frames: a cancelled breath must be cleared, not left mid-envelope. */
     @Volatile
-    private var breathOnRhythmStrip = false
+    private var breathOnRing = false
 
     override fun setColor(colorHex: String): Result<Boolean> {
         val color = ColorMapper.hexToInt(colorHex)
             ?: return Result.failure(IllegalArgumentException("Bad color: $colorHex"))
         cancelEffects()
         val dimmed = LedAppearance.dim(color, ledBrightnessPercent)
-        if (fadeEnabled) return fade(dimmed)
+        if (fadeEnabled && canDrawFrames) return fade(dimmed)
         return setWithSpacedClear(dimmed, MODE_STEADY, ledTimeoutMs.toInt(), 0)
     }
 
@@ -200,22 +221,34 @@ class ShizukuLEDController : LEDController {
         val wasFading = fadeJob?.isActive == true
         fadeJob?.cancel()
         fadeJob = null
-        val wasBreathing = breathOnRhythmStrip
-        breathOnRhythmStrip = false
-        // A cancelled effect leaves its last frame on the rhythm strip. Clear that zone too: the
-        // next command drives the camera style, which would otherwise leave the old colour behind.
-        if (wasFading || wasBreathing) transactColorCommon(0)
+        val wasBreathing = breathOnRing
+        breathOnRing = false
+        // A cancelled effect leaves its last frame on the strip. Clear it, or the colour stays until
+        // the frame's own auto-off (`setColorCommon` had none at all on HyperOS 3).
+        if (wasFading || wasBreathing) clearFrames()
     }
 
     /**
-     * Draws a breath by recolouring an already-claimed strip, one frame at a time.
+     * Releases the strip after an effect that drew frames.
      *
-     * `setCustomLight` schedules an auto-off timer on every call (see the timing note above), so
-     * animation-speed frames through it flicker — and the marker call that carried `onMs = 0`
-     * extinguished the strip outright, which is the cut users still saw (report 2026-11-07).
-     * `setColorCommon` has no timer at all: one camera-style call takes the strip over for the
-     * whole breath, then each frame only changes its colour. That is the same two steps as [fade],
-     * which is why the fade stays smooth at 25 ms per step.
+     * Where frames apply, the black frame is the clear that sticks: the strip was claimed at the
+     * camera style, and `setCustomLight` at that same style is the call the service skips. The ring
+     * is turned off too, which releases the claim's own timer. Where no frame is applied, the ring
+     * is the only thing left to extinguish.
+     */
+    private fun clearFrames() {
+        if (canDrawFrames) sendColourFrame(hasShizukuAccess(), 0)
+        turnOffLight()
+    }
+
+    /**
+     * Draws a breath one frame at a time, through the same primitive as [fade].
+     *
+     * The strip is claimed once for the whole breath and the frames only recolour it:
+     * `setCustomLight` schedules an auto-off on every call, and the marker call that carried
+     * `onMs = 0` extinguished the strip outright, which is the cut users still saw (report
+     * 2026-11-07). Where frames do not apply, the steady colour is lit instead (see
+     * [canDrawFrames]).
      *
      * `flashMode = MODE_BREATH` is still not used: the camera scene ignores it and the effect is
      * identical to Flashing (report 2026-11-06).
@@ -228,20 +261,27 @@ class ShizukuLEDController : LEDController {
         cancelEffects()
         val dimmed = LedAppearance.dim(color, ledBrightnessPercent)
         val onMs = ledTimeoutMs
+        val deadline = System.currentTimeMillis() + onMs
         // Resolve the backend once: the Shizuku permission check is two IPC round-trips, and
         // running it between two frames would make the breath stutter.
-        fun sendFrame(frameColor: Int): Result<Boolean> =
-            if (useShizuku) transactColorCommonBinder(frameColor) else transactColorCommonAsRoot(frameColor)
-        // Take the strip over for the whole breath: the rhythm transaction has no timer, so the
-        // camera auto-off would otherwise extinguish the breath at its own deadline.
+        fun sendFrame(frameColor: Int): Result<Boolean> = sendColourFrame(useShizuku, frameColor)
+        if (!canDrawFrames) {
+            // Nothing left to draw frames with: a steady light for the whole duration beats a ring
+            // that blinks through the first frames and then stays dark.
+            return setWithSpacedClear(dimmed, MODE_STEADY, onMs.toInt(), 0)
+        }
+        // The colour transaction has no timer, so the camera scene is claimed for the whole breath
+        // or its auto-off extinguishes it at its own deadline.
         val claimed =
             if (useShizuku) transactLightBinder(0, MODE_STEADY, onMs.toInt(), 0, STYLE_CAMERA)
             else transactLightAsRoot(0, MODE_STEADY, onMs.toInt(), 0, STYLE_CAMERA)
         if (claimed.isFailure) return claimed
-        breathOnRhythmStrip = true
+        // First frame synchronously: the caller needs to know the command reached the service.
+        val first = sendFrame(LedAppearance.breathColor(dimmed, LedAppearance.breathLevel(0)))
+        if (first.isFailure) return first
+        breathOnRing = true
         animationJob = scope.launch {
-            val deadline = System.currentTimeMillis() + onMs
-            var frame = 0
+            var frame = 1
             while (isActive && System.currentTimeMillis() < deadline) {
                 sendFrame(LedAppearance.breathColor(dimmed, LedAppearance.breathLevel(frame)))
                     .onFailure { Log.e("AuraLed", "breath frame failed", it) }
@@ -249,9 +289,7 @@ class ShizukuLEDController : LEDController {
                 frame++
             }
             if (isActive) {
-                breathOnRhythmStrip = false
-                // The rhythm strip has no timer: the last frame stays lit until we clear it.
-                sendFrame(0)
+                breathOnRing = false
                 turnOffLight()
             }
         }
@@ -338,45 +376,49 @@ class ShizukuLEDController : LEDController {
     }
 
     /**
-     * Fades a steady colour in, holds it, then fades it out through `setColorCommon` (styleType 3).
+     * Fades a steady colour in, holds it, then fades it out, one frame at a time (see
+     * [sendColourFrame] for the transaction each frame uses).
      *
-     * `setCustomLight` re-arms its auto-off timer on every call, which makes animation-speed frames
-     * flicker; `setColorCommon` has no timer at all. The price is that the final clear is ours to
-     * send, and that a cancelled fade must clear its own zone (see [cancelEffects]).
+     * Only reached where frames apply (see [canDrawFrames]): the frames recolour a strip claimed
+     * once for the whole light, because that transaction has no timer. The final clear is still ours
+     * to send, and a cancelled fade must clear the ring (see [cancelEffects]).
      */
     private fun fade(color: Int): Result<Boolean> {
-        if (!hasShizukuAccess() && !RootManager.isAvailable()) {
+        val useShizuku = hasShizukuAccess()
+        if (!useShizuku && !RootManager.isAvailable()) {
             return Result.failure(IllegalStateException("Shizuku and root unavailable"))
         }
         val onMs = ledTimeoutMs
         val fadeMs = LedAppearance.fadeMsFor(onMs)
         val stepMs = (fadeMs / FADE_STEPS).coerceAtLeast(10L)
+        fun sendFrame(progress: Float): Result<Boolean> =
+            sendColourFrame(useShizuku, LedAppearance.fadeColor(color, progress))
         // Take the strip over before fading: a previous camera-style light (and its auto-off timer)
-        // would otherwise stay lit under the fade and clear the ring at its own deadline.
+        // would otherwise stay lit under the fade and clear the ring at its deadline.
         val cleared = transactLight(0, MODE_STEADY, onMs.toInt(), 0)
         if (cleared.isFailure) return cleared
         // First frame synchronously: the caller needs to know the command reached the service.
-        val first = transactColorCommon(LedAppearance.fadeColor(color, 1f / FADE_STEPS))
+        val first = sendFrame(1f / FADE_STEPS)
         if (first.isFailure) return first
         fadeJob = scope.launch {
             for (step in 2..FADE_STEPS) {
                 delay(stepMs)
-                transactColorCommon(LedAppearance.fadeColor(color, step.toFloat() / FADE_STEPS))
+                sendFrame(step.toFloat() / FADE_STEPS)
                     .onFailure { Log.e("AuraLed", "fade-in frame failed", it) }
             }
             delay((onMs - 2 * fadeMs).coerceAtLeast(0L))
             for (step in FADE_STEPS - 1 downTo 0) {
                 delay(stepMs)
-                transactColorCommon(LedAppearance.fadeColor(color, step.toFloat() / FADE_STEPS))
+                sendFrame(step.toFloat() / FADE_STEPS)
                     .onFailure { Log.e("AuraLed", "fade-out frame failed", it) }
             }
         }
         return Result.success(true)
     }
 
-    /** `setColorCommon` (transaction 2): the flicker-free path for animation-speed colour changes. */
-    private fun transactColorCommon(color: Int): Result<Boolean> =
-        if (hasShizukuAccess()) transactColorCommonBinder(color) else transactColorCommonAsRoot(color)
+    /** One animation frame of a colour: `setColorCommon` recolours the strip claimed above. */
+    private fun sendColourFrame(useShizuku: Boolean, color: Int): Result<Boolean> =
+        if (useShizuku) transactColorCommonBinder(color) else transactColorCommonAsRoot(color)
 
     /** Binder path without the permission re-check, used for the back-to-back breath frames. */
     private fun transactColorCommonBinder(color: Int): Result<Boolean> {
